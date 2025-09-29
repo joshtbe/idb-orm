@@ -1,5 +1,5 @@
 import type z from "zod";
-import type { OnlyString } from "./types.ts";
+import type { Key } from "./types.ts";
 
 export async function handleRequest<T>(req: IDBRequest<T>) {
     return await new Promise<T>((res, rej) => {
@@ -23,6 +23,13 @@ export function makeFieldOptional<
         .extend(schema.pick({ [k]: true }).partial());
 }
 
-export function getKeys<T extends object>(obj: T): OnlyString<keyof T>[] {
-    return Object.keys(obj) as OnlyString<keyof T>[];
+export function getKeys<T extends object>(obj: T): Key<T>[] {
+    return Object.keys(obj) as Key<T>[];
+}
+
+export function addToSet<T>(set: Set<T>, items: T[]) {
+    for (const item of items) {
+        set.add(item);
+    }
+    return set;
 }

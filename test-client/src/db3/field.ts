@@ -150,8 +150,15 @@ export class Field<OutputType, InputType = OutputType> {
         );
     }
 
-    // Static Functions
+    refine(refineFn: (val: OutputType) => boolean) {
+        this.schema = this.schema.refine(refineFn);
+    }
 
+    parse(value: unknown): z.ZodSafeParseResult<OutputType> {
+        return this.schema.safeParse(value);
+    }
+
+    // Static Functions
     static array<T>(item: z.ZodType<T> | Field<T>, options?: FieldOptions) {
         if (item instanceof Field) {
             return new Field(item.schema.array(), options);
@@ -175,13 +182,6 @@ export class Field<OutputType, InputType = OutputType> {
         options?: FieldOptions
     ) {
         return new Field(z.object(item), options);
-    }
-
-    static optional<T>(item: z.ZodType<T> | Field<T>, options?: FieldOptions) {
-        if (item instanceof Field) {
-            return new Field(item.schema.optional(), options);
-        }
-        return new Field(item.optional(), options);
     }
 
     static primaryKey(): PrimaryKey<true, number> {
@@ -208,3 +208,8 @@ export type FieldOutput<T> = T extends Field<infer Type> ? Type : never;
 export type RelationOutput<T> = T extends PrimaryKey<any, infer Type>
     ? Type
     : never;
+
+export type ValidValue<N extends string = string> =
+    | BaseRelation<N, string>
+    | Field<any, any>
+    | PrimaryKey<boolean, ValidKey>;

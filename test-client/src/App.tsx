@@ -1,27 +1,7 @@
 import { useState } from "react";
 import viteLogo from "/vite.svg";
 import "./App.css";
-import { Field } from "./db/field";
-import z from "zod";
-import { db } from "./db.ts";
-
-const f = new File([], "hel");
-
-// Usage
-const client = await db.createClient("test_db", 10);
-const stores = client.stores;
-console.log(
-    stores.files.add({
-        name: "boi",
-        file: f,
-        type: "video",
-        audio: {
-            $create: {
-                name: "hello",
-            },
-        },
-    })
-);
+import { Builder, client } from "./db3/builder.ts";
 
 // client.stores.classes.add({
 //     id: 324,
@@ -34,21 +14,22 @@ function App() {
     return (
         <>
             <button
-                onClick={() => {
-                    client.stores.audio.add({
-                        name: "Your Mom",
-                        duration: 67,
-                        file: {
+                onClick={() =>
+                    client.stores.classes.add({
+                        name: "hello",
+                        subclasses: ["Wizard"],
+                        c_race: {
                             $create: {
-                                name: "hello",
-                                type: "audio",
-                                file: f,
+                                name: "Tiefling",
                             },
                         },
-                    });
-                }}
+                    })
+                }
             >
                 Add Audio
+            </button>
+            <button onClick={async () => client.stores.traits.add({})}>
+                Add Trait
             </button>
             <div>
                 <a href="https://vite.dev" target="_blank">

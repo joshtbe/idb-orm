@@ -26,6 +26,8 @@ import type {
     MakeOptional,
     OnlyString,
     RemoveNeverValues,
+    ValidKey,
+    Key,
 } from "./types.ts";
 import type { DbClient } from "./client.ts";
 import type { PartialOnUndefinedDeep, RequireExactlyOne } from "type-fest";
@@ -134,6 +136,8 @@ type AddItem<
     >
 >;
 
+type ConnectionCallback<Type> = (thisId: Type) => Promise<ValidKey>;
+
 export default class StoreInterface<
     Name extends string,
     Collection extends CollectionGeneric,
@@ -175,6 +179,7 @@ export default class StoreInterface<
         _state: {
             tx?: Transaction<"readwrite">;
             accessed?: Keys<Collection>;
+            relation?: { id: ValidKey; key: keyof Struct };
         } = {}
     ) {
         let { tx, accessed } = _state;
@@ -206,6 +211,7 @@ export default class StoreInterface<
         const toAdd: Record<string, unknown> = {};
         const keys = getKeys(mutation);
         const objectStore = tx.objectstore(this.name);
+        const stagedConnections: ConnectionCallback<Struct[Primary]>[] = [];
         for (const key of keys) {
             const element = mutation[key];
             // If it's the primary key
@@ -218,13 +224,25 @@ export default class StoreInterface<
             // If it's a relation
             else if (this.linkKeys.has(key)) {
                 if (StoreInterface.isConnectionObj(element)) {
+                    const link = this.model.fields[key] as BaseRelation<
+                        Key<Collection["models"]>
+                    >;
                     const keys = getKeys(element);
-                    for (const key of keys) {
+                    switch (keys[0]) {
+                        case "$connect":
+                            // Modify item so that it references the new item
+                            break;
+                        case "$create": {
+                            // Create the new item and have it reference this one
+                            break;
+                        }
+                        default:
+                            break;
                     }
                 } else {
                     throw tx.abort(
                         ErrorType.INVALID_ITEM,
-                        "Connection object not found"
+                        "Connection object not found or is invalid"
                     );
                 }
             }
@@ -260,8 +278,20 @@ export default class StoreInterface<
         }
     }
 
+    private static readonly connectionKeys = new Set<string>([
+        "$connect",
+        "$create",
+        "$createMany",
+        "$connectMany",
+    ]);
+
     private static isConnectionObj(value: unknown): value is ConnectionObject {
-        return typeof value === "object";
+        if (value && typeof value === "object") {
+            const keys = Object.keys(value);
+            if (keys.length !== 1) return false;
+            return StoreInterface.connectionKeys.has(keys[0]);
+        }
+        return false;
     }
 
     private static getAccessedStores<

@@ -9,7 +9,7 @@ import {
     type FieldOutput,
     type RelationOutput,
 } from "./field.ts";
-import type { OnlyString, ValidKey } from "./types.ts";
+import type { Key, OnlyString, ValidKey } from "./types.ts";
 import { getKeys, handleRequest } from "./utils.ts";
 import { DbClient } from "./client.ts";
 
@@ -200,9 +200,7 @@ export class ModelCollection<
     }
 }
 
-export type Keys<C extends ModelCollection<any>> = OnlyString<
-    keyof C["models"]
->[];
+export type Keys<C extends ModelCollection<any>> = Key<C["models"]>[];
 
 export type CollectionGeneric = ModelCollection<
     Record<string, Model<any, any, any>>

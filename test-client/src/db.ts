@@ -53,7 +53,7 @@ export const db = ModelCollection.createBuilder([
     }),
     files: new Model({
         id: Field.primaryKey().uuid(),
-        name: Field.string(),
+        name: Field.string().optional(),
         file: Field.custom(z.file()),
         type: Field.custom(z.enum(["image", "audio", "video"])),
         parent: Field.relation("files", "childrenToParent").optional(),

@@ -1,4 +1,5 @@
 import type { IsNever, RequireExactlyOne } from "type-fest";
+import type z from "zod";
 
 export type StringKeys<T> = Extract<keyof T, string>;
 
@@ -39,3 +40,9 @@ export type ConnectionObject<
     $create: T;
     $connect: K;
 } & If<M, { $createMany: T[]; $connectMany: K[] }, {}>;
+
+export type ZodWrap<T extends Dict> = {
+    [K in keyof T]: z.ZodType<T[K]>;
+};
+
+export type DoesExtend<T, P> = T extends P ? true : false;

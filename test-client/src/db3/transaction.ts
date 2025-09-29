@@ -1,5 +1,5 @@
 import type { Arrayable } from "type-fest";
-import { ErrorType, StoreError } from "./error.js";
+import { StoreError, type ErrorType } from "./error.ts";
 
 type TransactionStatus = "running" | "aborted" | "complete" | "error";
 type TransactionEventHandler = (
@@ -59,8 +59,16 @@ export class Transaction<
         return this.status === status;
     }
 
-    contains(store: string) {
-        return this.tx.objectStoreNames.contains(store);
+    contains(stores: Arrayable<string>) {
+        if (!Array.isArray(stores)) {
+            stores = [stores];
+        }
+        for (const store of stores) {
+            if (!this.tx.objectStoreNames.contains(store)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     objectstore(store: string) {
@@ -68,7 +76,7 @@ export class Transaction<
             return this.tx.objectStore(store);
         } catch (error) {
             throw this.abort(
-                ErrorType.NOT_FOUND,
+                "NOT_FOUND",
                 `No ObjectStore with the name '${store}' found`
             );
         }
@@ -98,7 +106,7 @@ export class Transaction<
                 return await onError(error, this);
             } else {
                 throw this.abort(
-                    ErrorType.UNKNOWN,
+                    "UNKNOWN",
                     `An unknown issue occurred: ${error}`
                 );
             }
