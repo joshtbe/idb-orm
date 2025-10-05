@@ -17,10 +17,11 @@ export type ErrorType =
     | "INVALID_CONFIG"
     | "UNKNOWN";
 
-export class StoreError {
+export class StoreError extends Error {
     public readonly code: ErrorType;
     public readonly message: string;
     constructor(code: ErrorType, message: string) {
+        super();
         this.code = code;
         this.message = message;
     }

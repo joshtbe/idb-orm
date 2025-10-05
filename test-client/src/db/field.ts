@@ -1,7 +1,7 @@
 import z from "zod";
 import type { ValidKey, ValidKeyType } from "./types.ts";
 import { v4 as uuid } from "uuid";
-import type { Tagged } from "type-fest";
+import type { Primitive, Tagged } from "type-fest";
 
 const DEFAULT_SCHEMA_MAP = {
     string: z.string(),
@@ -116,24 +116,32 @@ export class PrimaryKey<AutoIncrement extends boolean, Type extends ValidKey> {
         if (this.genFn) return this.genFn();
         throw "Generator function not defined";
     }
+
+    getSchema() {
+        return DEFAULT_SCHEMA_MAP[this.type];
+    }
 }
 
 export type GetPrimaryKeyType<T> = T extends PrimaryKey<any, infer Type>
     ? Type
     : never;
 
-type FieldOptions = {};
+type FieldOptions = {
+    unique: boolean;
+};
 
 export class Field<OutputType, InputType = OutputType> {
     public schema: z.ZodType<OutputType>;
     public static readonly schemas = DEFAULT_SCHEMA_MAP;
-    private options?: FieldOptions;
+    private options: FieldOptions;
     constructor(
         schema: z.ZodType<OutputType>,
         options?: Partial<FieldOptions>
     ) {
         this.schema = schema;
-        this.options = options;
+        this.options = {
+            unique: options?.unique ?? false,
+        };
     }
 
     array() {
@@ -156,6 +164,27 @@ export class Field<OutputType, InputType = OutputType> {
 
     parse(value: unknown): z.ZodSafeParseResult<OutputType> {
         return this.schema.safeParse(value);
+    }
+
+    // TODO: Implement unique fields using indexes and {unique: true}
+
+    /**
+     * Indicates that a field must be unique across all documents
+     *
+     * **NOTE**: The field type must be a primitive. If this is applied to a non-primitive, it returns `null`
+     */
+    unique(): OutputType extends Primitive ? this : null {
+        switch (this.schema.type) {
+            case "boolean":
+            case "string":
+            case "number":
+            case "symbol":
+                this.options.unique = true;
+                return this as any;
+            default:
+                console.error("A non-primitive cannot be a unique value");
+                return null as any;
+        }
     }
 
     // Static Functions
@@ -188,6 +217,10 @@ export class Field<OutputType, InputType = OutputType> {
         return new PrimaryKey(true);
     }
 
+    static literal<V extends string | number | boolean>(value: V) {
+        return new Field(z.literal(value));
+    }
+
     static number(schema?: z.ZodType<number>, options?: FieldOptions) {
         return new Field<number>(schema ?? DEFAULT_SCHEMA_MAP.number, options);
     }
@@ -204,8 +237,22 @@ export class Field<OutputType, InputType = OutputType> {
     }
 }
 
-export type FieldOutput<T> = T extends Field<infer Type> ? Type : never;
 export type RelationOutput<T> = T extends PrimaryKey<any, infer Type>
+    ? Type
+    : never;
+
+export type RelationOutputStructure<
+    R extends BaseRelation<any, any>,
+    Output
+> = R extends RelationArray<any, any>
+    ? Output[]
+    : R extends OptionalRelation<any, any>
+    ? Output | undefined
+    : Output;
+
+export type NonRelationOutput<T> = T extends Field<infer Out, any>
+    ? Out
+    : T extends PrimaryKey<any, infer Type>
     ? Type
     : never;
 

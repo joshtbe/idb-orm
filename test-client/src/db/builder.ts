@@ -1,4 +1,4 @@
-import type z from "zod";
+import z from "zod";
 import { Model, type CollectionZodSchema } from "./base-model";
 import { DbClient } from "./client";
 import { BaseRelation, Field, PrimaryKey, type ValidValue } from "./field";
@@ -24,6 +24,18 @@ export class Builder<Name extends string, Names extends string> {
         this.models[name] = m as any;
         return m;
     }
+
+    // TODO: Implement union models
+    // defineUnionModel<
+    //     N extends Names,
+    //     T extends readonly [
+    //         Dict<ValidValue<Names>>,
+    //         ...Dict<ValidValue<Names>>[]
+    //     ],
+    //     Discriminator extends Key<T[number]>
+    // >(name: N, key: Discriminator, values: T) {
+
+    // }
 
     compile<M extends CollectionObject<Names>>(models: M) {
         return new CompiledDb<Name, Names, M>(this.name, models);
@@ -62,6 +74,7 @@ export class CompiledDb<
                         for (const otherKey of linkedModel.keys()) {
                             const element = linkedModel.getField(otherKey);
                             if (
+                                fieldKey !== otherKey &&
                                 element instanceof BaseRelation &&
                                 element.to === model.name &&
                                 element.name === field.name
@@ -80,6 +93,7 @@ export class CompiledDb<
                             }
                         }
                     }
+
                     if (!hasRelation)
                         throw new StoreError(
                             "INVALID_CONFIG",
@@ -123,38 +137,6 @@ export class CompiledDb<
     }
 
     keys() {
-        return this.modelKeys;
+        return [...this.modelKeys];
     }
 }
-
-const builder = new Builder("char2_db", [
-    "traits",
-    "spells",
-    "races",
-    "classes",
-]);
-const classes = builder.defineModel("classes", {
-    id: Field.primaryKey(),
-    name: Field.string(),
-    subclasses: Field.string().array(),
-    c_race: Field.relation("races", "classes2races").array(),
-});
-const traits = builder.defineModel("traits", {
-    name: Field.primaryKey().uuid(),
-});
-const spells = builder.defineModel("spells", {
-    id: Field.primaryKey().uuid(),
-});
-const races = builder.defineModel("races", {
-    id: Field.primaryKey(),
-    name: Field.string(),
-    r_class: Field.relation("classes", "classes2races").array(),
-});
-const glob = builder.compile({
-    classes,
-    spells,
-    races,
-    traits,
-});
-
-export const client = await glob.createClient();

@@ -54,14 +54,22 @@ export class Model<
         return this.fields[key];
     }
 
+    getModelField(key: string) {
+        const item = this.fields[key];
+        if (!item || !(item instanceof Field)) return undefined;
+        return item;
+    }
+
     getPrimaryKey() {
         return this.fields[this.primaryKey] as PrimaryKey<boolean, ValidKey>;
     }
 
-    getRelation(key: string): BaseRelation<any, any> | undefined {
+    getRelation<Models extends string>(
+        key: string
+    ): BaseRelation<Models, string> | undefined {
         const item = this.fields[key];
         if (!item || !(item instanceof BaseRelation)) return undefined;
-        return item;
+        return item as BaseRelation<Models, string>;
     }
 
     keyType(key: Key<F>): "Relation" | "Primary" | "Field" | "None" {
@@ -105,6 +113,42 @@ export type ModelStructure<F extends Dict<ValidValue>, C> = {
         ? Type
         : GetRelationField<F[K], C>;
 };
+
+export type ExtractFields<M extends Model<any, any, any>> = M extends Model<
+    any,
+    infer Fields,
+    any
+>
+    ? Fields
+    : never;
+
+export type AllRelationKeys<M extends Model<any, any, any>> = M extends Model<
+    any,
+    infer Fields,
+    any
+>
+    ? {
+          [K in Key<Fields>]: Fields[K] extends BaseRelation<any, any>
+              ? K
+              : never;
+      }[Key<Fields>]
+    : never;
+
+export type RelationlessModelStructure<M extends Model<any, any, any>> =
+    M extends Model<any, infer Fields, any>
+        ? Omit<
+              {
+                  [K in Key<Fields>]: Fields[K] extends BaseRelation<any, any>
+                      ? unknown
+                      : Fields[K] extends Field<infer Type, any>
+                      ? Type
+                      : Fields[K] extends PrimaryKey<any, infer Type>
+                      ? Type
+                      : never;
+              },
+              AllRelationKeys<M>
+          >
+        : never;
 
 export type CollectionZodSchema<C> = C extends Record<
     infer Keys,

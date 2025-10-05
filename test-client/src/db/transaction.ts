@@ -6,7 +6,7 @@ type TransactionEventHandler = (
     tx: Transaction<IDBTransactionMode>,
     ev: Event
 ) => void;
-type TransactionOptions = Partial<{
+export type TransactionOptions = Partial<{
     onAbort: TransactionEventHandler;
     onError: TransactionEventHandler;
     onComplete: TransactionEventHandler;
@@ -16,9 +16,15 @@ export class Transaction<
     Mode extends IDBTransactionMode,
     Stores extends string = string
 > {
-    private tx: IDBTransaction;
+    private internal: IDBTransaction;
     public status: TransactionStatus;
     public error: StoreError | null = null;
+    public readonly storeNames: Stores[];
+
+    /**
+     * A record of store names to `IDBObjectStore` objects
+     */
+    public readonly objectStores: Record<Stores, IDBObjectStore>;
 
     constructor(
         db: IDBDatabase,
@@ -27,11 +33,21 @@ export class Transaction<
         options: TransactionOptions = {}
     ) {
         if (!db) throw "Database not found";
-        this.tx = db.transaction(stores, mode);
+        this.internal = db.transaction(stores, mode);
         this.status = "running";
-        this.tx.onabort = this.registerHandler("aborted", options.onAbort);
-        this.tx.onerror = this.registerHandler("error", options.onError);
-        this.tx.oncomplete = this.registerHandler(
+        this.storeNames = Array.from(
+            this.internal.objectStoreNames
+        ) as Stores[];
+        this.objectStores = {} as Record<Stores, IDBObjectStore>;
+        for (const store of this.storeNames) {
+            this.objectStores[store] = this.getObjectstore(store);
+        }
+        this.internal.onabort = this.registerHandler(
+            "aborted",
+            options.onAbort
+        );
+        this.internal.onerror = this.registerHandler("error", options.onError);
+        this.internal.oncomplete = this.registerHandler(
             "complete",
             options.onComplete
         );
@@ -39,20 +55,26 @@ export class Transaction<
 
     abort(code: ErrorType, message: string) {
         this.error = new StoreError(code, message);
-        this.tx.abort();
+        this.internal.abort();
         return this.error;
     }
 
+    commit() {
+        this.internal.commit();
+    }
+
+    /**
+     * Gets the internal `IDBTransaction` object
+     *
+     * It's recommended you don't use this function and use the built-in functions of the wrapper
+     * @returns Internal transaction object
+     */
     getInternal() {
-        return this.tx;
+        return this.internal;
     }
 
     get mode() {
-        return this.tx.mode;
-    }
-
-    get storeNames() {
-        return Array.from(this.tx.objectStoreNames) as Stores[];
+        return this.internal.mode as Mode;
     }
 
     is(status: TransactionStatus) {
@@ -64,17 +86,17 @@ export class Transaction<
             stores = [stores];
         }
         for (const store of stores) {
-            if (!this.tx.objectStoreNames.contains(store)) {
+            if (!this.internal.objectStoreNames.contains(store)) {
                 return false;
             }
         }
         return true;
     }
 
-    objectstore(store: string) {
+    private getObjectstore(store: string) {
         try {
-            return this.tx.objectStore(store);
-        } catch (error) {
+            return this.internal.objectStore(store);
+        } catch {
             throw this.abort(
                 "NOT_FOUND",
                 `No ObjectStore with the name '${store}' found`
@@ -84,30 +106,24 @@ export class Transaction<
 
     private registerHandler(
         status: TransactionStatus,
-        fn?: TransactionEventHandler
+        fn: TransactionEventHandler = () => {}
     ) {
         return (e: Event) => {
             this.status = status;
-            fn && fn(this, e);
+            fn(this, e);
         };
     }
 
-    async wrap<Output>(
-        fn: (tx: Transaction<Mode, Stores>) => Promise<Output>,
-        onError: (
-            error: StoreError,
-            tx: Transaction<Mode, Stores>
-        ) => Promise<Output> | Output
-    ): Promise<Output> {
+    async wrap<Output>(fn: (tx: this) => Promise<Output>): Promise<Output> {
         try {
             return await fn(this);
         } catch (error) {
-            if (error instanceof StoreError) {
-                return await onError(error, this);
+            if (error instanceof StoreError && this.status === "aborted") {
+                throw error;
             } else {
                 throw this.abort(
                     "UNKNOWN",
-                    `An unknown issue occurred: ${error}`
+                    `An unknown issue occurred: ${JSON.stringify(error)}`
                 );
             }
         }
