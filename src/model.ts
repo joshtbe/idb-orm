@@ -1,3 +1,4 @@
+import { CompiledDb } from "./builder.js";
 import { StoreError } from "./error";
 import {
     BaseRelation,
@@ -113,6 +114,15 @@ export type ModelStructure<F extends Dict<ValidValue>, C> = {
         ? Type
         : GetRelationField<F[K], C>;
 };
+
+export type ModelType<
+    M extends Model<any, any, any>,
+    C extends CompiledDb<any, any, any>
+> = M extends Model<any, infer Fields, any>
+    ? C extends CompiledDb<any, any, infer Collection>
+        ? ModelStructure<Fields, Collection>
+        : never
+    : never;
 
 export type ExtractFields<M extends Model<any, any, any>> = M extends Model<
     any,
