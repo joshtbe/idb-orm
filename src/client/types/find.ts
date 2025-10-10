@@ -10,7 +10,7 @@ import type {
     Model,
     ModelStructure,
     RelationlessModelStructure,
-} from "../../base-model.ts";
+} from "../../model.js";
 import type {
     BaseRelation,
     Field,

@@ -1,10 +1,6 @@
 import type { CollectionObject } from "../../builder.ts";
 import type { Dict } from "../../types.ts";
-import type {
-    Model,
-    ModelStructure,
-    PrimaryKeyType,
-} from "../../base-model.ts";
+import type { Model, ModelStructure, PrimaryKeyType } from "../../model.js";
 import type { MutationQuery } from "./mutation.ts";
 import type { FindInput, FindOutput } from "./find.ts";
 import type { CompiledQuery } from "../compiled-query.ts";

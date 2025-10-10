@@ -1,5 +1,5 @@
 import z from "zod";
-import { Model, type CollectionZodSchema } from "./base-model";
+import { Model, type CollectionZodSchema } from "./model";
 import { DbClient } from "./client";
 import { BaseRelation, Field, PrimaryKey, type ValidValue } from "./field";
 import type { Dict, Key } from "./types";
@@ -125,10 +125,11 @@ export class CompiledDb<
 
             for (const key of this.modelKeys) {
                 const model = this.models[key];
-                db.createObjectStore(model.name, {
-                    autoIncrement: model.getPrimaryKey().autoIncrement,
-                    keyPath: model.primaryKey,
-                });
+                if (!db.objectStoreNames.contains(model.name))
+                    db.createObjectStore(model.name, {
+                        autoIncrement: model.getPrimaryKey().autoIncrement,
+                        keyPath: model.primaryKey,
+                    });
             }
         };
 

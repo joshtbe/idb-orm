@@ -1,8 +1,8 @@
 import type { Arrayable } from "type-fest";
 import type { CollectionObject, CompiledDb } from "../builder";
-import type { Dict, ValidKey } from "../types";
-import type { PrimaryKeyType } from "../base-model";
-import { getKeys, handleRequest, removeDuplicates } from "../utils";
+import type { Dict, Key, ValidKey } from "../types";
+import type { PrimaryKeyType } from "../model";
+import { getKeys, handleRequest, removeDuplicates, toArray } from "../utils";
 import { Transaction, type TransactionOptions } from "../transaction";
 import z from "zod";
 import type {
@@ -10,13 +10,13 @@ import type {
     MutationQuery,
     StoreInterface,
 } from "./types/index.ts";
-import type { FindInput, FindOutput, SelectObject } from "./types/find.ts";
+import type { FindInput, FindOutput } from "./types/find.ts";
 import {
     generateSelectClause,
     generateWhereClause,
     getAccessedStores,
-} from "./helpers.ts";
-import { CompiledQuery } from "./compiled-query.ts";
+} from "./helpers.js";
+import { CompiledQuery } from "./compiled-query.js";
 
 export class DbClient<
     Name extends string,
@@ -36,6 +36,10 @@ export class DbClient<
         for (const key of this.models.keys()) {
             this.stores[key] = this.createInterface(key);
         }
+    }
+
+    getStore<Name extends ModelNames>(name: Name): (typeof this.stores)[Name] {
+        return this.stores[name];
     }
 
     createTransaction<
@@ -67,8 +71,8 @@ export class DbClient<
         return this.models.getModel(name);
     }
 
-    private getAccessedStores<N extends ModelNames>(
-        name: N,
+    private getAccessedStores(
+        name: ModelNames,
         item: Dict,
         type: "mutation" | "query" = "mutation"
     ): ModelNames[] {
@@ -88,7 +92,8 @@ export class DbClient<
             insert: async () => 5 as any,
             updateFirst: async () => 1 as any,
             updateMany: async () => 5 as any,
-            compileQuery: (query) => new CompiledQuery(this, modelName, query),
+            compileQuery: (query) =>
+                new CompiledQuery(this, modelName as ModelNames, query),
         };
     }
 
@@ -132,9 +137,11 @@ export class DbClient<
         const id = (await handleRequest(objectStore.add(initAdd))) as ValidKey;
         const toAdd: Dict = {};
         const visited = new Set<string>();
-        for (const key of getKeys(item)) {
+        for (const key of getKeys(item) as string[]) {
             visited.add(key);
-            const element = item[key];
+            const element = item[
+                key as Key<MutationQuery<N, ModelNames, Models[N], Models>>
+            ] as Dict;
             switch (model.keyType(key)) {
                 case "None":
                     throw tx.abort(
@@ -155,23 +162,45 @@ export class DbClient<
                     break;
                 }
                 case "Relation": {
-                    let value: Arrayable<typeof element> = element;
-                    if (!Array.isArray(element)) {
-                        value = [value];
-                    }
+                    // Skip over it if the key is not defined
+                    if (!element) continue;
+                    const value = toArray<Dict>(element);
 
+                    // Get the relation object
                     const relation = model.getRelation<ModelNames>(key)!;
                     if (relation.isArray) {
                         toAdd[key] = [];
+                        if (
+                            "$createMany" in element ||
+                            "$connectMany" in element
+                        ) {
+                            const newValue: Dict[] = [];
+                            for (const item of (element as any)[
+                                "$createMany"
+                            ] ?? []) {
+                                newValue.push({ $create: item });
+                            }
+                            for (const item of (element as any)[
+                                "$connectMany"
+                            ] ?? []) {
+                                newValue.push({ $connect: item });
+                            }
+                            value.push(...newValue);
+                        }
                     }
+
+                    // Get the model object of the model the relation is pointing to
                     const otherModel = this.getModel(relation.to);
                     const otherRelation = otherModel.getRelation(
                         relation.fieldKey
                     );
                     const otherStore = tx.objectStores[relation.to];
 
+                    // Set of all connection keys
+                    const usedKeys = new Set<ValidKey>();
+
                     // TODO: Optimize with batch editing with cursor
-                    for (const item of value as Dict[]) {
+                    for (const item of value) {
                         const firstKey = getKeys(item)[0];
                         if (!firstKey)
                             throw tx.abort(
@@ -185,6 +214,16 @@ export class DbClient<
                                 const connectId: ValidKey = item[
                                     firstKey
                                 ] as string;
+
+                                // Disallow duplicate connections
+                                if (usedKeys.has(connectId)) {
+                                    throw tx.abort(
+                                        "INVALID_ITEM",
+                                        `Primary key '${connectId}' was already used for a connection`
+                                    );
+                                }
+                                usedKeys.add(connectId);
+
                                 const current = await handleRequest(
                                     otherStore.get(connectId)
                                 );
@@ -236,16 +275,23 @@ export class DbClient<
                                 }
                                 break;
                             }
+
+                            // These keys were converted into "$create" and "$connect"
+                            case "$connectMany":
+                            case "$createMany":
+                                break;
                             default:
                                 throw tx.abort(
                                     "INVALID_ITEM",
                                     `Connection Object on key '${key}' has an unknown key '${firstKey}'`
                                 );
                         }
+                        // If it's not a relation array stop after the first key
+                        if (!relation.isArray) break;
                     }
                     break;
                 }
-                // We already added the primary key
+                // The primary key was already added
                 case "Primary":
                 default:
                     break;
@@ -336,90 +382,13 @@ export class DbClient<
         const initStore = tx.objectStores[name];
         const request = initStore.openCursor();
 
-        const { select, where = {} } = item;
+        const { select, where } = item;
         const whereClause = generateWhereClause(where);
 
-        const ANY = z.any();
-
-        // Create function to select fields and recursively parse
-        // const generateSelectSchema = (
-        //     name: ModelNames,
-        //     select: SelectObject<ModelNames, any, Models>
-        // ) => {
-        //     const _filterSchema: Dict<z.ZodType> = {};
-        //     const model = this.getModel(name);
-        //     for (const key of getKeys(select)) {
-        //         switch (model.keyType(key)) {
-        //             case "Relation": {
-        //                 const relation = model.getRelation<ModelNames>(key)!;
-        //                 const store = tx.objectStores[relation.to];
-        //                 if (relation.isArray) {
-        //                     _filterSchema[key] = ANY.transform(
-        //                         async (ids: ValidKey[]) => {
-        //                             const result: Dict[] = [];
-        //                             for (const id of ids) {
-        //                                 result.push(
-        //                                     await handleRequest(store.get(id))
-        //                                 );
-        //                             }
-        //                             return result;
-        //                         }
-        //                     );
-        //                     if (typeof select[key] === "object") {
-        //                         _filterSchema[key] = _filterSchema[key].pipe(
-        //                             z.array(
-        //                                 generateSelectSchema(
-        //                                     relation.to,
-        //                                     select[key] as SelectObject<
-        //                                         ModelNames,
-        //                                         any,
-        //                                         Models
-        //                                     >
-        //                                 )
-        //                             )
-        //                         );
-        //                     }
-        //                 } else {
-        //                     _filterSchema[key] = ANY.transform(
-        //                         async (id: ValidKey) =>
-        //                             (await handleRequest(store.get(id))) as Dict
-        //                     );
-        //                     if (typeof select[key] === "object") {
-        //                         _filterSchema[key] = _filterSchema[key].pipe(
-        //                             generateSelectSchema(
-        //                                 relation.to,
-        //                                 select[key] as SelectObject<
-        //                                     ModelNames,
-        //                                     any,
-        //                                     Models
-        //                                 >
-        //                             )
-        //                         );
-        //                     }
-        //                 }
-        //                 break;
-        //             }
-        //             case "Primary":
-        //                 _filterSchema[key] = model.getPrimaryKey().getSchema();
-        //                 break;
-        //             case "Field":
-        //                 _filterSchema[key] = model.getModelField(key)!.schema;
-        //                 break;
-        //             default:
-        //                 throw tx.abort(
-        //                     "INVALID_ITEM",
-        //                     `Key '${key}' is not found in the model '${name}'`
-        //                 );
-        //         }
-        //     }
-        //     return z.object(_filterSchema);
-        // };
-
-        // const selectSchema = generateSelectSchema(name, select ?? {});
         const selectClause = generateSelectClause<ModelNames, Models, this>(
             name,
             this,
-            select ?? {}
+            select
         );
 
         await new Promise<void>((res) => {

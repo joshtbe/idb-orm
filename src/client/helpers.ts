@@ -1,6 +1,5 @@
-import z from "zod";
 import type { Dict, Key, ValidKey } from "../types.ts";
-import { getKeys, handleRequest, identity, toArray } from "../utils.ts";
+import { getKeys, handleRequest, identity, toArray } from "../utils.js";
 import equal from "@gilbarbara/deep-equal";
 import type { DbClient } from "./index.ts";
 import type { CollectionObject } from "../builder.ts";
@@ -9,7 +8,8 @@ import type { SelectObject } from "./types/find.ts";
 import type { Transaction } from "../transaction.ts";
 import type { Arrayable } from "type-fest";
 
-export function generateWhereClause(where: Dict) {
+// TODO: Add support for where clause on nested relation properties
+export function generateWhereClause(where: Dict = {}) {
     const checkFns: { key: string; fn: (value: unknown) => boolean }[] = [];
     for (const whereKey of getKeys(where)) {
         switch (typeof where[whereKey]) {
@@ -52,7 +52,7 @@ export function generateSelectClause<
         any,
         Models
     >
->(name: ModelNames, client: Db, select: S) {
+>(name: ModelNames, client: Db, select: S = {} as S) {
     type Tx = Transaction<any, ModelNames>;
     const model = client.getModel(name);
     const includedKeys: {

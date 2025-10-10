@@ -1,8 +1,8 @@
 import type { Arrayable } from "type-fest";
-import { StoreError, type ErrorType } from "./error.ts";
+import { StoreError, type ErrorType } from "./error.js";
 
-type TransactionStatus = "running" | "aborted" | "complete" | "error";
-type TransactionEventHandler = (
+export type TransactionStatus = "running" | "aborted" | "complete" | "error";
+export type TransactionEventHandler = (
     tx: Transaction<IDBTransactionMode>,
     ev: Event
 ) => void;
@@ -32,7 +32,6 @@ export class Transaction<
         mode: Mode,
         options: TransactionOptions = {}
     ) {
-        if (!db) throw "Database not found";
         this.internal = db.transaction(stores, mode);
         this.status = "running";
         this.storeNames = Array.from(
