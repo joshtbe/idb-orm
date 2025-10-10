@@ -1,16 +1,21 @@
 {
-  "name": "idb-orm",
+  "name": "@jtb/idb-orm",
   "version": "1.0.0",
   "description": "",
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
+    "build": "rollup --config rollup.config.ts --configPlugin typescript",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@rollup/plugin-terser": "^0.4.4",
+    "@rollup/plugin-typescript": "^12.1.4",
+    "rollup": "^4.52.4",
+    "tslib": "^2.8.1",
     "typescript": "^5.9.2"
   },
   "dependencies": {
