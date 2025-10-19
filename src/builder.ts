@@ -2,7 +2,7 @@ import z from "zod";
 import { Model, type CollectionZodSchema } from "./model";
 import { DbClient } from "./client";
 import { BaseRelation, Field, PrimaryKey, type ValidValue } from "./field";
-import type { Dict, Key } from "./types";
+import type { Dict, Keyof } from "./types/common";
 import { getKeys, handleRequest } from "./utils";
 import { StoreError } from "./error";
 
@@ -32,7 +32,7 @@ export class Builder<Name extends string, Names extends string> {
     //         Dict<ValidValue<Names>>,
     //         ...Dict<ValidValue<Names>>[]
     //     ],
-    //     Discriminator extends Key<T[number]>
+    //     Discriminator extends Keyof<T[number]>
     // >(name: N, key: Discriminator, values: T) {
 
     // }
@@ -56,11 +56,11 @@ export class CompiledDb<
             const model = this.models[key];
             const schema: Dict<z.ZodType> = {};
             for (const fieldKey of model.keys()) {
-                const field = model.getField(fieldKey);
+                const field = model.get(fieldKey);
                 if (field instanceof Field) {
                     schema[fieldKey] = field.schema;
                 } else if (field instanceof BaseRelation) {
-                    const linkedModel = this.models[field.to as Key<C>];
+                    const linkedModel = this.models[field.to as Keyof<C>];
                     const linkedPrimary = linkedModel.getPrimaryKey();
                     schema[fieldKey] = Field.schemas[linkedPrimary.type];
                     if (field.isOptional) {
@@ -69,10 +69,10 @@ export class CompiledDb<
                         schema[fieldKey] = schema[fieldKey].array();
                     }
 
-                    let hasRelation = !!field.fieldKey;
+                    let hasRelation = !!field.getRelatedKey();
                     if (!hasRelation) {
                         for (const otherKey of linkedModel.keys()) {
-                            const element = linkedModel.getField(otherKey);
+                            const element = linkedModel.get(otherKey);
                             if (
                                 fieldKey !== otherKey &&
                                 element instanceof BaseRelation &&
@@ -86,8 +86,8 @@ export class CompiledDb<
                                     hasRelation = true;
                                 }
                                 if (hasRelation) {
-                                    field.setFieldKey(otherKey);
-                                    element.setFieldKey(fieldKey);
+                                    field.setRelatedKey(otherKey);
+                                    element.setRelatedKey(fieldKey);
                                 }
                                 break;
                             }
@@ -127,7 +127,9 @@ export class CompiledDb<
                 const model = this.models[key];
                 if (!db.objectStoreNames.contains(model.name))
                     db.createObjectStore(model.name, {
-                        autoIncrement: model.getPrimaryKey().autoIncrement,
+                        autoIncrement: model
+                            .getPrimaryKey()
+                            .isAutoIncremented(),
                         keyPath: model.primaryKey,
                     });
             }

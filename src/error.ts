@@ -4,6 +4,7 @@ export type ErrorType =
     | "ADD_FAILED"
     | "UPDATE_FAILED"
     | "DELETE_FAILED"
+    | "OVERWRITE_RELATION"
     | "NOT_FOUND"
     /**
      * The given transaction is invalid for the store it is trying to access

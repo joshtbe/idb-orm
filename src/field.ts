@@ -1,5 +1,5 @@
 import z from "zod";
-import type { ValidKey, ValidKeyType } from "./types.js";
+import type { ValidKey, ValidKeyType } from "./types/common.js";
 import { v4 as uuid } from "uuid";
 import type { Primitive, Tagged } from "type-fest";
 
@@ -12,23 +12,66 @@ const DEFAULT_SCHEMA_MAP = {
     date: z.date(),
 };
 
+export type ReferenceActions = "Cascade" | "None" | "Restrict";
+export type OptionalActions = "SetNull" | ReferenceActions;
+interface RelationOptions<Name extends string, OnDelete> {
+    name?: Name;
+    onDelete?: OnDelete;
+}
+
+interface RelationActions {
+    onDelete: OptionalActions;
+}
+
 export class BaseRelation<To extends string, Name extends string = never> {
-    private toKey: string;
+    /**
+     * Actions to be performed under certain conditions
+     */
+    protected actions: RelationActions;
+
+    /**
+     * The corresponding relation key on the model this relation points to
+     */
+    private relatedKey: string;
+
     constructor(
+        /**
+         * The name of the model this relation is pointing to
+         */
         public readonly to: To,
+        /**
+         * An optional label to give to the relation. This helps distinguish it from others
+         */
         public readonly name: Name = "" as never,
+        /**
+         * If the relation is optional or not
+         */
         public readonly isOptional: boolean = false,
-        public readonly isArray: boolean = false
+        /**
+         * If the relation is an array or not
+         */
+        public readonly isArray: boolean = false,
+        onDelete?: OptionalActions
     ) {
-        this.toKey = "";
+        this.relatedKey = "";
+        this.actions = {
+            onDelete: onDelete || "Restrict",
+        };
     }
 
-    get fieldKey() {
-        return this.toKey;
+    getActions() {
+        return { ...this.actions };
     }
 
-    setFieldKey(key: string) {
-        this.toKey = key;
+    setRelatedKey(key: string) {
+        this.relatedKey = key;
+    }
+
+    /**
+     * Gets the key on the corresponding model this relation points to
+     */
+    getRelatedKey() {
+        return this.relatedKey;
     }
 }
 
@@ -38,12 +81,35 @@ export class Relation<
 > extends BaseRelation<To, Name> {
     private declare readonly _brand: Tagged<unknown, "relation">;
 
-    array() {
-        return new RelationArray(this.to, this.name);
+    constructor(to: To, options: RelationOptions<Name, ReferenceActions> = {}) {
+        super(to, options.name, false, false, options.onDelete);
     }
 
-    optional() {
-        return new OptionalRelation(this.to, this.name);
+    /**
+     * Creates an array relation to the specified model
+     *
+     * **Note: Calling this function will reset any relation actions to the default**
+     */
+    array({
+        onDelete,
+    }: Omit<RelationOptions<Name, OptionalActions>, "name"> = {}) {
+        return new RelationArray(this.to, this.name, onDelete);
+    }
+
+    /**
+     * Creates an optional relation to the specified model
+     *
+     * **Note: Calling this function will reset any relation actions to the default**
+     */
+    optional({
+        onDelete,
+    }: Omit<RelationOptions<Name, OptionalActions>, "name"> = {}) {
+        return new OptionalRelation(this.to, this.name, onDelete);
+    }
+
+    onDelete(action: ReferenceActions) {
+        this.actions.onDelete = action;
+        return this;
     }
 }
 export class RelationArray<
@@ -52,8 +118,8 @@ export class RelationArray<
 > extends BaseRelation<To, Name> {
     private declare readonly _brand: Tagged<unknown, "relationArray">;
 
-    constructor(to: To, name?: Name) {
-        super(to, name, false, true);
+    constructor(to: To, name?: Name, action: OptionalActions = "SetNull") {
+        super(to, name, false, true, action);
     }
 }
 export class OptionalRelation<
@@ -62,8 +128,8 @@ export class OptionalRelation<
 > extends BaseRelation<To, Name> {
     private declare readonly _brand: Tagged<unknown, "optionalRelation">;
 
-    constructor(to: To, name?: Name) {
-        super(to, name, true, false);
+    constructor(to: To, name?: Name, action: OptionalActions = "SetNull") {
+        super(to, name, true, false, action);
     }
 }
 
@@ -75,41 +141,61 @@ type FunctionMatch<E> = E extends "string"
     ? Date
     : never;
 
-export class PrimaryKey<AutoIncrement extends boolean, Type extends ValidKey> {
-    private readonly genFn?: () => Type;
-    public readonly autoIncrement: AutoIncrement;
+type KeyToPrimitive<T> = T extends number
+    ? "number"
+    : T extends Date
+    ? "date"
+    : "string";
+
+type GenFunction<T extends ValidKey> = () => T;
+
+export class PrimaryKey<AutoGenerate extends boolean, Type extends ValidKey> {
+    private genFn?: GenFunction<Type>;
+    private autoGenerate: AutoGenerate;
     public readonly type: ValidKeyType;
+
+    constructor();
+    constructor(type: ValidKeyType);
+    constructor(type: ValidKeyType, generator: GenFunction<Type>);
+
     constructor(
-        incrementOrGen: boolean | (() => Type),
-        type: ValidKeyType = "number"
+        type?: ValidKeyType | void,
+        generator?: GenFunction<Type> | void
     ) {
-        this.autoIncrement = false as AutoIncrement;
-        this.type = type;
-        if (typeof incrementOrGen === "function") {
-            this.genFn = incrementOrGen;
-        } else if (incrementOrGen) {
-            this.autoIncrement = true as AutoIncrement;
+        if (!type) {
+            this.autoGenerate = false as AutoGenerate;
+            this.type = "number";
+        } else {
+            this.type = type;
+            if (generator) {
+                this.autoGenerate = true as AutoGenerate;
+                this.genFn = generator;
+            } else {
+                this.autoGenerate = false as AutoGenerate;
+            }
         }
     }
 
-    generator<V extends ValidKeyType>(type: V, genFn: () => FunctionMatch<V>) {
-        return new PrimaryKey<false, FunctionMatch<V>>(genFn, type);
+    autoIncrement() {
+        if (this.type === "number") {
+            this.genFn = undefined;
+            this.autoGenerate = true as AutoGenerate;
+            return this as PrimaryKey<true, number>;
+        }
+        const obj = new PrimaryKey<true, number>();
+        obj.genFn = undefined;
+        obj.autoGenerate = true as (typeof obj)["autoGenerate"];
+        return obj;
     }
 
-    stringGenerator(genFn: () => string) {
-        return this.generator("string", genFn);
-    }
-
-    numberGenerator(genFn: () => number) {
-        return this.generator("number", genFn);
-    }
-
-    dateGenerator(genFn: () => Date) {
-        return this.generator("date", genFn);
+    generator(genFn: GenFunction<Type>) {
+        this.genFn = genFn;
+        this.autoGenerate = true as AutoGenerate;
+        return this as PrimaryKey<true, Type>;
     }
 
     uuid() {
-        return this.generator("string", uuid);
+        return new PrimaryKey<true, string>("string", uuid);
     }
 
     genKey() {
@@ -120,17 +206,25 @@ export class PrimaryKey<AutoIncrement extends boolean, Type extends ValidKey> {
     getSchema() {
         return DEFAULT_SCHEMA_MAP[this.type];
     }
+
+    /**
+     * If the internal objectStore "autoIncrement" utility is being used
+     * @returns
+     */
+    isAutoIncremented() {
+        return this.autoGenerate && !this.genFn;
+    }
 }
 
 export type GetPrimaryKeyType<T> = T extends PrimaryKey<any, infer Type>
     ? Type
     : never;
 
-type FieldOptions = {
+interface FieldOptions {
     unique: boolean;
-};
+}
 
-export class Field<OutputType, InputType = OutputType> {
+export class Field<OutputType, HasDefault extends boolean = false> {
     public schema: z.ZodType<OutputType>;
     public static readonly schemas = DEFAULT_SCHEMA_MAP;
     private options: FieldOptions;
@@ -153,7 +247,7 @@ export class Field<OutputType, InputType = OutputType> {
     }
 
     default(defaultValue: NonNullable<OutputType>) {
-        return new Field<NonNullable<OutputType>, InputType | undefined>(
+        return new Field<NonNullable<OutputType>, true>(
             this.schema.default(defaultValue as any) as any
         );
     }
@@ -213,8 +307,10 @@ export class Field<OutputType, InputType = OutputType> {
         return new Field(z.object(item), options);
     }
 
-    static primaryKey(): PrimaryKey<true, number> {
-        return new PrimaryKey(true);
+    static primaryKey<V extends ValidKeyType = "number">(
+        type: V = "number" as V
+    ): PrimaryKey<false, FunctionMatch<V>> {
+        return new PrimaryKey<false, FunctionMatch<V>>(type);
     }
 
     static literal<V extends string | number | boolean>(value: V) {
@@ -231,9 +327,9 @@ export class Field<OutputType, InputType = OutputType> {
 
     static relation<To extends string, Name extends string = never>(
         to: To,
-        name?: Name
+        options?: RelationOptions<Name, ReferenceActions>
     ) {
-        return new Relation<To, Name>(to, name);
+        return new Relation<To, Name>(to, options);
     }
 }
 

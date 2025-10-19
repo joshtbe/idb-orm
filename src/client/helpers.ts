@@ -1,11 +1,17 @@
-import type { Dict, Key, ValidKey } from "../types.ts";
-import { getKeys, handleRequest, identity, toArray } from "../utils.js";
+import type { Dict, Keyof, ValidKey } from "../types/common.js";
+import {
+    getKeys,
+    handleRequest,
+    identity,
+    toArray,
+    unionSets,
+} from "../utils.js";
 import equal from "@gilbarbara/deep-equal";
 import type { DbClient } from "./index.ts";
 import type { CollectionObject } from "../builder.ts";
-import type { MutationQuery } from "./types/mutation.ts";
+import type { AddMutation } from "./types/mutation.ts";
 import type { SelectObject } from "./types/find.ts";
-import type { Transaction } from "../transaction.ts";
+import type { Transaction } from "../transaction.js";
 import type { Arrayable } from "type-fest";
 
 // TODO: Add support for where clause on nested relation properties
@@ -53,10 +59,10 @@ export function generateSelectClause<
         Models
     >
 >(name: ModelNames, client: Db, select: S = {} as S) {
-    type Tx = Transaction<any, ModelNames>;
+    type Tx = Transaction<IDBTransactionMode, ModelNames>;
     const model = client.getModel(name);
     const includedKeys: {
-        key: Key<S>;
+        key: Keyof<S>;
         getValue?: (value: Arrayable<ValidKey>, tx: Tx) => Promise<unknown>;
     }[] = [];
     const keys = getKeys(select);
@@ -82,7 +88,7 @@ export function generateSelectClause<
                 if (relation.isArray) {
                     const fn = async (ids: ValidKey[], tx: Tx) => {
                         const result: Dict[] = [];
-                        const store = tx.objectStores[relation.to];
+                        const store = tx.getStore(relation.to);
                         for (const id of ids) {
                             result.push(
                                 await subSelectFn(
@@ -98,7 +104,7 @@ export function generateSelectClause<
                     const fn = async (id: ValidKey, tx: Tx) =>
                         await subSelectFn(
                             await handleRequest(
-                                tx.objectStores[relation.to].get(id)
+                                tx.getStore(relation.to).get(id)
                             ),
                             tx
                         );
@@ -135,54 +141,68 @@ export function getAccessedStores<
     query: Dict,
     type: "mutation" | "query",
     client: DbClient<string, ModelNames, Models>
-): ModelNames[] {
-    const stores: ModelNames[] = [name];
+): Set<ModelNames> {
+    const stores: Set<ModelNames> = new Set([name]);
     if (type === "mutation") {
         const keys = getKeys(query);
+        const model = client.getModel(name);
         for (const key of keys) {
-            const relation = client.getModel(name).getRelation<ModelNames>(key);
+            const relation = model.getRelation<ModelNames>(key);
             const item = toArray(query[key]);
 
-            for (const subItem of item as object[]) {
+            for (const subItem of item as Dict[]) {
                 if (relation && subItem && typeof subItem === "object") {
                     for (const conKeys of getKeys(subItem)) {
                         switch (conKeys) {
                             case "$connect":
                             case "$connectMany":
-                                stores.push(relation.to);
+                                stores.add(relation.to);
                                 break;
                             case "$create":
-                                stores.push(
-                                    ...getAccessedStores(
+                                unionSets(
+                                    stores,
+                                    getAccessedStores(
                                         relation.to,
-                                        subItem[conKeys],
+                                        subItem[conKeys] as Dict,
                                         type,
                                         client
                                     )
                                 );
                                 break;
                             case "$createMany": {
-                                const items = (
-                                    subItem[conKeys] as MutationQuery<
+                                (
+                                    subItem[conKeys] as AddMutation<
                                         ModelNames,
                                         ModelNames,
                                         Models[ModelNames],
                                         Models
                                     >[]
-                                ).reduce((prev, i) => {
-                                    prev.push(
-                                        ...getAccessedStores(
+                                ).forEach((value) =>
+                                    unionSets(
+                                        stores,
+                                        getAccessedStores(
                                             relation.to,
-                                            i,
+                                            value,
                                             type,
                                             client
                                         )
-                                    );
-                                    return prev;
-                                }, [] as ModelNames[]);
-                                stores.push(...items);
+                                    )
+                                );
                                 break;
                             }
+                            case "$update":
+                            case "$updateMany":
+                                break;
+                            case "$disconnect":
+                            case "$disconnectMany":
+                                break;
+                            case "$delete":
+                            case "$deleteMany":
+                                unionSets(
+                                    stores,
+                                    model.getDeletedStores(client)
+                                );
+                                break;
                             default:
                                 break;
                         }
@@ -196,8 +216,9 @@ export function getAccessedStores<
             if (model.keyType(key) === "Relation") {
                 switch (typeof query[key]) {
                     case "object":
-                        stores.push(
-                            ...getAccessedStores(
+                        unionSets(
+                            stores,
+                            getAccessedStores(
                                 model.getRelation(key)!.to as ModelNames,
                                 query[key] as Dict,
                                 "query",
@@ -206,7 +227,7 @@ export function getAccessedStores<
                         );
                         break;
                     case "boolean":
-                        stores.push(model.getRelation(key)!.to as ModelNames);
+                        stores.add(model.getRelation(key)!.to as ModelNames);
                         break;
                     default:
                         break;

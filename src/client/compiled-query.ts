@@ -27,8 +27,8 @@ export class CompiledQuery<
         private readonly name: Stores,
         input: Input
     ) {
-        this.accessedStores = removeDuplicates(
-            getAccessedStores(name, input, "query", this.client)
+        this.accessedStores = Array.from(
+            getAccessedStores(name, input.select ?? {}, "query", this.client)
         );
         this.whereClause = input.where
             ? generateWhereClause(input.where)
@@ -54,7 +54,7 @@ export class CompiledQuery<
             this.accessedStores
         );
         const result: Output[] = [];
-        const initStore = tx.objectStores[this.name];
+        const initStore = tx.getStore(this.name);
         const request = initStore.openCursor();
 
         await new Promise<void>((res) => {

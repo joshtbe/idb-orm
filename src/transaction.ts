@@ -1,16 +1,17 @@
 import type { Arrayable } from "type-fest";
-import { StoreError, type ErrorType } from "./error.js";
+import { StoreError, type ErrorType } from "./error";
 
 export type TransactionStatus = "running" | "aborted" | "complete" | "error";
 export type TransactionEventHandler = (
     tx: Transaction<IDBTransactionMode>,
     ev: Event
 ) => void;
-export type TransactionOptions = Partial<{
-    onAbort: TransactionEventHandler;
-    onError: TransactionEventHandler;
-    onComplete: TransactionEventHandler;
-}>;
+export interface TransactionOptions
+    extends Partial<{
+        onAbort: TransactionEventHandler;
+        onError: TransactionEventHandler;
+        onComplete: TransactionEventHandler;
+    }> {}
 
 export class Transaction<
     Mode extends IDBTransactionMode,
@@ -24,7 +25,7 @@ export class Transaction<
     /**
      * A record of store names to `IDBObjectStore` objects
      */
-    public readonly objectStores: Record<Stores, IDBObjectStore>;
+    private readonly objectStores: Record<Stores, IDBObjectStore>;
 
     constructor(
         db: IDBDatabase,
@@ -70,6 +71,16 @@ export class Transaction<
      */
     getInternal() {
         return this.internal;
+    }
+
+    getStore(store: Stores): IDBObjectStore {
+        const s = this.objectStores[store];
+        if (!s)
+            throw this.abort(
+                "INVALID_TX",
+                `Store '${store}' is not a part of this transaction`
+            );
+        return s;
     }
 
     get mode() {

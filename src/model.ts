@@ -1,4 +1,5 @@
-import { CompiledDb } from "./builder.js";
+import z from "zod";
+import { CollectionObject, CompiledDb } from "./builder.js";
 import { StoreError } from "./error";
 import {
     BaseRelation,
@@ -10,9 +11,11 @@ import {
     type RelationOutput,
     type ValidValue,
 } from "./field";
-import type { Dict, Key, ValidKey, ZodWrap } from "./types";
+import type { Dict, Keyof, ValidKey, ZodWrap } from "./types/common.js";
+import { getKeys, unionSets } from "./utils.js";
+import { DbClient } from "./client/index.js";
 
-export type FindPrimaryKey<F extends Record<string, ValidValue>> = Extract<
+type FindPrimaryKey<F extends Record<string, ValidValue>> = Extract<
     {
         [K in keyof F]: F[K] extends PrimaryKey<any, any> ? K : never;
     }[keyof F],
@@ -31,15 +34,32 @@ export type PrimaryKeyType<M extends Model<any, any, any>> = M extends Model<
       }[keyof F]
     : never;
 
+interface ModelCache {
+    delete?: Set<string>;
+}
+
 export class Model<
     Name extends string,
     F extends Record<string, ValidValue>,
     Primary extends FindPrimaryKey<F> = FindPrimaryKey<F>
 > {
-    private readonly fieldKeys: readonly Key<F>[];
+    private readonly fieldKeys: readonly Keyof<F>[];
+    private readonly relationLinks = new Set<string>();
+    private cache: ModelCache = {};
     public readonly primaryKey: Primary;
     constructor(public readonly name: Name, private readonly fields: F) {
-        this.fieldKeys = Object.keys(fields) as Key<F>[];
+        this.fieldKeys = getKeys(fields);
+
+        // Generate a set of all models this one is linked to
+        for (const key of this.fieldKeys) {
+            const item = this.fields[key];
+            if (item instanceof BaseRelation) {
+                if (item.to !== this.name) {
+                    this.relationLinks.add(item.to);
+                }
+            }
+        }
+
         const primaryKey = this.fieldKeys.find(
             (k) => this.fields[k] instanceof PrimaryKey
         );
@@ -51,7 +71,7 @@ export class Model<
         this.primaryKey = primaryKey as Primary;
     }
 
-    getField<K extends Key<F>>(key: K): F[K] {
+    get<K extends Keyof<F>>(key: K): F[K] {
         return this.fields[key];
     }
 
@@ -73,7 +93,7 @@ export class Model<
         return item as BaseRelation<Models, string>;
     }
 
-    keyType(key: Key<F>): "Relation" | "Primary" | "Field" | "None" {
+    keyType(key: Keyof<F>): "Relation" | "Primary" | "Field" | "None" {
         const f = this.fields[key];
         if (!f) return "None";
         else if (f instanceof Field) return "Field";
@@ -81,15 +101,54 @@ export class Model<
         else return "Primary";
     }
 
+    links<Names extends string = string>() {
+        // Shallow-copy the set so it can't be modified accidentally
+        return this.relationLinks.keys() as SetIterator<Names>;
+    }
+
     keys() {
         return [...this.fieldKeys];
     }
 
-    parseField<K extends Key<F>>(field: K, value: unknown) {
+    parseField<K extends Keyof<F>>(
+        field: K,
+        value: unknown
+    ): z.ZodSafeParseResult<any> {
         if (this.fields[field] instanceof Field) {
             return this.fields[field].parse(value);
         }
         return null as never;
+    }
+
+    getDeletedStores<
+        ModelNames extends string,
+        Models extends CollectionObject<ModelNames>
+    >(client: DbClient<string, ModelNames, Models>): Set<ModelNames> {
+        if (this.cache.delete) return this.cache.delete as Set<ModelNames>;
+
+        const visited = new Set<ModelNames>();
+        const queue: ModelNames[] = [this.name as unknown as ModelNames];
+        let curModel: Models[ModelNames];
+        while (queue.length > 0) {
+            const item = queue.shift()!;
+            if (visited.has(item)) continue;
+            curModel = client.getModel(item);
+            const cache = curModel.cache.delete;
+            if (cache) {
+                unionSets(visited, cache);
+            } else {
+                visited.add(item);
+                // Add to the queue
+                for (const link of curModel.links<ModelNames>()) {
+                    if (!visited.has(link)) {
+                        queue.push(link);
+                    }
+                }
+            }
+        }
+
+        this.cache.delete = visited;
+        return visited;
     }
 }
 
@@ -138,17 +197,17 @@ export type AllRelationKeys<M extends Model<any, any, any>> = M extends Model<
     any
 >
     ? {
-          [K in Key<Fields>]: Fields[K] extends BaseRelation<any, any>
+          [K in Keyof<Fields>]: Fields[K] extends BaseRelation<any, any>
               ? K
               : never;
-      }[Key<Fields>]
+      }[Keyof<Fields>]
     : never;
 
 export type RelationlessModelStructure<M extends Model<any, any, any>> =
     M extends Model<any, infer Fields, any>
         ? Omit<
               {
-                  [K in Key<Fields>]: Fields[K] extends BaseRelation<any, any>
+                  [K in Keyof<Fields>]: Fields[K] extends BaseRelation<any, any>
                       ? unknown
                       : Fields[K] extends Field<infer Type, any>
                       ? Type
@@ -177,7 +236,7 @@ export type FindRelationKey<
     M extends Model<any, any, any>
 > = M extends Model<any, infer Fields, any>
     ? {
-          [K in Key<Fields>]: Fields[K] extends BaseRelation<
+          [K in Keyof<Fields>]: Fields[K] extends BaseRelation<
               From,
               infer CurName
           >
@@ -185,5 +244,5 @@ export type FindRelationKey<
                   ? K
                   : never
               : never;
-      }[Key<Fields>]
+      }[Keyof<Fields>]
     : never;

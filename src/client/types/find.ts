@@ -1,10 +1,4 @@
-import type {
-    Dict,
-    DoesExtend,
-    If,
-    Key,
-    RemoveNeverValues,
-} from "../../types.ts";
+import type { Dict, If, Keyof, RemoveNeverValues } from "../../types/common.js";
 import type {
     ExtractFields,
     Model,
@@ -44,7 +38,7 @@ export type SelectObject<
         : Fields[K] extends BaseRelation<infer To, any>
         ?
               | true
-              | (To extends Key<C>
+              | (To extends Keyof<C>
                     ? C[To] extends Model<any, infer Sub, any>
                         ? SelectObject<All, Sub, C>
                         : never
@@ -52,17 +46,23 @@ export type SelectObject<
         : never;
 };
 
+export interface QueryInput<
+    All extends string,
+    Fields extends Dict<ValidValue>,
+    C extends CollectionObject<All>
+> {
+    where?: WhereObject<Fields>;
+    select?: SelectObject<All, Fields, C>;
+    omit?: SelectObject<All, Fields, C>;
+}
+
 // TODO: Add support for "omit"
 export type FindInput<
     All extends string,
     Struct extends object,
     C extends CollectionObject<All>
 > = Struct extends Model<any, infer Fields, any>
-    ? Partial<{
-          where: WhereObject<Fields>;
-          select: SelectObject<All, Fields, C>;
-          omit: SelectObject<All, Fields, C>;
-      }>
+    ? QueryInput<All, Fields, C>
     : never;
 
 type _FindOutput<
@@ -72,11 +72,11 @@ type _FindOutput<
     C extends CollectionObject<All>
 > =
     | {
-          [K in Key<Select>]: Fields[K] extends BaseRelation<infer To, any>
-              ? To extends Key<C>
+          [K in Keyof<Select>]: Fields[K] extends BaseRelation<infer To, any>
+              ? To extends Keyof<C>
                   ? C[To] extends Model<any, infer Sub, any>
                       ? If<
-                            DoesExtend<Select[K], true>,
+                            Select[K] extends true ? true : false,
                             RelationOutputStructure<
                                 Fields[K],
                                 RelationlessModelStructure<C[To]>
