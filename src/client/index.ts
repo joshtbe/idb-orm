@@ -364,29 +364,180 @@ export class DbClient<
         )) as PrimaryKeyType<Models[N]>;
     }
 
-    private async clear(
-        name: ModelNames,
-        _state?: { tx?: Transaction<"readwrite", ModelNames> }
-    ) {
-        // TODO: Handle delete relations
-        const tx = _state?.tx ?? this.createTransaction("readwrite", [name]);
-        await handleRequest(tx.getStore(name).clear());
+    private async clear(name: ModelNames, _state?: MutationState<ModelNames>) {
+        await this.delete(name, undefined, false, _state);
     }
 
-    // TODO: Complete delete actions
     private async deleteSingleton<N extends ModelNames>(
         name: N,
-        key: PrimaryKeyType<Models[N]>
+        key: PrimaryKeyType<Models[N]>,
+        _state: MutationState<ModelNames> = {}
     ): Promise<boolean> {
+        const model = this.getModel(name);
+        const accessed = _state.tx
+            ? _state.tx.storeNames
+            : Array.from(model.getDeletedStores(this));
+        const tx: Transaction<"readwrite", ModelNames> =
+            _state.tx ?? new Transaction(this.db, accessed, "readwrite");
+
+        const store = tx.getStore(name);
+        const item = await handleRequest(store.get(key));
+        if (!item) return false;
+
+        const primaryKeyValue = item[model.primaryKey];
+
+        for (const relationKey of model.links<ModelNames>()) {
+            const relation = model.getRelation<ModelNames>(relationKey)!;
+            const { onDelete } = relation.getActions();
+            const fieldItem = item[relationKey];
+            const relatedModel = this.getModel(relation.to);
+
+            switch (onDelete) {
+                // Cascade the delete to the other item
+                case "Cascade": {
+                    if (relation.isArray) {
+                        tx.assertIsArray(fieldItem);
+                        for (const id of fieldItem) {
+                            await this.deleteSingleton(relation.to, id, { tx });
+                        }
+                    }
+                    // If it's optional & valid or singular
+                    else if (fieldItem) {
+                        await this.deleteSingleton(relation.to, fieldItem, {
+                            tx,
+                        });
+                    }
+                    break;
+                }
+
+                // Set the corresponding relation to null (only works if it's optional or array)
+                case "SetNull": {
+                    // If it's an optional relation that's null, do nothing
+                    if (!fieldItem) break;
+
+                    const deletedItems: ValidKey[] = toArray(fieldItem);
+                    const relatedStore = tx.getStore(relation.to);
+                    const relatedKey = relation.getRelatedKey();
+                    const relatedRelation =
+                        relatedModel.getRelation(relatedKey);
+                    if (!relatedRelation)
+                        throw tx.abort(
+                            "INVALID_CONFIG",
+                            `Relation '${
+                                relation.name
+                            }' has an invalid relation key '${relation.getRelatedKey()}'`
+                        );
+                    else if (
+                        !relatedRelation.isArray &&
+                        !relatedRelation.isOptional
+                    ) {
+                        throw tx.abort(
+                            "INVALID_CONFIG",
+                            `Key '${relatedKey}' on model '${relatedKey}': Non-optional relation cannot have the 'SetNull' action`
+                        );
+                    }
+
+                    // Update corresponding relation
+                    for (const id of deletedItems) {
+                        const relatedItem = await handleRequest(
+                            relatedStore.get(id)
+                        );
+
+                        // Ignore if it doesn't exist
+                        if (!relatedItem) continue;
+
+                        const relatedField: string = relatedItem[relatedKey];
+
+                        // Search for the item's primaryKey
+                        if (relatedRelation.isArray) {
+                            tx.assertIsArray(relatedField);
+                            const index = relatedField.indexOf(primaryKeyValue);
+                            if (index === -1) continue;
+                            relatedField.splice(index, 1);
+                        } else {
+                            relatedItem[relatedKey] = null;
+                        }
+                        await handleRequest(relatedStore.put(relatedItem));
+                    }
+                    break;
+                }
+
+                // This item cannot be deleted IF the relation is valid
+                case "Restrict": {
+                    if (
+                        (Array.isArray(fieldItem) && fieldItem.length > 0) ||
+                        fieldItem
+                    ) {
+                        throw tx.abort(
+                            "DELETE_FAILED",
+                            `Key '${relationKey}' on model '${name}' deletion is restricted while their is an active relation`
+                        );
+                    }
+                    break;
+                }
+
+                // Do nothing on the corresponding relation
+                case "None":
+                default:
+                    break;
+            }
+        }
+
+        await handleRequest(store.delete(primaryKeyValue));
         return true;
     }
 
     private async delete<N extends ModelNames>(
         name: N,
         where?: WhereObject<ExtractFields<Models[N]>>,
-        stopOnFirst: boolean = false
+        stopOnFirst: boolean = false,
+        _state: MutationState<ModelNames> = {}
     ): Promise<number> {
-        return 0;
+        const model = this.getModel(name);
+        const accessed = _state.tx
+            ? _state.tx.storeNames
+            : Array.from(model.getDeletedStores(this));
+        const tx: Transaction<"readwrite", ModelNames> =
+            _state.tx ?? new Transaction(this.db, accessed, "readwrite");
+        const store = tx.getStore(name);
+
+        const whereClause = generateWhereClause(where);
+        const request = store.openCursor();
+
+        let result: number = 0;
+
+        await new Promise<void>((res) => {
+            request.onsuccess = async (event) => {
+                const cursor = (event.target as any)
+                    .result as IDBCursorWithValue;
+                if (cursor) {
+                    const value = cursor.value;
+                    if (!where || whereClause(value)) {
+                        if (
+                            await this.deleteSingleton(
+                                name,
+                                value[model.primaryKey],
+                                { tx }
+                            )
+                        ) {
+                            result++;
+                        }
+                    }
+
+                    // Stop early and return if it's just finding the first one
+                    if (stopOnFirst && result > 0) {
+                        res();
+                        return;
+                    }
+                    cursor.continue();
+                } else res();
+            };
+            request.onerror = () => {
+                throw tx.abort("UNKNOWN", "An unknown error occurred");
+            };
+        });
+
+        return result;
     }
 
     private async find<

@@ -15,7 +15,8 @@ import type { Transaction } from "../transaction.js";
 import type { Arrayable } from "type-fest";
 
 // TODO: Add support for where clause on nested relation properties
-export function generateWhereClause(where: Dict = {}) {
+export function generateWhereClause(where?: Dict) {
+    if (!where) return () => true;
     const checkFns: { key: string; fn: (value: unknown) => boolean }[] = [];
     for (const whereKey of getKeys(where)) {
         switch (typeof where[whereKey]) {

@@ -16,6 +16,7 @@ export type ErrorType =
     | "NO_DB"
     | "CUSTOM"
     | "INVALID_CONFIG"
+    | "ASSERTION_FAILED"
     | "UNKNOWN";
 
 export class StoreError extends Error {
