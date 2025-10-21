@@ -1,4 +1,5 @@
 import type { CollectionObject } from "../builder.ts";
+import { UnknownError } from "../error.js";
 import { removeDuplicates } from "../utils.js";
 import {
     generateSelectClause,
@@ -76,7 +77,7 @@ export class CompiledQuery<
                 } else res();
             };
             request.onerror = () => {
-                throw tx.abort("UNKNOWN", "An unknown error occurred");
+                throw tx.abort(new UnknownError());
             };
         });
 

@@ -1,5 +1,12 @@
 import type { Arrayable } from "type-fest";
-import { StoreError, type ErrorType } from "./error";
+import {
+    AssertionError,
+    InvalidTransactionError,
+    ObjectStoreNotFoundError,
+    StoreError,
+    UnknownError,
+    type ErrorType,
+} from "./error";
 
 export type TransactionStatus = "running" | "aborted" | "complete" | "error";
 export type TransactionEventHandler = (
@@ -53,9 +60,9 @@ export class Transaction<
         );
     }
 
-    abort(code: ErrorType, message: string) {
-        this.error = new StoreError(code, message);
+    abort(error: StoreError) {
         this.internal.abort();
+        this.error = error;
         return this.error;
     }
 
@@ -77,8 +84,9 @@ export class Transaction<
         const s = this.objectStores[store];
         if (!s)
             throw this.abort(
-                "INVALID_TX",
-                `Store '${store}' is not a part of this transaction`
+                new InvalidTransactionError(
+                    `Store '${store}' is not a part of this transaction`
+                )
             );
         return s;
     }
@@ -108,7 +116,7 @@ export class Transaction<
         message: string = "Value is not an array"
     ): asserts value is any[] {
         if (!Array.isArray(value)) {
-            throw this.abort("ASSERTION_FAILED", message);
+            throw this.abort(new AssertionError(message));
         }
     }
 
@@ -117,8 +125,9 @@ export class Transaction<
             return this.internal.objectStore(store);
         } catch {
             throw this.abort(
-                "NOT_FOUND",
-                `No ObjectStore with the name '${store}' found`
+                new ObjectStoreNotFoundError(
+                    `No ObjectStore with the name '${store}' found`
+                )
             );
         }
     }
@@ -140,10 +149,7 @@ export class Transaction<
             if (error instanceof StoreError && this.status === "aborted") {
                 throw error;
             } else {
-                throw this.abort(
-                    "UNKNOWN",
-                    `An unknown issue occurred: ${JSON.stringify(error)}`
-                );
+                throw this.abort(new UnknownError());
             }
         }
     }

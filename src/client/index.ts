@@ -22,6 +22,14 @@ import {
 } from "./helpers.js";
 import { CompiledQuery } from "./compiled-query.js";
 import { Mutation } from "./types/mutation.js";
+import {
+    DeleteError,
+    DocumentNotFoundError,
+    InvalidConfigError,
+    InvalidItemError,
+    UnknownError,
+    UpdateError,
+} from "../error.js";
 
 export class DbClient<
     Name extends string,
@@ -156,19 +164,20 @@ export class DbClient<
             switch (model.keyType(key)) {
                 case "None":
                     throw tx.abort(
-                        "INVALID_ITEM",
-                        `Key '${key}' does ont exist on model '${name}'`
+                        new InvalidItemError(
+                            `Key '${key}' does ont exist on model '${name}'`
+                        )
                     );
                 case "Field": {
                     const parseResult = model.parseField(key, element);
-                    if (!parseResult)
-                        throw tx.abort("UNKNOWN", "An unknown error occurred");
+                    if (!parseResult) throw tx.abort(new UnknownError());
                     if (!parseResult.success) {
                         throw tx.abort(
-                            "INVALID_ITEM",
-                            `Key '${key}' has the following validation error: ${z.prettifyError(
-                                parseResult.error
-                            )}`
+                            new InvalidItemError(
+                                `Key '${key}' has the following validation error: ${z.prettifyError(
+                                    parseResult.error
+                                )}`
+                            )
                         );
                     }
                     toAdd[key] = parseResult.data;
@@ -217,8 +226,9 @@ export class DbClient<
                         const firstKey = getKeys(item)[0];
                         if (!firstKey)
                             throw tx.abort(
-                                "INVALID_ITEM",
-                                `Key '${key}' cannot be an empty connection object`
+                                new InvalidItemError(
+                                    `Key '${key}' cannot be an empty connection object`
+                                )
                             );
 
                         switch (firstKey) {
@@ -231,8 +241,9 @@ export class DbClient<
                                 // Disallow duplicate connections
                                 if (usedKeys.has(connectId)) {
                                     throw tx.abort(
-                                        "INVALID_ITEM",
-                                        `Primary key '${connectId}' was already used for a connection`
+                                        new InvalidItemError(
+                                            `Primary key '${connectId}' was already used for a connection`
+                                        )
                                     );
                                 }
                                 usedKeys.add(connectId);
@@ -242,14 +253,16 @@ export class DbClient<
                                 );
                                 if (!current)
                                     throw tx.abort(
-                                        "NOT_FOUND",
-                                        `Document with Primary Key '${connectId}' could not be found in model '${relation.to}'`
+                                        new DocumentNotFoundError(
+                                            `Document with Primary Key '${connectId}' could not be found in model '${relation.to}'`
+                                        )
                                     );
 
                                 if (!otherRelation)
                                     throw tx.abort(
-                                        "INVALID_ITEM",
-                                        `Could not find corresponding relation '${relation.name}'`
+                                        new InvalidItemError(
+                                            `Could not find corresponding relation '${relation.name}'`
+                                        )
                                     );
                                 if (otherRelation.isArray) {
                                     current[relation.getRelatedKey()].push(id);
@@ -296,8 +309,9 @@ export class DbClient<
                                 break;
                             default:
                                 throw tx.abort(
-                                    "INVALID_ITEM",
-                                    `Connection Object on key '${key}' has an unknown key '${firstKey}'`
+                                    new InvalidItemError(
+                                        `Connection Object on key '${key}' has an unknown key '${firstKey}'`
+                                    )
                                 );
                         }
                         // If it's not a relation array stop after the first key
@@ -320,12 +334,12 @@ export class DbClient<
                         unusedField,
                         undefined
                     );
-                    if (!parseResult)
-                        throw tx.abort("UNKNOWN", "An unknown error occurred");
+                    if (!parseResult) throw tx.abort(new UnknownError());
                     if (!parseResult.success)
                         throw tx.abort(
-                            "INVALID_ITEM",
-                            `Key '${unusedField}' is missing`
+                            new InvalidItemError(
+                                `Key '${unusedField}' is missing`
+                            )
                         );
                     toAdd[unusedField] = parseResult.data;
                     break;
@@ -339,8 +353,9 @@ export class DbClient<
                         toAdd[unusedField] = established ?? null;
                     } else if (!established)
                         throw tx.abort(
-                            "INVALID_ITEM",
-                            `Required relation '${unusedField}' is not defined`
+                            new InvalidItemError(
+                                `Required relation '${unusedField}' is not defined`
+                            )
                         );
                     else {
                         toAdd[unusedField] = established;
@@ -422,18 +437,21 @@ export class DbClient<
                         relatedModel.getRelation(relatedKey);
                     if (!relatedRelation)
                         throw tx.abort(
-                            "INVALID_CONFIG",
-                            `Relation '${
-                                relation.name
-                            }' has an invalid relation key '${relation.getRelatedKey()}'`
+                            new InvalidConfigError(
+                                `Relation '${
+                                    relation.name
+                                }' has an invalid relation key '${relation.getRelatedKey()}'`
+                            )
                         );
                     else if (
                         !relatedRelation.isArray &&
                         !relatedRelation.isOptional
                     ) {
+                        // TODO: Perform this check on collection compilation
                         throw tx.abort(
-                            "INVALID_CONFIG",
-                            `Key '${relatedKey}' on model '${relatedKey}': Non-optional relation cannot have the 'SetNull' action`
+                            new InvalidConfigError(
+                                `Key '${relatedKey}' on model '${relatedKey}': Non-optional relation cannot have the 'SetNull' action`
+                            )
                         );
                     }
 
@@ -469,8 +487,9 @@ export class DbClient<
                         fieldItem
                     ) {
                         throw tx.abort(
-                            "DELETE_FAILED",
-                            `Key '${relationKey}' on model '${name}' deletion is restricted while their is an active relation`
+                            new DeleteError(
+                                `Key '${relationKey}' on model '${name}' deletion is restricted while there is an active relation`
+                            )
                         );
                     }
                     break;
@@ -533,7 +552,7 @@ export class DbClient<
                 } else res();
             };
             request.onerror = () => {
-                throw tx.abort("UNKNOWN", "An unknown error occurred");
+                throw tx.abort(new DeleteError());
             };
         });
 
@@ -592,7 +611,7 @@ export class DbClient<
                 } else res();
             };
             request.onerror = () => {
-                throw tx.abort("UNKNOWN", "An unknown error occurred");
+                throw tx.abort(new UnknownError());
             };
         });
 
@@ -638,13 +657,11 @@ export class DbClient<
                     break;
                 case "Primary":
                     throw tx.abort(
-                        "INVALID_ITEM",
-                        "Primary key field cannot be updated"
+                        new UpdateError("Primary key field cannot be updated")
                     );
                 default:
                     throw tx.abort(
-                        "INVALID_ITEM",
-                        `Unknown key '${key as string}'`
+                        new UnknownError(`Unknown key '${key as string}'`)
                     );
             }
         }
@@ -714,10 +731,11 @@ export class DbClient<
                                 case "$disconnectMany":
                                 default:
                                     throw tx.abort(
-                                        "INVALID_ITEM",
-                                        `Connection Object on key '${
-                                            key as string
-                                        }' has an unknown key '${firstKey}'`
+                                        new InvalidItemError(
+                                            `Connection Object on key '${
+                                                key as string
+                                            }' has an unknown key '${firstKey}'`
+                                        )
                                     );
                             }
 
@@ -733,7 +751,7 @@ export class DbClient<
                 cursor.continue();
             };
             request.onerror = () => {
-                throw tx.abort("UNKNOWN", "An unknown error occurred");
+                throw tx.abort(new UnknownError());
             };
         });
 
@@ -762,8 +780,9 @@ export class DbClient<
         >(initStore.get(key as IDBValidKey));
         if (!currentItem) {
             throw tx.abort(
-                "NOT_FOUND",
-                `No item with key '${key}' could be found on model '${model.name}'`
+                new DocumentNotFoundError(
+                    `No document with key '${key}' could be found in store '${model.name}'`
+                )
             );
         }
 

@@ -26,16 +26,6 @@ export class Builder<Name extends string, Names extends string> {
     }
 
     // TODO: Implement union models
-    // defineUnionModel<
-    //     N extends Names,
-    //     T extends readonly [
-    //         Dict<ValidValue<Names>>,
-    //         ...Dict<ValidValue<Names>>[]
-    //     ],
-    //     Discriminator extends Keyof<T[number]>
-    // >(name: N, key: Discriminator, values: T) {
-
-    // }
 
     compile<M extends CollectionObject<Names>>(models: M) {
         return new CompiledDb<Name, Names, M>(this.name, models);

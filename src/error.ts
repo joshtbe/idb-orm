@@ -1,3 +1,5 @@
+import { Transaction } from "./transaction.js";
+
 export type ErrorType =
     | "ID_EXISTS"
     | "INVALID_ITEM"
@@ -28,3 +30,64 @@ export class StoreError extends Error {
         this.message = message;
     }
 }
+
+function storeErrorFactory<T extends ErrorType>(
+    code: T,
+    defaultMessage: string
+) {
+    return class extends StoreError {
+        public static readonly code: T;
+        constructor(message: string = defaultMessage) {
+            super(code, message);
+        }
+
+        static of(message: string) {
+            new this(message);
+        }
+    };
+}
+
+export const InvalidConfigError = storeErrorFactory(
+    "INVALID_CONFIG",
+    "Configuration is invalid"
+);
+
+export const InvalidTransactionError = storeErrorFactory(
+    "INVALID_TX",
+    "Transaction is invalid"
+);
+
+export const InvalidItemError = storeErrorFactory(
+    "INVALID_ITEM",
+    "Item is invalid"
+);
+
+export const AssertionError = storeErrorFactory(
+    "ASSERTION_FAILED",
+    "Assertion failed"
+);
+
+export const UnknownError = storeErrorFactory(
+    "UNKNOWN",
+    "An unknown error occurred"
+);
+
+export const DeleteError = storeErrorFactory(
+    "DELETE_FAILED",
+    "Item could not be deleted"
+);
+
+export const ObjectStoreNotFoundError = storeErrorFactory(
+    "NOT_FOUND",
+    "Object Store Not Found"
+);
+
+export const DocumentNotFoundError = storeErrorFactory(
+    "NOT_FOUND",
+    "Document Not Found"
+);
+
+export const UpdateError = storeErrorFactory(
+    "UPDATE_FAILED",
+    "Item could not be updated"
+);
