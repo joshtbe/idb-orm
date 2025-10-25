@@ -1,8 +1,12 @@
 import type { Arrayable } from "type-fest";
 import type { CollectionObject, CompiledDb } from "../builder";
 import type { Dict, Keyof, ValidKey } from "../types/common";
-import type { ExtractFields, ModelType, PrimaryKeyType } from "../model";
-import { getKeys, handleRequest, removeDuplicates, toArray } from "../utils";
+import type {
+    ExtractFields,
+    ModelType,
+    PrimaryKeyType,
+} from "../model/model-types.ts";
+import { getKeys, handleRequest, toArray } from "../utils";
 import { Transaction, type TransactionOptions } from "../transaction";
 import z from "zod";
 import type {
@@ -16,12 +20,13 @@ import type {
 } from "./types/index.ts";
 import type { FindInput, FindOutput, WhereObject } from "./types/find.ts";
 import {
-    generateSelectClause,
+    generateSelector,
     generateWhereClause,
     getAccessedStores,
+    getSearchableQuery,
 } from "./helpers.js";
 import { CompiledQuery } from "./compiled-query.js";
-import { Mutation } from "./types/mutation.js";
+import { Mutation, MutationActions } from "./types/mutation.js";
 import {
     DeleteError,
     DocumentNotFoundError,
@@ -30,6 +35,7 @@ import {
     UnknownError,
     UpdateError,
 } from "../error.js";
+import { FieldTypes } from "../field/field-types.js";
 
 export class DbClient<
     Name extends string,
@@ -104,7 +110,14 @@ export class DbClient<
             find: async (query, tx) =>
                 await this.find(modelName, query, false, { tx }),
             put: async () => {},
-            insert: async (mutation, tx) => 5 as any,
+            get: async (key) => {
+                const tx = this.createTransaction("readonly", modelName);
+                return await tx.getStore(modelName).get(key);
+            },
+            insert: async (_mutation, _tx) => {
+                await new Promise<void>((res) => res());
+                return 5 as PrimaryKeyType<Models[N]>;
+            },
             updateFirst: async (mutation, tx) =>
                 (await this.update(modelName, mutation, true, { tx }))[0],
             updateMany: async (mutation, tx) =>
@@ -144,7 +157,7 @@ export class DbClient<
                       : relation.id,
               }
             : {};
-        const initAdd: object = primaryKey.isAutoIncremented()
+        const initAdd: Dict = primaryKey.isAutoIncremented()
             ? {
                   ...relationAdd,
               }
@@ -153,7 +166,7 @@ export class DbClient<
                   [model.primaryKey]:
                       item[model.primaryKey as keyof T] ?? primaryKey.genKey(),
               };
-        const id = (await handleRequest(objectStore.add(initAdd))) as ValidKey;
+        const id = await objectStore.add(initAdd);
         const toAdd: Dict = {};
         const visited = new Set<string>();
         for (const key of getKeys(item) as string[]) {
@@ -162,13 +175,13 @@ export class DbClient<
                 key as Keyof<AddMutation<N, ModelNames, Models[N], Models>>
             ] as Dict;
             switch (model.keyType(key)) {
-                case "None":
+                case FieldTypes.Invalid:
                     throw tx.abort(
                         new InvalidItemError(
                             `Key '${key}' does ont exist on model '${name}'`
                         )
                     );
-                case "Field": {
+                case FieldTypes.Field: {
                     const parseResult = model.parseField(key, element);
                     if (!parseResult) throw tx.abort(new UnknownError());
                     if (!parseResult.success) {
@@ -183,7 +196,7 @@ export class DbClient<
                     toAdd[key] = parseResult.data;
                     break;
                 }
-                case "Relation": {
+                case FieldTypes.Relation: {
                     // Skip over it if the key is not defined
                     if (!element) continue;
                     const value = toArray<Dict>(element);
@@ -248,9 +261,9 @@ export class DbClient<
                                 }
                                 usedKeys.add(connectId);
 
-                                const current = await handleRequest(
-                                    otherStore.get(connectId)
-                                );
+                                const current = (await otherStore.get(
+                                    connectId
+                                )) as Dict<Arrayable<unknown>>;
                                 if (!current)
                                     throw tx.abort(
                                         new DocumentNotFoundError(
@@ -265,7 +278,11 @@ export class DbClient<
                                         )
                                     );
                                 if (otherRelation.isArray) {
-                                    current[relation.getRelatedKey()].push(id);
+                                    (
+                                        current[
+                                            relation.getRelatedKey()
+                                        ] as unknown[]
+                                    ).push(id);
                                 } else {
                                     const relatedKey = relation.getRelatedKey();
                                     if (current[relatedKey]) {
@@ -273,7 +290,7 @@ export class DbClient<
                                     }
                                     current[relatedKey] = id;
                                 }
-                                await handleRequest(otherStore.put(current));
+                                await otherStore.put(current);
 
                                 if (relation.isArray) {
                                     (toAdd[key] as ValidKey[]).push(connectId);
@@ -286,7 +303,12 @@ export class DbClient<
                                 // Create the new item and have it reference this one
                                 const newId = await this.add(
                                     relation.to,
-                                    item[firstKey] as any,
+                                    item[firstKey] as AddMutation<
+                                        ModelNames,
+                                        ModelNames,
+                                        Models[ModelNames],
+                                        Models
+                                    >,
                                     {
                                         tx,
                                         relation: {
@@ -320,7 +342,7 @@ export class DbClient<
                     break;
                 }
                 // The primary key was already added
-                case "Primary":
+                case FieldTypes.PrimaryKey:
                 default:
                     break;
             }
@@ -329,7 +351,7 @@ export class DbClient<
         const unused = Array.from(new Set(model.keys()).difference(visited));
         for (const unusedField of unused) {
             switch (model.keyType(unusedField)) {
-                case "Field": {
+                case FieldTypes.Field: {
                     const parseResult = model.parseField(
                         unusedField,
                         undefined
@@ -344,7 +366,7 @@ export class DbClient<
                     toAdd[unusedField] = parseResult.data;
                     break;
                 }
-                case "Relation": {
+                case FieldTypes.Relation: {
                     const field = model.getRelation(unusedField)!;
                     const established = relationAdd[unusedField];
                     if (field.isArray) {
@@ -364,25 +386,30 @@ export class DbClient<
                     break;
                 }
                 // This should never happen
-                case "None":
-                case "Primary":
+                case FieldTypes.Invalid:
+                case FieldTypes.PrimaryKey:
                 default:
                     break;
             }
         }
 
-        return (await handleRequest(
-            objectStore.put({
-                [model.primaryKey]: id,
-                ...toAdd,
-            })
-        )) as PrimaryKeyType<Models[N]>;
+        return (await objectStore.put({
+            [model.primaryKey]: id,
+            ...toAdd,
+        })) as PrimaryKeyType<Models[N]>;
     }
 
     private async clear(name: ModelNames, _state?: MutationState<ModelNames>) {
         await this.delete(name, undefined, false, _state);
     }
 
+    /**
+     * Deletes a single document from a store given its Primary key value
+     * @param name Name of the store
+     * @param key Primary key value
+     * @param _state Optional state for multi-stage actions
+     * @returns Boolean indicating whether or not an item was removed
+     */
     private async deleteSingleton<N extends ModelNames>(
         name: N,
         key: PrimaryKeyType<Models[N]>,
@@ -396,10 +423,10 @@ export class DbClient<
             _state.tx ?? new Transaction(this.db, accessed, "readwrite");
 
         const store = tx.getStore(name);
-        const item = await handleRequest(store.get(key));
+        const item = await store.get(key);
         if (!item) return false;
 
-        const primaryKeyValue = item[model.primaryKey];
+        const primaryKeyValue = item[model.primaryKey] as ValidKey;
 
         for (const relationKey of model.links<ModelNames>()) {
             const relation = model.getRelation<ModelNames>(relationKey)!;
@@ -413,14 +440,22 @@ export class DbClient<
                     if (relation.isArray) {
                         tx.assertIsArray(fieldItem);
                         for (const id of fieldItem) {
-                            await this.deleteSingleton(relation.to, id, { tx });
+                            await this.deleteSingleton(
+                                relation.to,
+                                id as PrimaryKeyType<Models[N]>,
+                                { tx }
+                            );
                         }
                     }
                     // If it's optional & valid or singular
                     else if (fieldItem) {
-                        await this.deleteSingleton(relation.to, fieldItem, {
-                            tx,
-                        });
+                        await this.deleteSingleton(
+                            relation.to,
+                            fieldItem as PrimaryKeyType<Models[N]>,
+                            {
+                                tx,
+                            }
+                        );
                     }
                     break;
                 }
@@ -430,7 +465,7 @@ export class DbClient<
                     // If it's an optional relation that's null, do nothing
                     if (!fieldItem) break;
 
-                    const deletedItems: ValidKey[] = toArray(fieldItem);
+                    const deletedItems = toArray(fieldItem as ValidKey);
                     const relatedStore = tx.getStore(relation.to);
                     const relatedKey = relation.getRelatedKey();
                     const relatedRelation =
@@ -457,14 +492,12 @@ export class DbClient<
 
                     // Update corresponding relation
                     for (const id of deletedItems) {
-                        const relatedItem = await handleRequest(
-                            relatedStore.get(id)
-                        );
+                        const relatedItem = await relatedStore.get(id);
 
                         // Ignore if it doesn't exist
                         if (!relatedItem) continue;
 
-                        const relatedField: string = relatedItem[relatedKey];
+                        const relatedField = relatedItem[relatedKey] as string;
 
                         // Search for the item's primaryKey
                         if (relatedRelation.isArray) {
@@ -475,7 +508,7 @@ export class DbClient<
                         } else {
                             relatedItem[relatedKey] = null;
                         }
-                        await handleRequest(relatedStore.put(relatedItem));
+                        await relatedStore.put(relatedItem);
                     }
                     break;
                 }
@@ -501,11 +534,18 @@ export class DbClient<
                     break;
             }
         }
-
-        await handleRequest(store.delete(primaryKeyValue));
+        await store.delete(primaryKeyValue);
         return true;
     }
 
+    /**
+     * Deletes documents from the store that match the given filter.
+     * @param name Name of the store
+     * @param where Optional filter
+     * @param stopOnFirst Flag to stop after one successful deletion
+     * @param _state Optional state for multi-stage actions
+     * @returns The number of documents deleted
+     */
     private async delete<N extends ModelNames>(
         name: N,
         where?: WhereObject<ExtractFields<Models[N]>>,
@@ -521,44 +561,41 @@ export class DbClient<
         const store = tx.getStore(name);
 
         const whereClause = generateWhereClause(where);
-        const request = store.openCursor();
 
         let result: number = 0;
-
-        await new Promise<void>((res) => {
-            request.onsuccess = async (event) => {
-                const cursor = (event.target as any)
-                    .result as IDBCursorWithValue;
-                if (cursor) {
-                    const value = cursor.value;
-                    if (!where || whereClause(value)) {
-                        if (
-                            await this.deleteSingleton(
-                                name,
-                                value[model.primaryKey],
-                                { tx }
-                            )
-                        ) {
-                            result++;
+        await store.openCursor(async (cursor) => {
+            const value = cursor.value;
+            if (!where || whereClause(value)) {
+                if (
+                    await this.deleteSingleton(
+                        name,
+                        value[model.primaryKey] as PrimaryKeyType<Models[N]>,
+                        {
+                            tx,
                         }
-                    }
-
-                    // Stop early and return if it's just finding the first one
-                    if (stopOnFirst && result > 0) {
-                        res();
-                        return;
-                    }
-                    cursor.continue();
-                } else res();
-            };
-            request.onerror = () => {
-                throw tx.abort(new DeleteError());
-            };
+                    )
+                ) {
+                    result++;
+                }
+            }
+            if (stopOnFirst && result > 0) {
+                return false;
+            }
+            cursor.continue();
+            return true;
         });
 
         return result;
     }
 
+    /**
+     * Finds documents from the store that match the filter
+     * @param name Name of the store
+     * @param item Object containing the filter and the selection query
+     * @param stopOnFirst Flag to stop after one successful find
+     * @param _state Optional state for mutli-stage actions
+     * @returns Transformed selection item
+     */
     private async find<
         N extends ModelNames,
         Q extends FindInput<ModelNames, Models[N], Models> = FindInput<
@@ -576,43 +613,30 @@ export class DbClient<
         let { tx } = _state;
         const accessed = tx
             ? tx.storeNames
-            : this.getAccessedStores(name, item.select ?? {}, "query");
+            : this.getAccessedStores(name, getSearchableQuery(item), "query");
         tx = tx ?? new Transaction(this.db, accessed, "readonly");
         const result: O[] = [];
         const initStore = tx.getStore(name);
 
-        const { select, where } = item;
-        const whereClause = generateWhereClause(where);
-
-        const selectClause = generateSelectClause<ModelNames, Models, this>(
+        const selectClause = generateSelector<ModelNames, Models, this>(
             name,
             this,
-            select
+            item,
+            tx
         );
 
-        const request = initStore.openCursor();
+        await initStore.openCursor(async (cursor) => {
+            const selection = await selectClause(cursor.value as Dict, tx);
+            if (selection) {
+                result.push(selection as O);
+            }
 
-        await new Promise<void>((res) => {
-            request.onsuccess = async (event) => {
-                const cursor = (event.target as any)
-                    .result as IDBCursorWithValue;
-                if (cursor) {
-                    const value = cursor.value;
-                    if (!where || whereClause(value)) {
-                        result.push(await selectClause(value, tx));
-                    }
-
-                    // Stop early and return if it's just finding the first one
-                    if (stopOnFirst && result.length) {
-                        res();
-                        return;
-                    }
-                    cursor.continue();
-                } else res();
-            };
-            request.onerror = () => {
-                throw tx.abort(new UnknownError());
-            };
+            // Stop early and return if it's just finding the first one
+            if (stopOnFirst && result.length) {
+                return false;
+            }
+            cursor.continue();
+            return true;
         });
 
         return result;
@@ -625,7 +649,8 @@ export class DbClient<
         _state: MutationState<ModelNames> = {}
     ): Promise<PrimaryKeyType<Models[N]>[]> {
         // Setup
-        type T = (typeof item)["data"];
+        type U = typeof item;
+        type T = U["data"];
         let { tx } = _state;
         const accessed = tx
             ? tx.storeNames
@@ -639,14 +664,14 @@ export class DbClient<
         const keyObjs: KeyObject<keyof T>[] = [];
         for (const key of getKeys(data)) {
             switch (model.keyType(key as string)) {
-                case "Field":
+                case FieldTypes.Field:
                     keyObjs.push({
                         key: key,
                         isFun: typeof data[key] === "function",
                         isRelation: false,
                     });
                     break;
-                case "Relation":
+                case FieldTypes.Relation:
                     // TODO: unfurl key to reduce (connect|create|update|delete|disconnect)Many to just be the singleton in an array
                     keyObjs.push({
                         key: key,
@@ -655,10 +680,11 @@ export class DbClient<
                         relation: model.getRelation(key as string)!,
                     });
                     break;
-                case "Primary":
+                case FieldTypes.PrimaryKey:
                     throw tx.abort(
                         new UpdateError("Primary key field cannot be updated")
                     );
+                case FieldTypes.Invalid:
                 default:
                     throw tx.abort(
                         new UnknownError(`Unknown key '${key as string}'`)
@@ -667,92 +693,91 @@ export class DbClient<
         }
         const whereClause = generateWhereClause(where);
 
-        const request = initStore.openCursor();
-        await new Promise<void>((res) => {
-            request.onsuccess = async (event) => {
-                const cursor = (event.target as any)
-                    .result as IDBCursorWithValue;
+        await initStore.openCursor(async (cursor) => {
+            const value = cursor.value as T;
+            if (where && !whereClause(value)) return false;
 
-                if (!cursor) return res();
+            for (const { key, isRelation, isFun, relation } of keyObjs) {
+                // If it's just a normal field
+                if (!isRelation) {
+                    value[key] = isFun
+                        ? ((data[key] as (arg1: unknown) => unknown)(
+                              value[key]
+                          ) as any)
+                        : data[key];
+                    continue;
+                }
 
-                const value = cursor.value as T;
-                if (where && !whereClause(value)) return;
-
-                for (const { key, isRelation, isFun, relation } of keyObjs) {
-                    // If it's just a normal field
-                    if (!isRelation) {
-                        value[key] = isFun
-                            ? (data[key] as Function)(value[key])
-                            : data[key];
-                        continue;
-                    }
-
-                    const relationValue = toArray<Dict>(data[key] as Dict);
-                    for (const item of relationValue) {
-                        for (const firstKey in item) {
-                            if (!Object.hasOwn(item, key)) continue;
-                            const element = item[key] as any;
-                            switch (firstKey) {
-                                // TODO: If a relation is getting disconnected from this or $create, ensure it is an optional or array relation on the other model
-                                case "$connect": {
-                                    break;
-                                }
-                                case "$create": {
-                                    break;
-                                }
-                                case "$update": {
-                                    if (relation.isArray) {
-                                        await this.update(
-                                            relation.to,
-                                            element,
-                                            true,
-                                            { tx }
-                                        );
-                                    } else if (value[key]) {
-                                        await this.updateSingleton(
-                                            relation.to,
-                                            value[key],
-                                            element,
-                                            { tx }
-                                        );
-                                    }
-                                    break;
-                                }
-                                case "$updateMany":
-                                    break;
-                                case "$delete":
-                                    break;
-                                case "$disconnect":
-                                    break;
-                                // These keys were converted into their singleton versions
-                                case "$connectMany":
-                                case "$createMany":
-                                case "$deleteMany":
-                                case "$disconnectMany":
-                                default:
-                                    throw tx.abort(
-                                        new InvalidItemError(
-                                            `Connection Object on key '${
-                                                key as string
-                                            }' has an unknown key '${firstKey}'`
-                                        )
-                                    );
+                const relationValue = toArray<Dict>(data[key] as Dict);
+                for (const item of relationValue) {
+                    for (const firstKey in item) {
+                        if (!Object.hasOwn(item, key)) continue;
+                        const element = item[key] as any;
+                        switch (firstKey as MutationActions) {
+                            // TODO: If a relation is getting disconnected from this or $create, ensure it is an optional or array relation on the other model
+                            case "$connect": {
+                                break;
                             }
-
-                            break;
+                            case "$create": {
+                                break;
+                            }
+                            case "$update": {
+                                if (relation.isArray) {
+                                    await this.update(
+                                        relation.to,
+                                        element as U,
+                                        true,
+                                        { tx }
+                                    );
+                                } else if (value[key]) {
+                                    await this.updateSingleton(
+                                        relation.to,
+                                        value[key],
+                                        element as Mutation<
+                                            any,
+                                            ModelNames,
+                                            Models[any],
+                                            Models,
+                                            "update"
+                                        >,
+                                        { tx }
+                                    );
+                                }
+                                break;
+                            }
+                            case "$updateMany":
+                                break;
+                            case "$delete":
+                                break;
+                            case "$disconnect":
+                                break;
+                            // These keys were converted into their singleton versions
+                            case "$connectMany":
+                            case "$createMany":
+                            case "$deleteMany":
+                            case "$disconnectMany":
+                            case "$disconnectAll":
+                            case "$deleteAll":
+                                throw tx.abort(
+                                    new InvalidItemError(
+                                        `Connection Object on key '${
+                                            key as string
+                                        }' has an unknown key '${firstKey}'`
+                                    )
+                                );
                         }
+
+                        break;
                     }
                 }
+            }
 
-                // Stop early and return if it's just finding the first one
-                if (stopOnFirst && result.length) {
-                    return res();
-                }
-                cursor.continue();
-            };
-            request.onerror = () => {
-                throw tx.abort(new UnknownError());
-            };
+            // Stop early and return if it's just finding the first one
+            if (stopOnFirst && result.length) {
+                return false;
+            }
+            cursor.continue();
+            return true;
         });
 
         return result;
@@ -767,7 +792,6 @@ export class DbClient<
         item: Mutation<N, ModelNames, Models[N], Models, "update">,
         _state: MutationState<ModelNames>
     ): Promise<ModelType<Models[N], typeof this.models>> {
-        type T = typeof item;
         let { tx } = _state;
         const accessed = tx
             ? tx.storeNames
@@ -775,9 +799,7 @@ export class DbClient<
         tx = tx ?? new Transaction(this.db, accessed, "readwrite");
         const initStore = tx.getStore(name);
         const model = this.getModel(name);
-        const currentItem = await handleRequest<
-            ModelType<Models[N], typeof this.models>
-        >(initStore.get(key as IDBValidKey));
+        const currentItem = await initStore.get(key as ValidKey);
         if (!currentItem) {
             throw tx.abort(
                 new DocumentNotFoundError(
@@ -788,6 +810,6 @@ export class DbClient<
 
         // TODO: Loop over the fields and update any fields and/or relation values
 
-        return currentItem;
+        return currentItem as ModelType<Models[N], typeof this.models>;
     }
 }

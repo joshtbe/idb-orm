@@ -5,8 +5,8 @@ import {
     ObjectStoreNotFoundError,
     StoreError,
     UnknownError,
-    type ErrorType,
 } from "./error";
+import { ObjectStore } from "./object-store.js";
 
 export type TransactionStatus = "running" | "aborted" | "complete" | "error";
 export type TransactionEventHandler = (
@@ -20,6 +20,8 @@ export interface TransactionOptions
         onComplete: TransactionEventHandler;
     }> {}
 
+// TODO: Just throw error and have transaction abort be automatic
+
 export class Transaction<
     Mode extends IDBTransactionMode,
     Stores extends string = string
@@ -32,7 +34,7 @@ export class Transaction<
     /**
      * A record of store names to `IDBObjectStore` objects
      */
-    private readonly objectStores: Record<Stores, IDBObjectStore>;
+    private readonly objectStores: Record<Stores, ObjectStore>;
 
     constructor(
         db: IDBDatabase,
@@ -45,7 +47,7 @@ export class Transaction<
         this.storeNames = Array.from(
             this.internal.objectStoreNames
         ) as Stores[];
-        this.objectStores = {} as Record<Stores, IDBObjectStore>;
+        this.objectStores = {} as Record<Stores, ObjectStore>;
         for (const store of this.storeNames) {
             this.objectStores[store] = this.getObjectstore(store);
         }
@@ -80,7 +82,7 @@ export class Transaction<
         return this.internal;
     }
 
-    getStore(store: Stores): IDBObjectStore {
+    getStore(store: Stores): ObjectStore {
         const s = this.objectStores[store];
         if (!s)
             throw this.abort(
@@ -122,7 +124,7 @@ export class Transaction<
 
     private getObjectstore(store: string) {
         try {
-            return this.internal.objectStore(store);
+            return new ObjectStore(this, this.internal.objectStore(store));
         } catch {
             throw this.abort(
                 new ObjectStoreNotFoundError(

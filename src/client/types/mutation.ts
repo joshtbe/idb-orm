@@ -4,17 +4,16 @@ import type {
     RemoveNeverValues,
     PartialOnUndefined,
 } from "../../types/common.js";
-import type { FindRelationKey, Model, RelationValue } from "../../model.js";
 import type {
     BaseRelation,
     Field,
     OptionalRelation,
     PrimaryKey,
     RelationArray,
-} from "../../field.ts";
+} from "../../field";
 import type { CollectionObject } from "../../builder.ts";
 import { WhereObject } from "./find.js";
-import { Arrayable } from "type-fest";
+import { Model, FindRelationKey, RelationValue } from "../../model";
 
 export type MutationActions =
     | "$connect"

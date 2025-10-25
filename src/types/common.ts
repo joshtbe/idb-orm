@@ -34,6 +34,7 @@ export type RemoveNeverValues<T extends object> = {
 
 export type Dict<T = unknown> = Record<string, T>;
 
+
 // TODO: Expand on this?
 export type ConnectionObject<
     M extends boolean = false,
@@ -42,7 +43,7 @@ export type ConnectionObject<
 > = {
     $create: T;
     $connect: K;
-} & If<M, { $createMany: T[]; $connectMany: K[] }, {}>;
+} & If<M, { $createMany: T[]; $connectMany: K[] }, Dict>;
 
 export type ZodWrap<T extends Dict> = {
     [K in keyof T]: z.ZodType<T[K]>;
@@ -56,3 +57,8 @@ type Optional<T extends Dict> = Partial<Pick<T, UndefinedKeys<T>>>;
 type Required<T extends Dict> = Omit<T, UndefinedKeys<T>>;
 
 export type PartialOnUndefined<T extends Dict> = Required<T> & Optional<T>;
+
+/**
+ * Types that can be resolved to specific boolean values
+ */
+export type BooleanLike = boolean | undefined | null | 0;

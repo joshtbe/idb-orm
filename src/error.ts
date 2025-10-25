@@ -1,5 +1,3 @@
-import { Transaction } from "./transaction.js";
-
 export type ErrorType =
     | "ID_EXISTS"
     | "INVALID_ITEM"
@@ -8,6 +6,7 @@ export type ErrorType =
     | "DELETE_FAILED"
     | "OVERWRITE_RELATION"
     | "NOT_FOUND"
+    | "GET_FAILED"
     /**
      * The given transaction is invalid for the store it is trying to access
      */
@@ -19,6 +18,7 @@ export type ErrorType =
     | "CUSTOM"
     | "INVALID_CONFIG"
     | "ASSERTION_FAILED"
+    | "OPEN_CURSOR"
     | "UNKNOWN";
 
 export class StoreError extends Error {
@@ -90,4 +90,19 @@ export const DocumentNotFoundError = storeErrorFactory(
 export const UpdateError = storeErrorFactory(
     "UPDATE_FAILED",
     "Item could not be updated"
+);
+
+export const AddError = storeErrorFactory(
+    "ADD_FAILED",
+    "Item could not be added"
+);
+
+export const OpenCursorError = storeErrorFactory(
+    "OPEN_CURSOR",
+    "Cursor could not be opened"
+);
+
+export const RetrievalError = storeErrorFactory(
+    "GET_FAILED",
+    "Item could not be retrieved"
 );

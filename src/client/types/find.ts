@@ -1,17 +1,17 @@
 import type { Dict, If, Keyof, RemoveNeverValues } from "../../types/common.js";
 import type {
     ExtractFields,
-    Model,
     ModelStructure,
     RelationlessModelStructure,
-} from "../../model.js";
+} from "../../model/model-types.js";
+import type { Model } from "../../model";
 import type {
     BaseRelation,
     Field,
     PrimaryKey,
     RelationOutputStructure,
     ValidValue,
-} from "../../field.ts";
+} from "../../field";
 import type { CollectionObject } from "../../builder.ts";
 
 export type FilterFn<Input> = (item: Input) => boolean;
@@ -39,8 +39,8 @@ export type SelectObject<
         ?
               | true
               | (To extends Keyof<C>
-                    ? C[To] extends Model<any, infer Sub, any>
-                        ? SelectObject<All, Sub, C>
+                    ? C[To] extends Model<any, infer SubFields, any>
+                        ? QueryInput<All, SubFields, C>
                         : never
                     : never)
         : never;
@@ -53,10 +53,9 @@ export interface QueryInput<
 > {
     where?: WhereObject<Fields>;
     select?: SelectObject<All, Fields, C>;
-    omit?: SelectObject<All, Fields, C>;
+    include?: SelectObject<All, Fields, C>;
 }
 
-// TODO: Add support for "omit"
 export type FindInput<
     All extends string,
     Struct extends object,

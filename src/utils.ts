@@ -1,6 +1,5 @@
-import z from "zod";
 import type { Keyof } from "./types/common";
-import type { Arrayable, Primitive } from "type-fest";
+import type { Arrayable } from "type-fest";
 import type { Transaction } from "./transaction.js";
 import { UnknownError } from "./error.js";
 
@@ -18,17 +17,6 @@ export async function handleRequest<T>(
             }
         };
     });
-}
-
-/**
- * Removes duplicates from an array by converting it into a set then back into an array
- * @param array Array of a hashable type (number, string, etc...)
- * @returns An array with duplicate entries removed
- */
-export function removeDuplicates<Item extends NonNullable<Primitive>>(
-    array: Item[]
-): Item[] {
-    return Array.from(new Set<Item>(array));
 }
 
 export function getKeys<T extends object>(obj: T): Keyof<T>[] {
@@ -63,4 +51,5 @@ export function unionSets<T>(set: Set<T>, other: Set<T>) {
     for (const key of other.keys()) {
         set.add(key);
     }
+    return set;
 }

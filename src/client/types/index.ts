@@ -5,13 +5,13 @@ import type {
     Model,
     ModelStructure,
     PrimaryKeyType,
-} from "../../model.js";
+} from "../../model";
 import type { AddMutation, UpdateMutation } from "./mutation.ts";
 import type { FindInput, FindOutput, WhereObject } from "./find.ts";
 import type { CompiledQuery } from "../compiled-query.ts";
 import type { DbClient } from "../index.ts";
 import { Transaction } from "../../transaction.js";
-import { BaseRelation } from "../../field.js";
+import { BaseRelation } from "../../field";
 
 export type InsertMutation<
     N extends string,
@@ -63,6 +63,7 @@ export interface StoreInterface<
     compileQuery<T extends FindInput<Names, C[Name], C>>(
         query: T
     ): CompiledQuery<Names, C, DbClient<string, Names, C>, T>;
+    get(key: KeyType): Promise<any>;
 }
 
 export type InterfaceMap<

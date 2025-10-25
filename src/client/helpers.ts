@@ -1,137 +1,176 @@
 import type { Dict, Keyof, ValidKey } from "../types/common.js";
-import {
-    getKeys,
-    handleRequest,
-    identity,
-    toArray,
-    unionSets,
-} from "../utils.js";
+import { getKeys, identity, toArray, unionSets } from "../utils.js";
 import equal from "@gilbarbara/deep-equal";
 import type { DbClient } from "./index.ts";
 import type { CollectionObject } from "../builder.ts";
 import type { AddMutation } from "./types/mutation.ts";
-import type { SelectObject } from "./types/find.ts";
+import type { QueryInput } from "./types/find.ts";
 import type { Transaction } from "../transaction.js";
-import type { Arrayable } from "type-fest";
+import type { Arrayable, Promisable } from "type-fest";
+import { InvalidItemError } from "../error.js";
+import { FieldTypes } from "../field/field-types.js";
 
-// TODO: Add support for where clause on nested relation properties
-export function generateWhereClause(where?: Dict) {
+export function generateWhereClause(where?: Dict): (obj: unknown) => boolean {
     if (!where) return () => true;
-    const checkFns: { key: string; fn: (value: unknown) => boolean }[] = [];
-    for (const whereKey of getKeys(where)) {
+    const checkFns: [key: string, fn: (value: unknown) => boolean][] = [];
+    for (const whereKey in where) {
+        if (!Object.hasOwn(where, whereKey)) continue;
+
         switch (typeof where[whereKey]) {
             case "function":
-                checkFns.push({
-                    key: whereKey,
-                    fn: where[whereKey] as () => boolean,
-                });
+                checkFns.push([whereKey, where[whereKey] as () => boolean]);
                 break;
             case "boolean":
             case "string":
             case "number":
-                checkFns.push({
-                    key: whereKey,
-                    fn: (value) => value === where[whereKey],
-                });
+                checkFns.push([whereKey, (value) => value === where[whereKey]]);
                 break;
             default:
-                checkFns.push({
-                    key: whereKey,
-                    fn: (value) => equal(value, where[whereKey]),
-                });
+                checkFns.push([
+                    whereKey,
+                    (value) => equal(value, where[whereKey]),
+                ]);
         }
     }
+
     return (obj: unknown) => {
         if (!obj || typeof obj !== "object") return false;
-        for (const { key, fn } of checkFns) {
-            if (!fn((obj as Dict)[key])) return false;
+        for (const item of checkFns) {
+            if (!item[1]((obj as Dict)[item[0]])) return false;
         }
         return true;
     };
 }
 
-export function generateSelectClause<
+export function generateSelector<
     ModelNames extends string,
     Models extends CollectionObject<ModelNames>,
     Db extends DbClient<string, ModelNames, Models>,
-    S extends SelectObject<ModelNames, any, Models> = SelectObject<
+    Q extends QueryInput<ModelNames, any, Models> = QueryInput<
         ModelNames,
         any,
         Models
     >
->(name: ModelNames, client: Db, select: S = {} as S) {
+>(
+    name: ModelNames,
+    client: Db,
+    query: Q = {} as Q,
+    initTx?: Transaction<IDBTransactionMode, ModelNames>
+): (
+    item: Dict,
+    tx: Transaction<IDBTransactionMode, ModelNames>
+) => Promisable<Dict | undefined> {
     type Tx = Transaction<IDBTransactionMode, ModelNames>;
     const model = client.getModel(name);
-    const includedKeys: {
-        key: Keyof<S>;
-        getValue?: (value: Arrayable<ValidKey>, tx: Tx) => Promise<unknown>;
-    }[] = [];
-    const keys = getKeys(select);
-    if (keys.length === 0) return identity;
 
-    for (const key of keys) {
-        // If for whatever reason they put 'false'
-        if (!select[key]) continue;
-
-        switch (model.keyType(key)) {
-            case "Relation": {
-                const relation = model.getRelation<ModelNames>(key)!;
-                const hasSelectObject = typeof select[key] === "object";
-
-                // Create sub function
-                const subSelectFn = hasSelectObject
-                    ? generateSelectClause(
-                          relation.to,
-                          client as any,
-                          select[key]
-                      )
-                    : identity;
-                if (relation.isArray) {
-                    const fn = async (ids: ValidKey[], tx: Tx) => {
-                        const result: Dict[] = [];
-                        const store = tx.getStore(relation.to);
-                        for (const id of ids) {
-                            result.push(
-                                await subSelectFn(
-                                    await handleRequest(store.get(id)),
-                                    tx
-                                )
-                            );
-                        }
-                        return result;
-                    };
-                    includedKeys.push({ key, getValue: fn as any });
-                } else {
-                    const fn = async (id: ValidKey, tx: Tx) =>
-                        await subSelectFn(
-                            await handleRequest(
-                                tx.getStore(relation.to).get(id)
-                            ),
-                            tx
-                        );
-
-                    includedKeys.push({ key, getValue: fn as any });
-                }
-                break;
-            }
-            case "Field":
-            case "Primary":
-                includedKeys.push({ key });
-                break;
-            default:
-                break;
-        }
+    if (query.include && query.select) {
+        throw initTx
+            ? initTx.abort(
+                  new InvalidItemError(
+                      "include and select cannot both be defined"
+                  )
+              )
+            : new InvalidItemError("include and select cannot both be defined");
     }
 
-    return async (item: Dict, tx: Tx) => {
-        const result: Dict = {};
-        for (const { key, getValue } of includedKeys) {
-            result[key] = getValue
-                ? await getValue(item[key] as ValidKey, tx)
-                : item[key];
+    const whereClause = generateWhereClause(query.where);
+
+    const qKey = query.select ? "select" : query.include ? "include" : "";
+
+    if (qKey) {
+        type I = NonNullable<Q[typeof qKey]>;
+        const item = query[qKey]!;
+        const isSelect = !!query.select;
+        const getters: {
+            key: Keyof<I>;
+            getValue?: (value: Arrayable<ValidKey>, tx: Tx) => Promise<unknown>;
+        }[] = [];
+
+        for (const key in item) {
+            if (!Object.hasOwn(item, key)) continue;
+            if (!item[key]) continue;
+
+            switch (model.keyType(key)) {
+                case FieldTypes.Relation: {
+                    const relation = model.getRelation<ModelNames>(key)!;
+                    const subSelectFn =
+                        typeof item[key] === "object"
+                            ? generateSelector(
+                                  relation.to,
+                                  client as any,
+                                  item[key],
+                                  initTx
+                              )
+                            : identity;
+                    if (relation.isArray) {
+                        const fn = async (ids: ValidKey[], tx: Tx) => {
+                            const result: Dict[] = [];
+                            const store = tx.getStore(relation.to);
+                            for (const id of ids) {
+                                const res = await subSelectFn(
+                                    await store.get(id),
+                                    tx
+                                );
+                                if (res) {
+                                    result.push(res);
+                                }
+                            }
+                            return result;
+                        };
+                        getters.push({
+                            key: key as Keyof<I>,
+                            getValue: fn as (
+                                value: Arrayable<ValidKey>,
+                                tx: Tx
+                            ) => Promise<unknown>,
+                        });
+                    } else {
+                        const fn = async (id: ValidKey, tx: Tx) =>
+                            await subSelectFn(
+                                await tx.getStore(relation.to).get(id),
+                                tx
+                            );
+
+                        getters.push({
+                            key: key as Keyof<I>,
+                            getValue: fn as (
+                                value: Arrayable<ValidKey>,
+                                tx: Tx
+                            ) => Promise<unknown>,
+                        });
+                    }
+                    break;
+                }
+                case FieldTypes.Field:
+                case FieldTypes.PrimaryKey:
+                    if (isSelect) getters.push({ key: key as Keyof<I> });
+                    break;
+                default:
+                    break;
+            }
         }
-        return result;
-    };
+
+        if (isSelect) {
+            return async (item: Dict, tx: Tx) => {
+                if (!whereClause(item)) return undefined;
+                const temp: Dict = {};
+                for (const { key, getValue } of getters) {
+                    temp[key] = getValue
+                        ? await getValue(item[key] as ValidKey, tx)
+                        : item[key];
+                }
+                return temp;
+            };
+        } else {
+            return async (item: Dict, tx: Tx) => {
+                if (!whereClause(item)) return undefined;
+                for (const { key, getValue } of getters) {
+                    item[key] = await getValue!(item[key] as ValidKey, tx);
+                }
+                return item;
+            };
+        }
+    } else return identity;
 }
 
 export function getAccessedStores<
@@ -151,20 +190,33 @@ export function getAccessedStores<
             const relation = model.getRelation<ModelNames>(key);
             const item = toArray(query[key]);
 
+            if (!relation) continue;
+
             for (const subItem of item as Dict[]) {
-                if (relation && subItem && typeof subItem === "object") {
-                    for (const conKeys of getKeys(subItem)) {
-                        switch (conKeys) {
+                if (subItem && typeof subItem === "object") {
+                    for (const conKey in subItem) {
+                        if (!Object.hasOwn(subItem, conKey)) continue;
+
+                        switch (conKey) {
                             case "$connect":
                             case "$connectMany":
+                            case "$disconnect":
+                            case "$disconnectMany":
                                 stores.add(relation.to);
+                                break;
+                            case "$delete":
+                            case "$deleteMany":
+                                unionSets(
+                                    stores,
+                                    model.getDeletedStores(client)
+                                );
                                 break;
                             case "$create":
                                 unionSets(
                                     stores,
                                     getAccessedStores(
                                         relation.to,
-                                        subItem[conKeys] as Dict,
+                                        subItem[conKey] as Dict,
                                         type,
                                         client
                                     )
@@ -172,7 +224,7 @@ export function getAccessedStores<
                                 break;
                             case "$createMany": {
                                 (
-                                    subItem[conKeys] as AddMutation<
+                                    subItem[conKey] as AddMutation<
                                         ModelNames,
                                         ModelNames,
                                         Models[ModelNames],
@@ -191,19 +243,11 @@ export function getAccessedStores<
                                 );
                                 break;
                             }
+                            // TODO: Complete these
                             case "$update":
-                            case "$updateMany":
+                            case "$updateMany": {
                                 break;
-                            case "$disconnect":
-                            case "$disconnectMany":
-                                break;
-                            case "$delete":
-                            case "$deleteMany":
-                                unionSets(
-                                    stores,
-                                    model.getDeletedStores(client)
-                                );
-                                break;
+                            }
                             default:
                                 break;
                         }
@@ -214,21 +258,24 @@ export function getAccessedStores<
     } else {
         const model = client.getModel(name);
         for (const key of getKeys(query)) {
-            if (model.keyType(key) === "Relation") {
+            const relation = model.getRelation<ModelNames>(key);
+            if (relation) {
                 switch (typeof query[key]) {
                     case "object":
                         unionSets(
                             stores,
                             getAccessedStores(
-                                model.getRelation(key)!.to as ModelNames,
-                                query[key] as Dict,
+                                relation.to,
+                                getSearchableQuery(
+                                    query[key] as QueryInput<any, any, any>
+                                ),
                                 "query",
                                 client
                             )
                         );
                         break;
                     case "boolean":
-                        stores.add(model.getRelation(key)!.to as ModelNames);
+                        stores.add(relation.to);
                         break;
                     default:
                         break;
@@ -237,4 +284,8 @@ export function getAccessedStores<
         }
     }
     return stores;
+}
+
+export function getSearchableQuery(q: QueryInput<any, any, any>) {
+    return q.include ? q.include : q.select ? q.select : {};
 }

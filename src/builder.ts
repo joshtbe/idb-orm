@@ -1,7 +1,12 @@
 import z from "zod";
 import { Model, type CollectionZodSchema } from "./model";
 import { DbClient } from "./client";
-import { BaseRelation, Field, PrimaryKey, type ValidValue } from "./field";
+import {
+    BaseRelation,
+    Field,
+    PrimaryKey,
+    type ValidValue,
+} from "./field";
 import type { Dict, Keyof } from "./types/common";
 import { getKeys, handleRequest } from "./utils";
 import { StoreError } from "./error";
