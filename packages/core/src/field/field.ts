@@ -33,10 +33,10 @@ export class Field<OutputType, HasDefault extends boolean = false> {
         return new Field<OutputType | undefined>(this.schema.optional());
     }
 
-    default(defaultValue: NonNullable<OutputType>) {
+    default(defaultValue: Exclude<OutputType, undefined>) {
         this.schema = this.schema.default(defaultValue);
         this.hasDefault = true as HasDefault;
-        return this as Field<NonNullable<OutputType>, true>;
+        return this as Field<Exclude<OutputType, undefined>, true>;
     }
 
     refine(refineFn: (val: OutputType) => boolean) {

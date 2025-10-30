@@ -7,7 +7,7 @@ export default {
     output: {
         file: "dist/index.js",
         format: "esm",
-        sourcemap: true,
+        sourcemap: false,
     },
 
     plugins: [
@@ -15,7 +15,7 @@ export default {
         terser(),
         typescript({
             tsconfig: "./tsconfig.json",
-            sourceMap: true,
+            sourceMap: false,
             exclude: ["**/tests/*"],
         }),
     ],

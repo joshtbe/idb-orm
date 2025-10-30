@@ -59,7 +59,7 @@ export abstract class AbstractProperty<Value, HasDefault extends boolean> {
 
     abstract default(
         defaultValue: Value
-    ): AbstractProperty<NonNullable<Value>, true>;
+    ): AbstractProperty<Exclude<Value, undefined>, true>;
 
     /* "abstract" static methods */
 
@@ -147,16 +147,18 @@ export class Property<
     }
 
     default(
-        defaultValue: NonNullable<Value>
-    ): Property<NonNullable<Value>, true> {
-        const newFn: ParseFn<NonNullable<Value>> = (value: unknown) => {
+        defaultValue: Exclude<Value, undefined>
+    ): Property<Exclude<Value, undefined>, true> {
+        const newFn: ParseFn<Exclude<Value, undefined>> = (value: unknown) => {
             if (value == null) {
                 return {
                     success: true,
                     data: defaultValue,
                 };
             } else
-                return this.validate(value) as ParseResult<NonNullable<Value>>;
+                return this.validate(value) as ParseResult<
+                    Exclude<Value, undefined>
+                >;
         };
         return new Property(newFn, this.type, this.options);
     }
