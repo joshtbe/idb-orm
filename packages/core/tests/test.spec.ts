@@ -60,8 +60,9 @@ const createDb = async ({ zod, pkg }: Packages) => {
     return client;
 };
 
-test.describe.configure({ mode: "default" });
 test.describe("1 page multi-test", () => {
+    test.describe.configure({ mode: "default" });
+    
     let page: Page;
     let session: ContextSession<SessionArguments>;
     test.beforeAll(async ({ browser }) => {
