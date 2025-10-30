@@ -1,6 +1,6 @@
 {
     "name": "@idb-orm/core",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "description": "",
     "main": "dist/index.js",
     "type": "module",
@@ -10,9 +10,9 @@
         "check": "eslint . && tsc -b --noEmit",
         "test": "playwright test"
     },
-    "keywords": [],
-    "workspaces": [
-        "packages/*"
+    "keywords": [
+        "typescript",
+        "indexeddb"
     ],
     "author": "jtb",
     "exports": {
