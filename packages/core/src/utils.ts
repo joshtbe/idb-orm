@@ -45,6 +45,10 @@ export function stringTypeToEnum(type: ValidKeyType): Type {
     }
 }
 
+export function uuid() {
+    return crypto.randomUUID();
+}
+
 /**
  * Identity Function, it returns the first argument it is given, all others are ignored
  * @param value Value

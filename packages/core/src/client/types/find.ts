@@ -16,6 +16,11 @@ import type { CollectionObject } from "../../builder.ts";
 
 export type FilterFn<Input> = (item: Input) => boolean;
 
+/**
+ * If an property is an object type (dictionary, array, map, set, etc...) return never. If it's a union it strips out any object types
+ */
+export type ProhibitObjects<T> = T extends object ? never : T;
+
 export type WhereObject<Fields extends Dict<ValidValue>> = Partial<
     RemoveNeverValues<{
         [K in keyof Fields]: Fields[K] extends AbstractProperty<
@@ -24,7 +29,7 @@ export type WhereObject<Fields extends Dict<ValidValue>> = Partial<
         >
             ? Output | FilterFn<Output>
             : Fields[K] extends PrimaryKey<any, infer Type>
-            ? Type | FilterFn<Type>
+            ? ProhibitObjects<Type> | FilterFn<Type>
             : never;
     }>
 >;

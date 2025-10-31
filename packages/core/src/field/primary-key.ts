@@ -1,7 +1,6 @@
 import { ValidKey, ValidKeyType } from "../types/common.js";
-import { GenFunction } from "./field-types.js";
-import { v4 as uuid } from "uuid";
-import { AbstractProperty } from "./property.js";
+import { uuid } from "../utils.js";
+import { GenFunction, VALIDATORS } from "./field-types.js";
 
 export default class PrimaryKey<
     AutoGenerate extends boolean,
@@ -52,6 +51,9 @@ export default class PrimaryKey<
     }
 
     uuid() {
+        if (!window.isSecureContext) {
+            throw new Error("Window is not in a secure context");
+        }
         return new PrimaryKey<true, string>("string", uuid);
     }
 
@@ -61,7 +63,7 @@ export default class PrimaryKey<
     }
 
     getSchema() {
-        return AbstractProperty.validators[this.type];
+        return VALIDATORS[this.type];
     }
 
     /**

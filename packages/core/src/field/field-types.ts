@@ -1,4 +1,4 @@
-import { Dict, ValidKey } from "../types/common.js";
+import { Dict, ValidKey, ValidKeyType } from "../types/common.js";
 import PrimaryKey from "./primary-key.js";
 import { AbstractProperty, ParseFn, Property } from "./property.js";
 import { BaseRelation, OptionalRelation, RelationArray } from "./relation.js";
@@ -67,9 +67,58 @@ export type ParseFnWrap<T extends Dict> = {
     [K in keyof T]: ParseFn<T[K]>;
 };
 
-export type PropertyUnion<T extends readonly (Property<any, boolean> | ParseFn<any>)[]> =
-    T[number] extends Property<infer Type, boolean>
-        ? Type
-        : T extends ParseFn<infer Type>
-        ? Type
-        : never;
+export type PropertyUnion<
+    T extends readonly (Property<any, boolean> | ParseFn<any>)[]
+> = T[number] extends Property<infer Type, boolean>
+    ? Type
+    : T extends ParseFn<infer Type>
+    ? Type
+    : never;
+
+export const VALIDATORS: {
+    [K in ValidKeyType]: ParseFn<FunctionMatch<K>>;
+} = {
+    string: (test) => {
+        if (typeof test === "string") {
+            return {
+                success: true,
+                data: test,
+            };
+        } else
+            return {
+                success: false,
+                error: "Value is not a string",
+            };
+    },
+    number: (test) => {
+        if (typeof test === "number") {
+            return {
+                success: true,
+                data: test,
+            };
+        } else
+            return {
+                success: false,
+                error: "Value is not a string",
+            };
+    },
+    date: (test) => {
+        if (test instanceof Date) {
+            if (!isNaN(test.getTime())) {
+                return {
+                    success: true,
+                    data: test,
+                };
+            } else {
+                return {
+                    success: false,
+                    error: "Value is not a valid date",
+                };
+            }
+        }
+        return {
+            success: false,
+            error: "Value is not a date",
+        };
+    },
+};

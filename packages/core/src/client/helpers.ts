@@ -6,7 +6,6 @@ import type {
     ValidKey,
 } from "../types/common.js";
 import { getKeys, identity, toArray, unionSets } from "../utils.js";
-import equal from "@gilbarbara/deep-equal";
 import type { DbClient } from "./index.ts";
 import type { CollectionObject } from "../builder.ts";
 import type { AddMutation } from "./types/mutation.ts";
@@ -25,16 +24,11 @@ export function generateWhereClause(where?: Dict): (obj: unknown) => boolean {
             case "function":
                 checkFns.push([whereKey, where[whereKey] as () => boolean]);
                 break;
-            case "boolean":
-            case "string":
-            case "number":
-                checkFns.push([whereKey, (value) => value === where[whereKey]]);
+            case "object":
+                // Just skip checking them
                 break;
             default:
-                checkFns.push([
-                    whereKey,
-                    (value) => equal(value, where[whereKey]),
-                ]);
+                checkFns.push([whereKey, (value) => value === where[whereKey]]);
         }
     }
 

@@ -4,6 +4,7 @@ import {
     PropertyUnion,
     ReferenceActions,
     RelationOptions,
+    VALIDATORS,
 } from "./field-types.js";
 import PrimaryKey from "./primary-key.js";
 import { Relation } from "./relation.js";
@@ -135,53 +136,7 @@ export abstract class AbstractProperty<Value, HasDefault extends boolean> {
         return new PrimaryKey<false, FunctionMatch<V>>(type);
     }
 
-    static readonly validators: {
-        [K in ValidKeyType]: ParseFn<FunctionMatch<K>>;
-    } = {
-        string: (test) => {
-            if (typeof test === "string") {
-                return {
-                    success: true,
-                    data: test,
-                };
-            } else
-                return {
-                    success: false,
-                    error: "Value is not a string",
-                };
-        },
-        number: (test) => {
-            if (typeof test === "number") {
-                return {
-                    success: true,
-                    data: test,
-                };
-            } else
-                return {
-                    success: false,
-                    error: "Value is not a string",
-                };
-        },
-        date: (test) => {
-            if (test instanceof Date) {
-                if (!isNaN(test.getTime())) {
-                    return {
-                        success: true,
-                        data: test,
-                    };
-                } else {
-                    return {
-                        success: false,
-                        error: "Value is not a valid date",
-                    };
-                }
-            }
-            return {
-                success: false,
-                error: "Value is not a date",
-            };
-        },
-    };
+    static readonly validators = VALIDATORS;
 
     protected static literalToType(value: Literable): Type {
         switch (typeof value) {
