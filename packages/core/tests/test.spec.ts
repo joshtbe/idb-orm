@@ -1,21 +1,18 @@
 import { test, expect, Page } from "@playwright/test";
 import { ContextSession, EvalFn, populatePage } from "./helpers.js";
-import { Builder, Field } from "../dist/index.js";
+import { Builder, Property } from "../dist/index.js";
 import * as idbOrm from "../dist/index.js";
-import * as zod from "zod";
 
 export type Packages = {
     pkg: typeof idbOrm;
-    zod: typeof zod;
 };
 export type SessionArguments = Packages & {
     client: Awaited<ReturnType<typeof createDb>>;
 };
 
-const createDb = async ({ zod, pkg }: Packages) => {
+const createDb = async ({ pkg }: Packages) => {
     const Builder = pkg.Builder;
-    const Field = pkg.Field;
-    const z = zod;
+    const Field = pkg.Property;
     const builder = new Builder("testdb", ["classes", "spellLists", "spells"]);
 
     const classStore = builder.defineModel("classes", {
@@ -43,7 +40,7 @@ const createDb = async ({ zod, pkg }: Packages) => {
         id: Field.primaryKey().autoIncrement(),
         name: Field.string(),
         range: Field.string(),
-        components: Field.custom(z.enum(["V", "S", "M"]).array()),
+        components: Field.literal("V").array(),
         level: Field.number().default(0),
         lists: Field.relation("spellLists", {
             name: "spells2spellLists",
@@ -62,7 +59,7 @@ const createDb = async ({ zod, pkg }: Packages) => {
 
 test.describe("1 page multi-test", () => {
     test.describe.configure({ mode: "default" });
-    
+
     let page: Page;
     let session: ContextSession<SessionArguments>;
     test.beforeAll(async ({ browser }) => {
@@ -70,7 +67,6 @@ test.describe("1 page multi-test", () => {
         page = await context.newPage();
         session = await populatePage<SessionArguments>(page, {
             pkg: "import('./index.js')",
-            zod: 'import("https://cdn.jsdelivr.net/npm/zod@4.1.12/+esm")',
             client: createDb as any,
         });
     });
@@ -91,7 +87,7 @@ test.describe("1 page multi-test", () => {
             await stores.spells.add({
                 name: "Chromatic Orb",
                 level: 1,
-                components: ["V", "S"],
+                components: ["V"],
                 range: "120 feet",
             });
             return await stores.spells.find({ where: { level: 0 } });

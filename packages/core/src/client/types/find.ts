@@ -7,7 +7,7 @@ import type {
 import type { Model } from "../../model";
 import type {
     BaseRelation,
-    Field,
+    AbstractProperty,
     PrimaryKey,
     RelationOutputStructure,
     ValidValue,
@@ -18,7 +18,10 @@ export type FilterFn<Input> = (item: Input) => boolean;
 
 export type WhereObject<Fields extends Dict<ValidValue>> = Partial<
     RemoveNeverValues<{
-        [K in keyof Fields]: Fields[K] extends Field<infer Output, any>
+        [K in keyof Fields]: Fields[K] extends AbstractProperty<
+            infer Output,
+            any
+        >
             ? Output | FilterFn<Output>
             : Fields[K] extends PrimaryKey<any, infer Type>
             ? Type | FilterFn<Type>
@@ -31,7 +34,7 @@ export type SelectObject<
     Fields extends Dict<ValidValue>,
     C extends CollectionObject<All>
 > = {
-    [K in keyof Fields]?: Fields[K] extends Field<any, any>
+    [K in keyof Fields]?: Fields[K] extends AbstractProperty<any, any>
         ? true
         : Fields[K] extends PrimaryKey<any, any>
         ? true
@@ -91,7 +94,7 @@ type _FindOutput<
                   : never
               : Fields[K] extends PrimaryKey<any, infer Type>
               ? Type
-              : Fields[K] extends Field<infer Type, any>
+              : Fields[K] extends AbstractProperty<infer Type, any>
               ? Type
               : never;
       }

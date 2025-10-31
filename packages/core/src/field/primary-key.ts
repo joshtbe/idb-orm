@@ -1,7 +1,7 @@
 import { ValidKey, ValidKeyType } from "../types/common.js";
-import { DEFAULT_SCHEMA_MAP } from "./constants.js";
 import { GenFunction } from "./field-types.js";
 import { v4 as uuid } from "uuid";
+import { AbstractProperty } from "./property.js";
 
 export default class PrimaryKey<
     AutoGenerate extends boolean,
@@ -61,7 +61,7 @@ export default class PrimaryKey<
     }
 
     getSchema() {
-        return DEFAULT_SCHEMA_MAP[this.type];
+        return AbstractProperty.validators[this.type];
     }
 
     /**

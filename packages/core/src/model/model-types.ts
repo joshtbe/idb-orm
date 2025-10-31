@@ -1,15 +1,25 @@
 import { CompiledDb } from "../builder.js";
 import {
+    ValidValue,
     BaseRelation,
-    Field,
     OptionalRelation,
-    PrimaryKey,
-    Relation,
     RelationArray,
     RelationOutput,
-    ValidValue,
+    Relation,
+    AbstractProperty,
+    PrimaryKey,
+    ParseFnWrap,
 } from "../field";
-import { Dict, Keyof, ZodWrap } from "../types/common.js";
+// import {
+//     BaseRelation,
+//     OptionalRelation,
+//     PrimaryKey,
+//     Relation,
+//     RelationArray,
+//     RelationOutput,
+//     ValidValue,
+// } from "../field";
+import { Dict, Keyof } from "../types/common.js";
 import Model from "./model.js";
 
 export type FindPrimaryKey<F extends Record<string, ValidValue>> = Extract<
@@ -56,7 +66,7 @@ export type GetRelationField<F, C> = F extends Relation<infer To, any>
     : never;
 
 export type ModelStructure<F extends Dict<ValidValue>, C> = {
-    [K in keyof F]: F[K] extends Field<infer Output, any>
+    [K in keyof F]: F[K] extends AbstractProperty<infer Output, any>
         ? Output
         : F[K] extends PrimaryKey<any, infer Type>
         ? Type
@@ -98,7 +108,7 @@ export type RelationlessModelStructure<M extends Model<any, any, any>> =
               {
                   [K in Keyof<Fields>]: Fields[K] extends BaseRelation<any, any>
                       ? unknown
-                      : Fields[K] extends Field<infer Type, any>
+                      : Fields[K] extends AbstractProperty<infer Type, any>
                       ? Type
                       : Fields[K] extends PrimaryKey<any, infer Type>
                       ? Type
@@ -108,13 +118,13 @@ export type RelationlessModelStructure<M extends Model<any, any, any>> =
           >
         : never;
 
-export type CollectionZodSchema<C> = C extends Record<
+export type CollectionSchema<C> = C extends Record<
     infer Keys,
     Model<any, any, any>
 >
     ? {
           [K in Keys]: C[K] extends Model<any, infer Fields, any>
-              ? ZodWrap<ModelStructure<Fields, C>>
+              ? ParseFnWrap<ModelStructure<Fields, C>>
               : never;
       }
     : never;

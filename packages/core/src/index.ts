@@ -3,8 +3,8 @@ import { StoreError, type ErrorType } from "./error.js";
 
 export { Builder, StoreError, ErrorType };
 
-import { Field } from "./field";
-export { Field };
+import { Property } from "./field";
+export { Property };
 
 import { CompiledQuery } from "./client/compiled-query.js";
 export { CompiledQuery };

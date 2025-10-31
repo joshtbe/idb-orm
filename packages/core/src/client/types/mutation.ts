@@ -6,7 +6,7 @@ import type {
 } from "../../types/common.js";
 import type {
     BaseRelation,
-    Field,
+    AbstractProperty,
     OptionalRelation,
     PrimaryKey,
     RelationArray,
@@ -39,7 +39,7 @@ export type Mutation<
     RemoveNeverValues<
         Struct extends Model<any, infer Fields, any>
             ? {
-                  [K in keyof Fields]: Fields[K] extends Field<
+                  [K in keyof Fields]: Fields[K] extends AbstractProperty<
                       infer Type,
                       infer HasDefault
                   >

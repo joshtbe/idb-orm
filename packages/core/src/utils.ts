@@ -1,4 +1,4 @@
-import type { Arrayable, Keyof } from "./types/common";
+import { Arrayable, Keyof, Type, ValidKeyType } from "./types/common";
 import type { Transaction } from "./transaction.js";
 import { UnknownError } from "./error.js";
 
@@ -32,6 +32,17 @@ export function addToSet<T>(set: Set<T>, items: T[]) {
 export function toArray<T>(value: Arrayable<T>): T[] {
     if (!Array.isArray(value)) value = [value];
     return value;
+}
+
+export function stringTypeToEnum(type: ValidKeyType): Type {
+    switch (type) {
+        case "date":
+            return Type.Date;
+        case "number":
+            return Type.Number;
+        case "string":
+            return Type.String;
+    }
 }
 
 /**

@@ -1,14 +1,15 @@
-import z from "zod";
-import { Model, type CollectionZodSchema } from "./model";
+import { CollectionSchema, Model } from "./model";
 import { DbClient } from "./client";
 import {
     BaseRelation,
-    Field,
+    AbstractProperty,
     PrimaryKey,
     type ValidValue,
+    ParseFn,
+    Property,
 } from "./field";
 import type { Dict, Keyof } from "./types/common";
-import { getKeys, handleRequest } from "./utils";
+import { getKeys, handleRequest, stringTypeToEnum } from "./utils";
 import { StoreError } from "./error";
 
 export type CollectionObject<Names extends string> = {
@@ -42,26 +43,33 @@ export class CompiledDb<
     Names extends string,
     C extends CollectionObject<Names>
 > {
-    public readonly schemas: CollectionZodSchema<C>;
+    public readonly schemas: CollectionSchema<C>;
     private readonly modelKeys: Names[];
     constructor(public readonly name: Name, private readonly models: C) {
         this.modelKeys = getKeys(this.models) as unknown as Names[];
-        this.schemas = {} as CollectionZodSchema<C>;
+        this.schemas = {} as CollectionSchema<C>;
         for (const key of this.modelKeys) {
             const model = this.models[key];
-            const schema: Dict<z.ZodType> = {};
+            const schema: Dict<ParseFn<any>> = {};
             for (const fieldKey of model.keys()) {
                 const field = model.get(fieldKey);
-                if (field instanceof Field) {
-                    schema[fieldKey] = field.schema;
+                if (field instanceof AbstractProperty) {
+                    schema[fieldKey] = field.validate;
                 } else if (field instanceof BaseRelation) {
                     const linkedModel = this.models[field.to as Keyof<C>];
                     const linkedPrimary = linkedModel.getPrimaryKey();
-                    schema[fieldKey] = Field.schemas[linkedPrimary.type];
+                    schema[fieldKey] =
+                        AbstractProperty.validators[linkedPrimary.type];
                     if (field.isOptional) {
-                        schema[fieldKey] = schema[fieldKey].optional();
+                        schema[fieldKey] = new Property(
+                            schema[fieldKey],
+                            stringTypeToEnum(linkedPrimary.type)
+                        ).optional().validate;
                     } else if (field.isArray) {
-                        schema[fieldKey] = schema[fieldKey].array();
+                        schema[fieldKey] = schema[fieldKey] = new Property(
+                            schema[fieldKey],
+                            stringTypeToEnum(linkedPrimary.type)
+                        ).array().validate;
                     }
 
                     let hasRelation = !!field.getRelatedKey();
@@ -95,7 +103,7 @@ export class CompiledDb<
                             `Relation '${field.name}' of model ${key} does not have an equivalent relation on model '${field.to}'`
                         );
                 } else if (field instanceof PrimaryKey) {
-                    schema[fieldKey] = Field.schemas[field.type];
+                    schema[fieldKey] = AbstractProperty.validators[field.type];
                 } else {
                     throw new StoreError(
                         "INVALID_CONFIG",
@@ -103,7 +111,7 @@ export class CompiledDb<
                     );
                 }
             }
-            this.schemas[key] = schema as CollectionZodSchema<C>[Names];
+            this.schemas[key] = schema as CollectionSchema<C>[Names];
         }
     }
 

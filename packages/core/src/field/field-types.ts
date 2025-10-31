@@ -1,6 +1,6 @@
-import { ValidKey } from "../types/common.js";
-import { Field } from "./field.js";
+import { Dict, ValidKey } from "../types/common.js";
 import PrimaryKey from "./primary-key.js";
+import { AbstractProperty, ParseFn, Property } from "./property.js";
 import { BaseRelation, OptionalRelation, RelationArray } from "./relation.js";
 
 export type ReferenceActions = "Cascade" | "None" | "Restrict";
@@ -52,7 +52,7 @@ export type RelationOutputStructure<
     ? Output | undefined
     : Output;
 
-export type NonRelationOutput<T> = T extends Field<infer Out, any>
+export type NonRelationOutput<T> = T extends AbstractProperty<infer Out, any>
     ? Out
     : T extends PrimaryKey<any, infer Type>
     ? Type
@@ -60,5 +60,16 @@ export type NonRelationOutput<T> = T extends Field<infer Out, any>
 
 export type ValidValue<N extends string = string> =
     | BaseRelation<N, string>
-    | Field<any, any>
+    | AbstractProperty<any, any>
     | PrimaryKey<boolean, ValidKey>;
+
+export type ParseFnWrap<T extends Dict> = {
+    [K in keyof T]: ParseFn<T[K]>;
+};
+
+export type PropertyUnion<T extends readonly (Property<any, boolean> | ParseFn<any>)[]> =
+    T[number] extends Property<infer Type, boolean>
+        ? Type
+        : T extends ParseFn<infer Type>
+        ? Type
+        : never;

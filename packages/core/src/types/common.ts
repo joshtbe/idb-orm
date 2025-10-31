@@ -1,5 +1,3 @@
-import type z from "zod";
-
 /**
  * Extracts the string keys of an object
  */
@@ -8,6 +6,19 @@ export type Keyof<T extends Record<any, any>> = Extract<keyof T, string>;
 export type Arrayable<T> = T | T[];
 export type IsNever<T> = [T] extends [never] ? true : false;
 export type Promisable<T> = T | Promise<T>;
+export type NoUndefined<T> = Exclude<T, undefined>;
+
+export enum Type {
+    String,
+    Number,
+    BigInt,
+    Boolean,
+    Symbol,
+    Array,
+    Date,
+    Object,
+    Unknown,
+}
 
 export type MakeOptional<B extends boolean, T> = B extends true
     ? T | undefined
@@ -46,10 +57,6 @@ export type ConnectionObject<
     $create: T;
     $connect: K;
 } & If<M, { $createMany: T[]; $connectMany: K[] }, Dict>;
-
-export type ZodWrap<T extends Dict> = {
-    [K in keyof T]: z.ZodType<T[K]>;
-};
 
 type UndefinedKeys<T extends Dict> = {
     [K in Keyof<T>]: undefined extends T[K] ? K : never;

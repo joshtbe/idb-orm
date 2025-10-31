@@ -1,12 +1,12 @@
-import z from "zod";
 import { CollectionObject } from "../builder.js";
 import { DbClient } from "../client/index.js";
 import {
     BaseRelation,
-    Field,
+    AbstractProperty,
     FieldTypes,
     PrimaryKey,
     ValidValue,
+    ParseResult,
 } from "../field";
 import { Keyof, ValidKey } from "../types/common.js";
 import { getKeys, unionSets } from "../utils.js";
@@ -52,7 +52,7 @@ export default class Model<
 
     getModelField(key: string) {
         const item = this.fields[key];
-        if (!item || !(item instanceof Field)) return undefined;
+        if (!item || !(item instanceof AbstractProperty)) return undefined;
         return item;
     }
 
@@ -71,7 +71,7 @@ export default class Model<
     keyType(key: Keyof<F>): FieldTypes {
         const f = this.fields[key];
         if (!f) return FieldTypes.Invalid;
-        else if (f instanceof Field) return FieldTypes.Field;
+        else if (f instanceof AbstractProperty) return FieldTypes.Field;
         else if (f instanceof BaseRelation) return FieldTypes.Relation;
         else if (f instanceof PrimaryKey) return FieldTypes.PrimaryKey;
         else return FieldTypes.Invalid;
@@ -86,12 +86,9 @@ export default class Model<
         return [...this.fieldKeys];
     }
 
-    parseField<K extends Keyof<F>>(
-        field: K,
-        value: unknown
-    ): z.ZodSafeParseResult<any> {
-        if (this.fields[field] instanceof Field) {
-            return this.fields[field].parse(value);
+    parseField<K extends Keyof<F>>(field: K, value: unknown): ParseResult<any> {
+        if (this.fields[field] instanceof AbstractProperty) {
+            return this.fields[field].validate(value);
         }
         return null as never;
     }

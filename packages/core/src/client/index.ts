@@ -3,7 +3,6 @@ import type { Arrayable, Dict, Keyof, ValidKey } from "../types/common";
 import type { ModelType, PrimaryKeyType } from "../model/model-types.ts";
 import { getKeys, handleRequest, toArray, unionSets } from "../utils";
 import { Transaction, type TransactionOptions } from "../transaction";
-import z from "zod";
 import {
     type InterfaceMap,
     type AddMutation,
@@ -214,9 +213,7 @@ export class DbClient<
                     if (!parseResult.success) {
                         throw tx.abort(
                             new InvalidItemError(
-                                `Key '${key}' has the following validation error: ${z.prettifyError(
-                                    parseResult.error
-                                )}`
+                                `Key '${key}' has the following validation error: ${parseResult.error}`
                             )
                         );
                     }

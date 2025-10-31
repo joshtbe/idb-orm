@@ -1,6 +1,7 @@
-import { Literable, ValidKeyType } from "../types/common.js";
+import { Literable, NoUndefined, Type, ValidKeyType } from "../types/common.js";
 import {
     FunctionMatch,
+    PropertyUnion,
     ReferenceActions,
     RelationOptions,
 } from "./field-types.js";
@@ -12,17 +13,6 @@ export interface PropertyOptions {
 }
 
 type InputOptions = Partial<PropertyOptions>;
-
-enum PropertType {
-    String,
-    Number,
-    BigInt,
-    Boolean,
-    Symbol,
-    Array,
-    Object,
-    Unknown,
-}
 
 export type ParseResult<T> =
     | {
@@ -43,7 +33,7 @@ export abstract class AbstractProperty<Value, HasDefault extends boolean> {
 
     constructor(
         public readonly validate: (value: unknown) => ParseResult<Value>,
-        protected type: PropertType,
+        protected type: Type,
         options?: InputOptions
     ) {
         this.options = {
@@ -59,7 +49,7 @@ export abstract class AbstractProperty<Value, HasDefault extends boolean> {
 
     abstract default(
         defaultValue: Value
-    ): AbstractProperty<Exclude<Value, undefined>, true>;
+    ): AbstractProperty<NoUndefined<Value>, true>;
 
     /* "abstract" static methods */
 
@@ -84,6 +74,18 @@ export abstract class AbstractProperty<Value, HasDefault extends boolean> {
         throw new Error("Method Not Implemented");
     }
 
+    static union<
+        const T extends readonly (
+            | ParseFn<any>
+            | AbstractProperty<any, boolean>
+        )[]
+    >(
+        _items: T,
+        _options?: InputOptions
+    ): AbstractProperty<PropertyUnion<T>, false> {
+        throw new Error("Method Not Implemented");
+    }
+
     static string(_options?: InputOptions): AbstractProperty<string, false> {
         throw new Error("Method Not Implemented");
     }
@@ -104,10 +106,10 @@ export abstract class AbstractProperty<Value, HasDefault extends boolean> {
     unique() {
         type O = Value extends boolean | string | number | symbol ? this : null;
         switch (this.type) {
-            case PropertType.Boolean:
-            case PropertType.String:
-            case PropertType.Number:
-            case PropertType.Symbol:
+            case Type.Boolean:
+            case Type.String:
+            case Type.Number:
+            case Type.Symbol:
                 this.options.unique = true;
                 return this as O;
             default:
@@ -132,6 +134,73 @@ export abstract class AbstractProperty<Value, HasDefault extends boolean> {
     ): PrimaryKey<false, FunctionMatch<V>> {
         return new PrimaryKey<false, FunctionMatch<V>>(type);
     }
+
+    static readonly validators: {
+        [K in ValidKeyType]: ParseFn<FunctionMatch<K>>;
+    } = {
+        string: (test) => {
+            if (typeof test === "string") {
+                return {
+                    success: true,
+                    data: test,
+                };
+            } else
+                return {
+                    success: false,
+                    error: "Value is not a string",
+                };
+        },
+        number: (test) => {
+            if (typeof test === "number") {
+                return {
+                    success: true,
+                    data: test,
+                };
+            } else
+                return {
+                    success: false,
+                    error: "Value is not a string",
+                };
+        },
+        date: (test) => {
+            if (test instanceof Date) {
+                if (!isNaN(test.getTime())) {
+                    return {
+                        success: true,
+                        data: test,
+                    };
+                } else {
+                    return {
+                        success: false,
+                        error: "Value is not a valid date",
+                    };
+                }
+            }
+            return {
+                success: false,
+                error: "Value is not a date",
+            };
+        },
+    };
+
+    protected static literalToType(value: Literable): Type {
+        switch (typeof value) {
+            case "boolean":
+                return Type.Boolean;
+            case "bigint":
+                return Type.BigInt;
+            case "number":
+                return Type.Number;
+            case "string":
+                return Type.Number;
+            case "object":
+                return Type.Object;
+            case "symbol":
+                return Type.Symbol;
+            default:
+                return Type.Unknown;
+        }
+    }
 }
 
 export class Property<
@@ -141,24 +210,22 @@ export class Property<
     array(): Property<Value[], false> {
         return new Property<Value[], false>(
             Property.generateArrayValidator(this.validate),
-            PropertType.Array,
+            Type.Array,
             this.options
         );
     }
 
     default(
-        defaultValue: Exclude<Value, undefined>
-    ): Property<Exclude<Value, undefined>, true> {
-        const newFn: ParseFn<Exclude<Value, undefined>> = (value: unknown) => {
+        defaultValue: NoUndefined<Value>
+    ): Property<NoUndefined<Value>, true> {
+        const newFn: ParseFn<NoUndefined<Value>> = (value: unknown) => {
             if (value == null) {
                 return {
                     success: true,
                     data: defaultValue,
                 };
             } else
-                return this.validate(value) as ParseResult<
-                    Exclude<Value, undefined>
-                >;
+                return this.validate(value) as ParseResult<NoUndefined<Value>>;
         };
         return new Property(newFn, this.type, this.options);
     }
@@ -200,38 +267,16 @@ export class Property<
 
     static string(options?: InputOptions): Property<string, false> {
         return new Property(
-            (test) => {
-                if (typeof test === "string") {
-                    return {
-                        success: true,
-                        data: test,
-                    };
-                } else
-                    return {
-                        success: false,
-                        error: "Value is not a string",
-                    };
-            },
-            PropertType.String,
+            AbstractProperty.validators.string,
+            Type.String,
             options
         );
     }
 
     static number(options?: InputOptions): Property<number, false> {
         return new Property(
-            (test) => {
-                if (typeof test === "number") {
-                    return {
-                        success: true,
-                        data: test,
-                    };
-                } else
-                    return {
-                        success: false,
-                        error: "Value is not a string",
-                    };
-            },
-            PropertType.Number,
+            AbstractProperty.validators.number,
+            Type.Number,
             options
         );
     }
@@ -250,7 +295,34 @@ export class Property<
                         error: "Value is not a string",
                     };
             },
-            PropertType.Boolean,
+            Type.Boolean,
+            options
+        );
+    }
+
+    static union<
+        const T extends readonly (
+            | ParseFn<any>
+            | AbstractProperty<any, boolean>
+        )[]
+    >(items: T, options?: InputOptions): Property<PropertyUnion<T>, false> {
+        const functions: ParseFn<T[number]>[] = items.map((i) =>
+            i instanceof AbstractProperty ? i.validate : i
+        );
+        return new Property<PropertyUnion<T>, false>(
+            ((test) => {
+                for (const fn of functions) {
+                    const result = fn(test);
+                    if (result.success) {
+                        return result;
+                    }
+                }
+                return {
+                    success: false,
+                    error: "Value did not match any of the items",
+                };
+            }) as ParseFn<PropertyUnion<T>>,
+            Type.Unknown,
             options
         );
     }
@@ -259,7 +331,7 @@ export class Property<
         fn: ParseFn<T>,
         options?: InputOptions
     ): Property<T, false> {
-        return new Property(fn, PropertType.Unknown, options);
+        return new Property(fn, Type.Unknown, options);
     }
 
     static array<T>(
@@ -270,28 +342,9 @@ export class Property<
             Property.generateArrayValidator(
                 item instanceof Property ? item.validate : item
             ),
-            PropertType.Array,
+            Type.Array,
             options
         );
-    }
-
-    private static literalToType(value: Literable): PropertType {
-        switch (typeof value) {
-            case "boolean":
-                return PropertType.Boolean;
-            case "bigint":
-                return PropertType.BigInt;
-            case "number":
-                return PropertType.Number;
-            case "string":
-                return PropertType.Number;
-            case "object":
-                return PropertType.Object;
-            case "symbol":
-                return PropertType.Symbol;
-            default:
-                return PropertType.Unknown;
-        }
     }
 
     private static generateArrayValidator<T>(fn: ParseFn<T>) {
