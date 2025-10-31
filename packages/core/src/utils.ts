@@ -1,4 +1,4 @@
-import { Arrayable, Keyof, Type, ValidKeyType } from "./types/common";
+import { Arrayable, Keyof, Type, ValidKeyType } from "./types";
 import type { Transaction } from "./transaction.js";
 import { UnknownError } from "./error.js";
 

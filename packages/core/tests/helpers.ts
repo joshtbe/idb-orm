@@ -1,5 +1,5 @@
 import { Page } from "@playwright/test";
-import { Keyof } from "../src/types/common.js";
+import { Keyof } from "../src/types.js";
 
 /**
  * Will navigate to the served page and import zod and the package

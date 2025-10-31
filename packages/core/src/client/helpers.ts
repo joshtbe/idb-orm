@@ -1,10 +1,4 @@
-import type {
-    Arrayable,
-    Dict,
-    Keyof,
-    Promisable,
-    ValidKey,
-} from "../types/common.js";
+import type { Arrayable, Dict, Keyof, Promisable, ValidKey } from "../types.js";
 import { getKeys, identity, toArray, unionSets } from "../utils.js";
 import type { DbClient } from "./index.ts";
 import type { CollectionObject } from "../builder.ts";

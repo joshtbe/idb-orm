@@ -19,7 +19,7 @@ import {
 //     RelationOutput,
 //     ValidValue,
 // } from "../field";
-import { Dict, Keyof } from "../types/common.js";
+import { Dict, Keyof } from "../types.js";
 import Model from "./model.js";
 
 export type FindPrimaryKey<F extends Record<string, ValidValue>> = Extract<

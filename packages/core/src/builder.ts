@@ -8,7 +8,7 @@ import {
     ParseFn,
     Property,
 } from "./field";
-import type { Dict, Keyof } from "./types/common";
+import type { Dict, Keyof } from "./types";
 import { getKeys, handleRequest, stringTypeToEnum } from "./utils";
 import { StoreError } from "./error";
 

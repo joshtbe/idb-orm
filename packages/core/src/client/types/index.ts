@@ -1,5 +1,5 @@
 import type { CollectionObject } from "../../builder.ts";
-import type { Dict, ValidKey } from "../../types/common.js";
+import type { Dict, ValidKey } from "../../types.js";
 import type {
     ExtractFields,
     Model,

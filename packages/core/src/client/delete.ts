@@ -5,7 +5,7 @@ import { WhereObject } from "./types/find.js";
 import { MutationState } from "./types";
 import { DbClient } from "./index.js";
 import { DeleteError, InvalidConfigError } from "../error.js";
-import { Dict, ValidKey } from "../types/common.js";
+import { Dict, ValidKey } from "../types.js";
 import { handleRequest, toArray } from "../utils.js";
 import { generateWhereClause } from "./helpers.js";
 

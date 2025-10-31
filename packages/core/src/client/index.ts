@@ -1,5 +1,5 @@
 import type { CollectionObject, CompiledDb } from "../builder";
-import type { Arrayable, Dict, Keyof, ValidKey } from "../types/common";
+import type { Arrayable, Dict, Keyof, ValidKey } from "../types";
 import type { ModelType, PrimaryKeyType } from "../model/model-types.ts";
 import { getKeys, handleRequest, toArray, unionSets } from "../utils";
 import { Transaction, type TransactionOptions } from "../transaction";

@@ -3,7 +3,7 @@ import type {
     MakeOptional,
     RemoveNeverValues,
     PartialOnUndefined,
-} from "../../types/common.js";
+} from "../../types.js";
 import type {
     BaseRelation,
     AbstractProperty,

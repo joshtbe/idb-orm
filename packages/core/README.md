@@ -25,11 +25,11 @@
     -   [ ] findMany
     -   [ ] updateMany
 -   [ ] Convert internal string unions to enums
--   [ ] Remove external dependencies
-    -   [ ] deep-equal
+-   [x] Remove external dependencies
+    -   [x] deep-equal
     -   [x] type-fest
-    -   [ ] uuid
-    -   [ ] zod
+    -   [x] uuid
+    -   [x] zod
 -   [ ] Make subpackages for adapters for different validation languages
     -   [ ] Zod
     -   [ ] Yup

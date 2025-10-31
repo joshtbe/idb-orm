@@ -1,4 +1,4 @@
-import { Dict, ValidKey, ValidKeyType } from "../types/common.js";
+import { Dict, ValidKey, ValidKeyType } from "../types.js";
 import PrimaryKey from "./primary-key.js";
 import { AbstractProperty, ParseFn, Property } from "./property.js";
 import { BaseRelation, OptionalRelation, RelationArray } from "./relation.js";

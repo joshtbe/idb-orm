@@ -1,4 +1,4 @@
-import { Literable, NoUndefined, Type, ValidKeyType } from "../types/common.js";
+import { Literable, NoUndefined, Type, ValidKeyType } from "../types.js";
 import {
     FunctionMatch,
     PropertyUnion,
