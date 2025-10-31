@@ -1,4 +1,4 @@
-import { Arrayable, Keyof, Type, ValidKeyType } from "./types";
+import { Arrayable, Keyof, ValidKeyType } from "./util-types";
 import type { Transaction } from "./transaction.js";
 import { UnknownError } from "./error.js";
 
@@ -66,4 +66,16 @@ export function unionSets<T>(set: Set<T>, other: Set<T>) {
         set.add(key);
     }
     return set;
+}
+
+export enum Type {
+    String,
+    Number,
+    BigInt,
+    Boolean,
+    Symbol,
+    Array,
+    Date,
+    Object,
+    Unknown,
 }

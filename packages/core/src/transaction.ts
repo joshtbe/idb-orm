@@ -6,7 +6,7 @@ import {
     UnknownError,
 } from "./error";
 import { ObjectStore } from "./object-store.js";
-import { Arrayable } from "./types.js";
+import { Arrayable } from "./util-types.js";
 
 export type TransactionStatus = "running" | "aborted" | "complete" | "error";
 export type TransactionEventHandler = (

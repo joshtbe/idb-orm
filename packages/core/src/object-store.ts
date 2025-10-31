@@ -10,7 +10,7 @@ import {
     UpdateError,
 } from "./error.js";
 import { Transaction } from "./transaction.js";
-import { Dict, Promisable, ValidKey } from "./types.js";
+import { Dict, Promisable, ValidKey } from "./util-types.js";
 
 export class ObjectStore {
     constructor(

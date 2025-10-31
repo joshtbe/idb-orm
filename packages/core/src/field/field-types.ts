@@ -1,7 +1,7 @@
-import { Dict, ValidKey, ValidKeyType } from "../types.js";
+import { Dict, ValidKey, ValidKeyType } from "../util-types.js";
 import PrimaryKey from "./primary-key.js";
 import { AbstractProperty, ParseFn, Property } from "./property.js";
-import { BaseRelation, OptionalRelation, RelationArray } from "./relation.js";
+import { BaseRelation, OptionalRelation, ArrayRelation } from "./relation.js";
 
 export type ReferenceActions = "Cascade" | "None" | "Restrict";
 export type OptionalActions = "SetNull" | ReferenceActions;
@@ -46,7 +46,7 @@ export type RelationOutput<T> = T extends PrimaryKey<any, infer Type>
 export type RelationOutputStructure<
     R extends BaseRelation<any, any>,
     Output
-> = R extends RelationArray<any, any>
+> = R extends ArrayRelation<any, any>
     ? Output[]
     : R extends OptionalRelation<any, any>
     ? Output | undefined

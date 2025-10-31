@@ -40,7 +40,11 @@ const createDb = async ({ pkg }: Packages) => {
         id: Field.primaryKey().autoIncrement(),
         name: Field.string(),
         range: Field.string(),
-        components: Field.literal("V").array(),
+        components: Field.union([
+            Field.literal("V"),
+            Field.literal("S"),
+            Field.literal("M"),
+        ]).array(),
         level: Field.number().default(0),
         lists: Field.relation("spellLists", {
             name: "spells2spellLists",

@@ -3,13 +3,13 @@ import type {
     MakeOptional,
     RemoveNeverValues,
     PartialOnUndefined,
-} from "../../types.js";
+} from "../../util-types.js";
 import type {
     BaseRelation,
     AbstractProperty,
     OptionalRelation,
     PrimaryKey,
-    RelationArray,
+    ArrayRelation,
 } from "../../field";
 import type { CollectionObject } from "../../builder.ts";
 import { WhereObject } from "./find.js";
@@ -59,13 +59,13 @@ export type Mutation<
                           ? MakeOptional<
                                 Fields[K] extends OptionalRelation<any, any>
                                     ? true
-                                    : Fields[K] extends RelationArray<any, any>
+                                    : Fields[K] extends ArrayRelation<any, any>
                                     ? true
                                     : MutType extends "update"
                                     ? true
                                     : false,
                                 | MakeArrayable<
-                                      Fields[K] extends RelationArray<any, any>
+                                      Fields[K] extends ArrayRelation<any, any>
                                           ? true
                                           : false,
                                       | {
@@ -90,7 +90,7 @@ export type Mutation<
                                       | (MutType extends "update"
                                             ?
                                                   | {
-                                                        $update: Fields[K] extends RelationArray<
+                                                        $update: Fields[K] extends ArrayRelation<
                                                             any,
                                                             any
                                                         >
@@ -115,7 +115,7 @@ export type Mutation<
                                                               >;
                                                     }
                                                   | {
-                                                        $delete: Fields[K] extends RelationArray<
+                                                        $delete: Fields[K] extends ArrayRelation<
                                                             any,
                                                             any
                                                         >
@@ -126,7 +126,7 @@ export type Mutation<
                                                             : true;
                                                     }
                                                   | {
-                                                        $disconnect: Fields[K] extends RelationArray<
+                                                        $disconnect: Fields[K] extends ArrayRelation<
                                                             any,
                                                             any
                                                         >
@@ -138,7 +138,7 @@ export type Mutation<
                                                     }
                                             : never)
                                   >
-                                | (Fields[K] extends RelationArray<any, any>
+                                | (Fields[K] extends ArrayRelation<any, any>
                                       ?
                                             | {
                                                   $connectMany: RelationValue<

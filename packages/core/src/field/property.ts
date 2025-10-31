@@ -1,4 +1,5 @@
-import { Literable, NoUndefined, Type, ValidKeyType } from "../types.js";
+import { Literable, NoUndefined, ValidKeyType } from "../util-types.js";
+import { Type } from "../utils.js";
 import {
     FunctionMatch,
     PropertyUnion,
@@ -13,7 +14,7 @@ export interface PropertyOptions {
     unique: boolean;
 }
 
-type InputOptions = Partial<PropertyOptions>;
+export type PropertyInputOptions = Partial<PropertyOptions>;
 
 export type ParseResult<T> =
     | {
@@ -24,7 +25,7 @@ export type ParseResult<T> =
     | { success: false; data?: undefined; error: string };
 
 /**
- * A function to parse and validate an unknown value. It should also handle applying defaults
+ * A function to parse and validateFn an unknown value. It should also handle applying defaults
  */
 export type ParseFn<T> = (value: unknown) => ParseResult<T>;
 
@@ -33,13 +34,17 @@ export abstract class AbstractProperty<Value, HasDefault extends boolean> {
     protected options: PropertyOptions;
 
     constructor(
-        public readonly validate: (value: unknown) => ParseResult<Value>,
+        protected validateFn: (value: unknown) => ParseResult<Value>,
         protected type: Type,
-        options?: InputOptions
+        options?: PropertyInputOptions
     ) {
         this.options = {
             unique: options?.unique ?? false,
         };
+    }
+
+    get validate() {
+        return this.validateFn;
     }
 
     abstract array(...args: unknown[]): AbstractProperty<Value[], false>;
@@ -49,53 +54,44 @@ export abstract class AbstractProperty<Value, HasDefault extends boolean> {
     ): AbstractProperty<Value | undefined, false>;
 
     abstract default(
-        defaultValue: Value
+        defaultValue: NoUndefined<Value>
     ): AbstractProperty<NoUndefined<Value>, true>;
 
     /* "abstract" static methods */
 
-    static array<T>(
-        _prop: AbstractProperty<T, boolean> | ParseFn<T>,
-        _options?: InputOptions
-    ): AbstractProperty<T[], false> {
+    static array<T>(..._args: unknown[]): AbstractProperty<T[], false> {
         throw new Error("Method Not Implemented");
     }
 
     static literal<const V extends Literable>(
-        _value: V,
-        _options?: InputOptions
+        _item: V,
+        ..._: unknown[]
     ): AbstractProperty<V, false> {
         throw new Error("Method Not Implemented");
     }
 
-    static custom<T>(
-        _fn: ParseFn<T>,
-        _options?: InputOptions
-    ): AbstractProperty<T, false> {
+    static custom<T>(..._: unknown[]): AbstractProperty<T, false> {
         throw new Error("Method Not Implemented");
     }
 
     static union<
-        const T extends readonly (
+        const _T extends readonly (
             | ParseFn<any>
             | AbstractProperty<any, boolean>
         )[]
-    >(
-        _items: T,
-        _options?: InputOptions
-    ): AbstractProperty<PropertyUnion<T>, false> {
+    >(..._: unknown[]): AbstractProperty<unknown, false> {
         throw new Error("Method Not Implemented");
     }
 
-    static string(_options?: InputOptions): AbstractProperty<string, false> {
+    static string(..._: unknown[]): AbstractProperty<string, false> {
         throw new Error("Method Not Implemented");
     }
 
-    static number(_options?: InputOptions): AbstractProperty<number, false> {
+    static number(..._: unknown[]): AbstractProperty<number, false> {
         throw new Error("Method Not Implemented");
     }
 
-    static boolean(_options?: InputOptions): AbstractProperty<boolean, false> {
+    static boolean(..._: unknown[]): AbstractProperty<boolean, false> {
         throw new Error("Method Not Implemented");
     }
 
@@ -139,7 +135,11 @@ export abstract class AbstractProperty<Value, HasDefault extends boolean> {
     static readonly validators = VALIDATORS;
 
     protected static literalToType(value: Literable): Type {
-        switch (typeof value) {
+        return AbstractProperty.nameToType(typeof value);
+    }
+
+    protected static nameToType(typeName: string): Type {
+        switch (typeName) {
             case "boolean":
                 return Type.Boolean;
             case "bigint":
@@ -164,7 +164,7 @@ export class Property<
 > extends AbstractProperty<Value, HasDefault> {
     array(): Property<Value[], false> {
         return new Property<Value[], false>(
-            Property.generateArrayValidator(this.validate),
+            Property.generateArrayValidator(this.validateFn),
             Type.Array,
             this.options
         );
@@ -180,8 +180,11 @@ export class Property<
                     data: defaultValue,
                 };
             } else
-                return this.validate(value) as ParseResult<NoUndefined<Value>>;
+                return this.validateFn(value) as ParseResult<
+                    NoUndefined<Value>
+                >;
         };
+        this.hasDefault = true as HasDefault;
         return new Property(newFn, this.type, this.options);
     }
 
@@ -193,14 +196,14 @@ export class Property<
                     data: undefined,
                 };
             }
-            return this.validate(value);
+            return this.validateFn(value);
         };
         return new Property(newFn, this.type, this.options);
     }
 
     static literal<const V extends Literable>(
         value: V,
-        options?: InputOptions
+        options?: PropertyInputOptions
     ): Property<V, false> {
         return new Property(
             (test): ParseResult<V> => {
@@ -220,7 +223,7 @@ export class Property<
         );
     }
 
-    static string(options?: InputOptions): Property<string, false> {
+    static string(options?: PropertyInputOptions): Property<string, false> {
         return new Property(
             AbstractProperty.validators.string,
             Type.String,
@@ -228,7 +231,7 @@ export class Property<
         );
     }
 
-    static number(options?: InputOptions): Property<number, false> {
+    static number(options?: PropertyInputOptions): Property<number, false> {
         return new Property(
             AbstractProperty.validators.number,
             Type.Number,
@@ -236,7 +239,7 @@ export class Property<
         );
     }
 
-    static boolean(options?: InputOptions): Property<boolean, false> {
+    static boolean(options?: PropertyInputOptions): Property<boolean, false> {
         return new Property(
             (test) => {
                 if (typeof test === "boolean") {
@@ -260,7 +263,10 @@ export class Property<
             | ParseFn<any>
             | AbstractProperty<any, boolean>
         )[]
-    >(items: T, options?: InputOptions): Property<PropertyUnion<T>, false> {
+    >(
+        items: T,
+        options?: PropertyInputOptions
+    ): Property<PropertyUnion<T>, false> {
         const functions: ParseFn<T[number]>[] = items.map((i) =>
             i instanceof AbstractProperty ? i.validate : i
         );
@@ -284,18 +290,18 @@ export class Property<
 
     static custom<T>(
         fn: ParseFn<T>,
-        options?: InputOptions
+        options?: PropertyInputOptions
     ): Property<T, false> {
         return new Property(fn, Type.Unknown, options);
     }
 
     static array<T>(
         item: ParseFn<T> | Property<T, boolean>,
-        options?: InputOptions
+        options?: PropertyInputOptions
     ): Property<T[], false> {
         return new Property(
             Property.generateArrayValidator(
-                item instanceof Property ? item.validate : item
+                item instanceof Property ? item.validateFn : item
             ),
             Type.Array,
             options

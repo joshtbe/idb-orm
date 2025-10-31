@@ -3,7 +3,7 @@ import {
     ValidValue,
     BaseRelation,
     OptionalRelation,
-    RelationArray,
+    ArrayRelation,
     RelationOutput,
     Relation,
     AbstractProperty,
@@ -15,11 +15,11 @@ import {
 //     OptionalRelation,
 //     PrimaryKey,
 //     Relation,
-//     RelationArray,
+//     ArrayRelation,
 //     RelationOutput,
 //     ValidValue,
 // } from "../field";
-import { Dict, Keyof } from "../types.js";
+import { Dict, Keyof } from "../util-types.js";
 import Model from "./model.js";
 
 export type FindPrimaryKey<F extends Record<string, ValidValue>> = Extract<
@@ -61,7 +61,7 @@ export type GetRelationField<F, C> = F extends Relation<infer To, any>
     ? RelationValue<To, C>
     : F extends OptionalRelation<infer To, any>
     ? RelationValue<To, C> | undefined
-    : F extends RelationArray<infer To, any>
+    : F extends ArrayRelation<infer To, any>
     ? RelationValue<To, C>[]
     : never;
 

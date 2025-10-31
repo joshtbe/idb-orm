@@ -1,4 +1,4 @@
-import type { Dict, If, Keyof, RemoveNeverValues } from "../../types.js";
+import type { Dict, If, Keyof, RemoveNeverValues } from "../../util-types.js";
 import type {
     ExtractFields,
     ModelStructure,

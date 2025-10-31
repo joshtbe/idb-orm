@@ -75,7 +75,7 @@ export class Relation<
     array({
         onDelete,
     }: Omit<RelationOptions<Name, OptionalActions>, "name"> = {}) {
-        return new RelationArray(this.to, this.name, onDelete);
+        return new ArrayRelation(this.to, this.name, onDelete);
     }
 
     /**
@@ -94,11 +94,11 @@ export class Relation<
         return this;
     }
 }
-export class RelationArray<
+export class ArrayRelation<
     To extends string,
     Name extends string
 > extends BaseRelation<To, Name> {
-    private declare readonly _brand: "relationArray";
+    private declare readonly _brand: "ArrayRelation";
 
     constructor(to: To, name?: Name, action: OptionalActions = "SetNull") {
         super(to, name, false, true, action);

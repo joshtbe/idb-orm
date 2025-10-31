@@ -8,18 +8,6 @@ export type IsNever<T> = [T] extends [never] ? true : false;
 export type Promisable<T> = T | Promise<T>;
 export type NoUndefined<T> = Exclude<T, undefined>;
 
-export enum Type {
-    String,
-    Number,
-    BigInt,
-    Boolean,
-    Symbol,
-    Array,
-    Date,
-    Object,
-    Unknown,
-}
-
 export type MakeOptional<B extends boolean, T> = B extends true
     ? T | undefined
     : T;

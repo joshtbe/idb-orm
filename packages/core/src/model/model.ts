@@ -8,7 +8,7 @@ import {
     ValidValue,
     ParseResult,
 } from "../field";
-import { Keyof, ValidKey } from "../types.js";
+import { Keyof, ValidKey } from "../util-types.js";
 import { getKeys, unionSets } from "../utils.js";
 import { StoreError } from "../error.js";
 import { FindPrimaryKey, ModelCache } from "./model-types.js";

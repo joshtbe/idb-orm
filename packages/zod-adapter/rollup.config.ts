@@ -1,6 +1,7 @@
 import typescript from "@rollup/plugin-typescript";
 import terser from "@rollup/plugin-terser";
 import { nodeResolve } from "@rollup/plugin-node-resolve";
+import path from "path";
 
 export default {
     input: "src/index.ts",
@@ -21,4 +22,5 @@ export default {
             exclude: ["**/tests/*"],
         }),
     ],
+    external: [path.resolve("../core/dist/dev.d.ts")],
 };

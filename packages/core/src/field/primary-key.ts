@@ -1,4 +1,4 @@
-import { ValidKey, ValidKeyType } from "../types.js";
+import { ValidKey, ValidKeyType } from "../util-types.js";
 import { uuid } from "../utils.js";
 import { GenFunction, VALIDATORS } from "./field-types.js";
 
