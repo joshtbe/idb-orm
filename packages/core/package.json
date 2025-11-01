@@ -2,7 +2,7 @@
     "name": "@idb-orm/core",
     "version": "1.0.7",
     "description": "",
-    "main": "dist/index.js",
+    "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
     "type": "module",
     "scripts": {
@@ -20,10 +20,6 @@
             "types": "./dist/index.d.ts",
             "import": "./dist/index.js",
             "require": "./dist/index.js"
-        },
-        "./dev": {
-            "types": "./dist/dev.d.ts",
-            "default": "./dist/dev.d.ts"
         }
     },
     "license": "ISC",

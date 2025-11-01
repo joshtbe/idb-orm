@@ -3,16 +3,19 @@ import {
     AbstractProperty,
     PropertyOptions,
     PropertyInputOptions,
-} from "./field/property.js";
-import { PropertyUnion } from "./field/field-types.js";
-import * as util from "./util-types.js";
-import { Type } from "./utils.js";
+} from "./field/property";
+import { PropertyUnion } from "./field/field-types";
+export * from "./util-types";
+import { Model } from "./model";
+export * from "./field";
+export * from "./client";
+import { Type } from "./utils";
 export {
     ParseFn,
     AbstractProperty,
-    util,
     Type,
     PropertyOptions,
     PropertyInputOptions,
     PropertyUnion,
+    Model,
 };

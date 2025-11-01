@@ -1,12 +1,7 @@
-import {
-    ParseFn,
-    AbstractProperty,
-    PropertyInputOptions,
-    util,
-} from "@idb-orm/core/dev";
+import { dev } from "@idb-orm/core";
 import { z } from "zod";
 
-function parseAdapter<T>(schema: z.ZodType<T>): ParseFn<T> {
+function parseAdapter<T>(schema: z.ZodType<T>): dev.ParseFn<T> {
     return ((value: unknown) => {
         const result = schema.safeParse(value);
         return {
@@ -14,20 +9,20 @@ function parseAdapter<T>(schema: z.ZodType<T>): ParseFn<T> {
             data: result.data,
             error: result?.error ? z.prettifyError(result.error) : undefined,
         };
-    }) as ParseFn<T>;
+    }) as dev.ParseFn<T>;
 }
 
 export class Property<
     Value,
     HasDefault extends boolean
-> extends AbstractProperty<Value, HasDefault> {
+> extends dev.AbstractProperty<Value, HasDefault> {
     constructor(
         private schema: z.ZodType<Value>,
-        options?: PropertyInputOptions
+        options?: dev.PropertyInputOptions
     ) {
         super(
             parseAdapter(schema),
-            AbstractProperty.nameToType(schema.type),
+            dev.AbstractProperty.nameToType(schema.type),
             options
         );
     }
@@ -39,12 +34,12 @@ export class Property<
     }
 
     default(
-        defaultValue: util.NoUndefined<Value>
-    ): Property<util.NoUndefined<Value>, true> {
+        defaultValue: dev.NoUndefined<Value>
+    ): Property<dev.NoUndefined<Value>, true> {
         this.schema = this.schema.default(defaultValue);
         this.hasDefault = true as HasDefault;
         this.regenerateValidator();
-        return this as Property<util.NoUndefined<Value>, true>;
+        return this as Property<dev.NoUndefined<Value>, true>;
     }
 
     optional(): Property<Value | undefined, false> {
@@ -59,28 +54,30 @@ export class Property<
         boolean: z.boolean(),
     };
 
-    static literal<const T extends util.Literable>(
+    static literal<const T extends dev.Literable>(
         value: T,
-        options?: PropertyInputOptions
+        options?: dev.PropertyInputOptions
     ): Property<T, false> {
         return new Property(z.literal(value), options);
     }
 
-    static string(options?: PropertyInputOptions): Property<string, false> {
+    static string(options?: dev.PropertyInputOptions): Property<string, false> {
         return new Property(Property.zodValidators.string, options);
     }
 
-    static number(options?: PropertyInputOptions): Property<number, false> {
+    static number(options?: dev.PropertyInputOptions): Property<number, false> {
         return new Property(Property.zodValidators.number, options);
     }
 
-    static boolean(options?: PropertyInputOptions): Property<boolean, false> {
+    static boolean(
+        options?: dev.PropertyInputOptions
+    ): Property<boolean, false> {
         return new Property(Property.zodValidators.boolean, options);
     }
 
     static union<const T extends readonly z.core.SomeType[]>(
         items: T,
-        options?: PropertyInputOptions
+        options?: dev.PropertyInputOptions
     ): Property<z.output<z.ZodUnion<T>>, false> {
         return new Property<z.output<z.ZodUnion<T>>, false>(
             z.union(items),
@@ -90,14 +87,14 @@ export class Property<
 
     static custom<T>(
         schema: z.ZodType<T>,
-        options?: PropertyInputOptions
+        options?: dev.PropertyInputOptions
     ): Property<T, false> {
         return new Property(schema, options);
     }
 
     static array<T>(
         schema: z.ZodType<T>,
-        options?: PropertyInputOptions
+        options?: dev.PropertyInputOptions
     ): Property<T[], false> {
         return new Property(z.array(schema), options);
     }

@@ -1,6 +1,7 @@
 import { test, expect, Page } from "@playwright/test";
-import { ContextSession, EvalFn, populatePage } from "./helpers.js";
-import * as core from "../packages/core";
+import { ContextSession, EvalFn, populatePage } from "../helpers.js";
+
+import type * as core from "../../packages/core";
 
 export type Packages = {
     pkg: typeof core;
@@ -57,11 +58,12 @@ const createDb = async ({ pkg }: Packages) => {
     });
 
     const client = await db.createClient();
+
+    // @ts-ignore
     return client;
 };
 
 test.describe("1 page multi-test", () => {
-    test.describe.configure({ mode: "default" });
 
     let page: Page;
     let session: ContextSession<SessionArguments>;
@@ -69,7 +71,7 @@ test.describe("1 page multi-test", () => {
         const context = await browser.newContext();
         page = await context.newPage();
         session = await populatePage<SessionArguments>(page, {
-            pkg: "import('./index.js')",
+            pkg: "import('./core/dist/index.js')",
             client: createDb as any,
         });
     });

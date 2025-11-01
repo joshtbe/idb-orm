@@ -12,3 +12,7 @@ export { CompiledQuery };
 
 import type { ModelType } from "./model";
 export { ModelType };
+
+// Export all the dev types/functions here
+import * as dev from "./dev";
+export { dev };

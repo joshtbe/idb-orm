@@ -2,7 +2,7 @@
     "name": "@idb-orm/zod-adapter",
     "version": "0.0.1",
     "description": "An adapter for the Zod validation library for @idb-orm",
-    "main": "index.js",
+    "main": "dist/index.js",
     "scripts": {
         "build": "rollup --config rollup.config.ts --configPlugin typescript"
     },
@@ -13,10 +13,18 @@
         "validation",
         "idb-orm"
     ],
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js",
+            "require": "./dist/index.js"
+        }
+    },
     "author": "jtb",
     "license": "ISC",
     "devDependencies": {
         "@eslint/js": "^9.38.0",
+        "@rollup/plugin-alias": "^6.0.0",
         "@rollup/plugin-node-resolve": "^16.0.3",
         "@rollup/plugin-terser": "^0.4.4",
         "@rollup/plugin-typescript": "^12.1.4",

@@ -8,6 +8,7 @@ export default {
         {
             file: "dist/index.js",
             format: "esm",
+            minifyInternalExports: true,
             sourcemap: false,
         },
     ],
