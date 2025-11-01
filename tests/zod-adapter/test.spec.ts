@@ -9,6 +9,8 @@ export type Packages = {
 };
 export type SessionArguments = Packages;
 
+
+// TODO: Fix this not working in vscode
 test.describe("Simple Validation", () => {
     let page: Page;
     let session: ContextSession<SessionArguments>;
