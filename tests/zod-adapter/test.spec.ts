@@ -9,9 +9,7 @@ export type Packages = {
 };
 export type SessionArguments = Packages;
 
-test.describe("1 page multi-test", () => {
-    test.describe.configure({ mode: "default" });
-
+test.describe("Simple Validation", () => {
     let page: Page;
     let session: ContextSession<SessionArguments>;
     test.beforeAll(async ({ browser }) => {
