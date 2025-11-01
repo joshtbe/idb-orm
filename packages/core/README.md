@@ -9,6 +9,7 @@
 -   [x] "Include" query field
     -   [x] Enforce that either "include" xor "select" is in the query object
     -   [x] modify the query object so that on relations it is recursive
+-   [ ] Fix testing not running correctly
 -   [ ] Complete update action
     -   [ ] Finish `updateSingleton` action
 -   [ ] Unique model fields: Use "unique" indexes to enforce this.

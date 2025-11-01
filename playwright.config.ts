@@ -73,7 +73,7 @@ export default defineConfig({
 
     /* Run your local dev server before starting the tests */
     webServer: {
-        command: "npx serve dist -l 4173",
+        command: "npx serve packages/core/dist -l 4173",
         port: 4173,
     },
 });

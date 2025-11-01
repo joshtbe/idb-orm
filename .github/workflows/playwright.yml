@@ -14,13 +14,13 @@ jobs:
               with:
                   node-version: lts/*
             - name: Install dependencies
-              run: cd packages/core && npm ci
+              run: npm ci
             - name: Build project
-              run: cd packages/core && npm run build
+              run: npm run build
             - name: Install Playwright Browsers
-              run: cd packages/core && npx playwright install --with-deps
+              run: npx playwright install --with-deps
             - name: Run Playwright tests
-              run: cd packages/core && npx playwright test
+              run: npx playwright test
             - uses: actions/upload-artifact@v4
               if: ${{ !cancelled() }}
               with:

@@ -1,5 +1,6 @@
 import { Page } from "@playwright/test";
-import { Keyof } from "../src/util-types.js";
+
+type Keyof<T> = Extract<keyof T, string>;
 
 /**
  * Will navigate to the served page and import zod and the package

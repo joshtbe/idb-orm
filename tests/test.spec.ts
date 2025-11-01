@@ -1,10 +1,9 @@
 import { test, expect, Page } from "@playwright/test";
 import { ContextSession, EvalFn, populatePage } from "./helpers.js";
-import { Builder, Property } from "../dist/index.js";
-import * as idbOrm from "../dist/index.js";
+import * as core from "../packages/core";
 
 export type Packages = {
-    pkg: typeof idbOrm;
+    pkg: typeof core;
 };
 export type SessionArguments = Packages & {
     client: Awaited<ReturnType<typeof createDb>>;
