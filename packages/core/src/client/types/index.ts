@@ -6,7 +6,11 @@ import type {
     ModelStructure,
     PrimaryKeyType,
 } from "../../model";
-import type { AddMutation, UpdateMutation } from "./mutation.ts";
+import type {
+    AddMutation,
+    MutationAction,
+    UpdateMutation,
+} from "./mutation.ts";
 import type { FindInput, FindOutput, WhereObject } from "./find.ts";
 import type { CompiledQuery } from "../compiled-query.ts";
 import type { DbClient } from "../index.ts";
@@ -86,6 +90,15 @@ export const enum MutationBreath {
     Singleton,
 }
 
+export enum Action {
+    connect,
+    create,
+    disconnect,
+    update,
+    delete,
+}
+export type ActionKey = keyof typeof Action;
+
 export interface MutationState<Names extends string>
     extends Partial<{
         tx: Transaction<"readwrite", Names>;
@@ -93,21 +106,29 @@ export interface MutationState<Names extends string>
         singleton: {
             id: ValidKey;
         };
+        /**
+         * Flag indicating whether or not this is the final step of the query/mutation
+         * @default true
+         */
         finalStep: boolean;
     }> {}
 
+export type ActionItem = [action: MutationAction, value: unknown];
 export type KeyObject<Index = string> =
     | {
-          isFun: boolean;
           key: Index;
       } & (
           | {
                 isRelation: true;
+                actions: ActionItem[];
                 relation: BaseRelation<any, any>;
+                updateFn?: undefined;
             }
           | {
                 isRelation: false;
+                actions?: undefined;
                 relation?: undefined;
+                updateFn: <T>(value: T) => T;
             }
       );
 

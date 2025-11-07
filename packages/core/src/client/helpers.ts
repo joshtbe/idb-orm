@@ -8,10 +8,14 @@ import type {
 import { getKeys, identity, toArray, unionSets } from "../utils.js";
 import type { DbClient } from "./index.ts";
 import type { CollectionObject } from "../builder.ts";
-import type { AddMutation } from "./types/mutation.ts";
+import type {
+    AddMutation,
+    MutationAction,
+    UpdateMutation,
+} from "./types/mutation.ts";
 import type { QueryInput } from "./types/find.ts";
 import type { Transaction } from "../transaction.js";
-import { InvalidItemError, StoreError, UnknownError } from "../error.js";
+import { InvalidItemError } from "../error.js";
 import { FieldTypes } from "../field/field-types.js";
 
 export function generateWhereClause(where?: Dict): (obj: unknown) => boolean {
@@ -178,11 +182,11 @@ export function getAccessedStores<
 >(
     name: ModelNames,
     query: Dict,
-    type: "mutation" | "query",
+    isMutation: boolean,
     client: DbClient<string, ModelNames, Models>
 ): Set<ModelNames> {
     const stores: Set<ModelNames> = new Set([name]);
-    if (type === "mutation") {
+    if (isMutation) {
         const keys = getKeys(query);
         const model = client.getModel(name);
         for (const key of keys) {
@@ -196,15 +200,17 @@ export function getAccessedStores<
                     for (const conKey in subItem) {
                         if (!Object.hasOwn(subItem, conKey)) continue;
 
-                        switch (conKey) {
+                        switch (conKey as MutationAction) {
                             case "$connect":
                             case "$connectMany":
                             case "$disconnect":
                             case "$disconnectMany":
+                            case "$disconnectAll":
                                 stores.add(relation.to);
                                 break;
                             case "$delete":
                             case "$deleteMany":
+                            case "$deleteAll":
                                 unionSets(
                                     stores,
                                     model.getDeletedStores(client)
@@ -216,7 +222,7 @@ export function getAccessedStores<
                                     getAccessedStores(
                                         relation.to,
                                         subItem[conKey] as Dict,
-                                        type,
+                                        isMutation,
                                         client
                                     )
                                 );
@@ -235,20 +241,54 @@ export function getAccessedStores<
                                         getAccessedStores(
                                             relation.to,
                                             value,
-                                            type,
+                                            isMutation,
                                             client
                                         )
                                     )
                                 );
                                 break;
                             }
-                            // TODO: Complete these
                             case "$update":
+                                unionSets(
+                                    stores,
+                                    getAccessedStores(
+                                        relation.to,
+                                        (
+                                            subItem[conKey] as UpdateMutation<
+                                                ModelNames,
+                                                ModelNames,
+                                                Models[ModelNames],
+                                                Models
+                                            >
+                                        ).data,
+                                        isMutation,
+                                        client
+                                    )
+                                );
+                                break;
                             case "$updateMany": {
+                                (
+                                    subItem[conKey] as UpdateMutation<
+                                        ModelNames,
+                                        ModelNames,
+                                        Models[ModelNames],
+                                        Models
+                                    >[]
+                                ).forEach((value) =>
+                                    unionSets(
+                                        stores,
+                                        getAccessedStores(
+                                            relation.to,
+                                            value.data,
+                                            isMutation,
+                                            client
+                                        )
+                                    )
+                                );
                                 break;
                             }
-                            default:
-                                break;
+                            // default:
+                            //     break;
                         }
                     }
                 }
@@ -268,7 +308,7 @@ export function getAccessedStores<
                                 getSearchableQuery(
                                     query[key] as QueryInput<any, any, any>
                                 ),
-                                "query",
+                                false,
                                 client
                             )
                         );
@@ -287,14 +327,4 @@ export function getAccessedStores<
 
 export function getSearchableQuery(q: QueryInput<any, any, any>) {
     return q.include ? q.include : q.select ? q.select : {};
-}
-
-export function promiseCatch(tx: Transaction<IDBTransactionMode, string>) {
-    return (error: any) => {
-        if (error instanceof StoreError) {
-            throw tx.abort(error);
-        } else {
-            throw tx.abort(new UnknownError(String(error)));
-        }
-    };
 }

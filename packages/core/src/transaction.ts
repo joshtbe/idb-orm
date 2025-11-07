@@ -30,36 +30,84 @@ export class Transaction<
     public status: TransactionStatus;
     public error: StoreError | null = null;
     public readonly storeNames: Stores[];
+    private stackCount = 0;
+    public readonly onRejection = (error: any) => {
+        if (error instanceof StoreError) {
+            throw this.abort(error);
+        } else {
+            throw this.abort(new UnknownError(String(error)));
+        }
+    };
 
     /**
      * A record of store names to `IDBObjectStore` objects
      */
     private readonly objectStores: Record<Stores, ObjectStore>;
 
+    constructor(transaction: Transaction<Mode, Stores>);
+
     constructor(
-        db: IDBDatabase,
+        first: IDBDatabase,
         stores: Arrayable<Stores>,
         mode: Mode,
+        options?: TransactionOptions
+    );
+
+    constructor(
+        first: IDBDatabase | Transaction<Mode, Stores>,
+        stores?: Arrayable<Stores>,
+        mode?: Mode,
         options: TransactionOptions = {}
     ) {
-        this.internal = db.transaction(stores, mode);
-        this.status = "running";
-        this.storeNames = Array.from(
-            this.internal.objectStoreNames
-        ) as Stores[];
-        this.objectStores = {} as Record<Stores, ObjectStore>;
-        for (const store of this.storeNames) {
-            this.objectStores[store] = this.getObjectstore(store);
+        if (first instanceof Transaction) {
+            this.internal = first.getInternal();
+            this.storeNames = first.storeNames;
+            this.status = first.status;
+            this.error = first.error;
+            this.objectStores = first.getAllStores();
+        } else {
+            this.internal = first.transaction(stores!, mode);
+            this.status = "running";
+            this.storeNames = Array.from(
+                this.internal.objectStoreNames
+            ) as Stores[];
+            this.objectStores = {} as Record<Stores, ObjectStore>;
+            for (const store of this.storeNames) {
+                this.objectStores[store] = this.getObjectstore(store);
+            }
+            this.internal.onabort = this.registerHandler(
+                "aborted",
+                options.onAbort
+            );
+            this.internal.onerror = this.registerHandler(
+                "error",
+                options.onError
+            );
+            this.internal.oncomplete = this.registerHandler(
+                "complete",
+                options.onComplete
+            );
         }
-        this.internal.onabort = this.registerHandler(
-            "aborted",
-            options.onAbort
-        );
-        this.internal.onerror = this.registerHandler("error", options.onError);
-        this.internal.oncomplete = this.registerHandler(
-            "complete",
-            options.onComplete
-        );
+    }
+
+    /**
+     * Creates a new transaction, or, if an existing one is passed in, just returns the existing one
+     * @param db IndexedDB object
+     * @param stores List of store names
+     * @param mode Transaction mode
+     * @param existingTx Existing transaction
+     */
+    static create<Mode extends IDBTransactionMode, Stores extends string>(
+        db: IDBDatabase,
+        stores: Stores[],
+        mode: Mode,
+        existingTx?: Transaction<Mode, Stores>
+    ): Transaction<Mode, Stores> {
+        if (existingTx) {
+            return existingTx;
+        } else {
+            return new Transaction(db, stores, mode);
+        }
     }
 
     abort(error: StoreError) {
@@ -91,6 +139,10 @@ export class Transaction<
                 )
             );
         return s;
+    }
+
+    getAllStores() {
+        return this.objectStores;
     }
 
     get mode() {
@@ -145,14 +197,22 @@ export class Transaction<
     }
 
     async wrap<Output>(fn: (tx: this) => Promise<Output>): Promise<Output> {
-        try {
-            return await fn(this);
-        } catch (error) {
-            if (error instanceof StoreError && this.status === "aborted") {
-                throw error;
-            } else {
-                throw this.abort(new UnknownError());
+        // Use stackCount to avoid layering many try-catch blocks
+        if (this.stackCount === 0) {
+            this.stackCount++;
+            try {
+                const result = await fn(this);
+                this.stackCount--;
+                return result;
+            } catch (error) {
+                if (error instanceof StoreError && this.status === "aborted") {
+                    throw error;
+                } else {
+                    throw this.abort(new UnknownError());
+                }
             }
+        } else {
+            return await fn(this);
         }
     }
 }

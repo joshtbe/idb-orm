@@ -15,7 +15,7 @@ import type { CollectionObject } from "../../builder.ts";
 import { WhereObject } from "./find.js";
 import { Model, FindRelationKey, RelationValue } from "../../model";
 
-export type MutationActions =
+export type MutationAction =
     | "$connect"
     | "$connectMany"
     | "$create"
@@ -29,12 +29,14 @@ export type MutationActions =
     | "$disconnectMany"
     | "$disconnectAll";
 
+type MutationType = "add" | "update";
+
 export type Mutation<
     This extends All,
     All extends string,
     Struct extends object,
     C extends CollectionObject<All>,
-    MutType extends string = "add"
+    MutType extends MutationType = "add"
 > = PartialOnUndefined<
     RemoveNeverValues<
         Struct extends Model<any, infer Fields, any>

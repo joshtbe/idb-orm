@@ -9,39 +9,17 @@ import { Dict, ValidKey } from "../util-types.js";
 import { handleRequest, toArray } from "../utils.js";
 import { generateWhereClause } from "./helpers.js";
 
-/**
- * Deletes document(s) from a store
- * @param name Name of the store
- * @param client DbClient object
- * @param stopOnFirst Stop after the first deletion
- * @param _state Optional state for multi-stage actions
- * @returns Number of items removed
- */
-export async function deleteItems<
+function generateDocumentDelete<
     ModelNames extends string,
     Name extends ModelNames,
     Models extends CollectionObject<ModelNames>
 >(
-    name: Name,
+    model: Models[Name],
     client: DbClient<string, ModelNames, Models>,
-    where?: WhereObject<ExtractFields<Models[Name]>>,
-    stopOnFirst: boolean = false,
-    _state: MutationState<ModelNames> = {}
-): Promise<number> {
-    const { singleton, finalStep = true } = _state;
-    const model = client.getModel(name);
-    const accessed = _state.tx
-        ? _state.tx.storeNames
-        : Array.from(model.getDeletedStores(client));
-    const tx: Transaction<"readwrite", ModelNames> =
-        _state.tx ?? client.createTransaction("readwrite", accessed);
-
-    const store = tx.getStore(name);
-    let deleted = 0;
-
-    const deleteSubItems = async (item: Dict): Promise<boolean> => {
+    tx: Transaction<"readwrite", ModelNames>
+) {
+    return async (item: Dict): Promise<boolean> => {
         if (!item) return false;
-
         const primaryKeyValue = item[model.primaryKey] as ValidKey;
 
         for (const relationKey of model.links<ModelNames>()) {
@@ -55,19 +33,28 @@ export async function deleteItems<
                 case "Cascade": {
                     if (relation.isArray) {
                         tx.assertIsArray(fieldItem);
-                        // TODO: Change this to a cursor
-                        for (const id of fieldItem) {
-                            await deleteItems(
-                                relation.to,
-                                client,
-                                undefined,
-                                undefined,
-                                {
-                                    tx,
-                                    singleton: { id: id },
+                        const idSet = new Set<ValidKey>(fieldItem);
+                        const deleteFn = generateDocumentDelete(
+                            relatedModel,
+                            client,
+                            tx
+                        );
+                        const store = tx.getStore(relation.to);
+                        await store
+                            .openCursor(async (cursor) => {
+                                if (
+                                    idSet.has(
+                                        cursor.value[
+                                            relatedModel.primaryKey
+                                        ] as ValidKey
+                                    )
+                                ) {
+                                    await deleteFn(cursor.value as Dict);
                                 }
-                            );
-                        }
+                                cursor.continue();
+                                return true;
+                            })
+                            .catch(tx.onRejection);
                     }
                     // If it's optional & valid or singular
                     else if (fieldItem) {
@@ -103,11 +90,7 @@ export async function deleteItems<
                                 }' has an invalid relation key '${relation.getRelatedKey()}'`
                             )
                         );
-                    else if (
-                        !relatedRelation.isArray &&
-                        !relatedRelation.isOptional
-                    ) {
-                        // TODO: Perform this check on collection compilation
+                    else if (!relatedRelation.isNullable()) {
                         throw tx.abort(
                             new InvalidConfigError(
                                 `Key '${relatedKey}' on model '${relatedKey}': Non-optional relation cannot have the 'SetNull' action`
@@ -161,6 +144,39 @@ export async function deleteItems<
         }
         return true;
     };
+}
+
+/**
+ * Deletes document(s) from a store
+ * @param name Name of the store
+ * @param client DbClient object
+ * @param stopOnFirst Stop after the first deletion
+ * @param _state Optional state for multi-stage actions
+ * @returns Number of items removed
+ */
+export async function deleteItems<
+    ModelNames extends string,
+    Name extends ModelNames,
+    Models extends CollectionObject<ModelNames>
+>(
+    name: Name,
+    client: DbClient<string, ModelNames, Models>,
+    where?: WhereObject<ExtractFields<Models[Name]>>,
+    stopOnFirst: boolean = false,
+    _state: MutationState<ModelNames> = {}
+): Promise<number> {
+    const { singleton, finalStep = true } = _state;
+    const model = client.getModel(name);
+    const accessed = _state.tx
+        ? _state.tx.storeNames
+        : Array.from(model.getDeletedStores(client));
+    const tx: Transaction<"readwrite", ModelNames> =
+        _state.tx ?? client.createTransaction("readwrite", accessed);
+
+    const store = tx.getStore(name);
+    let deleted = 0;
+
+    const deleteSubItems = generateDocumentDelete(model, client, tx);
 
     if (singleton) {
         if (await deleteSubItems(await store.get(singleton.id))) {
@@ -169,21 +185,22 @@ export async function deleteItems<
         }
     } else {
         const whereClause = generateWhereClause(where);
-        let req: IDBRequest | undefined = undefined;
+        let promise: Promise<undefined> | undefined;
         await store.openCursor(async (cursor) => {
             const value = cursor.value as Dict;
             if (whereClause(value) && (await deleteSubItems(value))) {
-                req = cursor.delete();
+                promise = handleRequest(cursor.delete()).catch(tx.onRejection);
             }
             if (stopOnFirst && deleted > 0) {
-                if (req && finalStep) {
-                    await handleRequest(req);
-                }
                 return false;
             }
             cursor.continue();
             return true;
         });
+
+        if (promise && finalStep) {
+            await promise;
+        }
     }
 
     return deleted;

@@ -33,6 +33,7 @@ export default defineConfig(
                     ignoreRestSiblings: true,
                 },
             ],
+            "@typescript-eslint/no-implied-eval": "off",
         },
         languageOptions: {
             parserOptions: {

@@ -2,11 +2,11 @@ import { Arrayable, Keyof, ValidKeyType } from "./util-types";
 import type { Transaction } from "./transaction.js";
 import { UnknownError } from "./error.js";
 
-export async function handleRequest<T>(
+export function handleRequest<T>(
     req: IDBRequest<T>,
     tx?: Transaction<any, any>
 ) {
-    return await new Promise<T>((res) => {
+    return new Promise<T>((res) => {
         req.onsuccess = () => {
             res(req.result);
         };
@@ -66,6 +66,13 @@ export function unionSets<T>(set: Set<T>, other: Set<T>) {
         set.add(key);
     }
     return set;
+}
+
+export function makeFunction<Sig extends Function>(options: {
+    args: string[];
+    body: string;
+}): Sig {
+    return new Function(...options.args, options.body) as Sig;
 }
 
 export enum Type {

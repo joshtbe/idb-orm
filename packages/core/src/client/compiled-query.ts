@@ -33,7 +33,7 @@ export class CompiledQuery<
             getAccessedStores(
                 name,
                 getSearchableQuery(input),
-                "query",
+                false,
                 this.client
             )
         );

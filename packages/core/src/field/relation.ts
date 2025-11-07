@@ -45,6 +45,14 @@ export class BaseRelation<To extends string, Name extends string = never> {
         return { ...this.actions };
     }
 
+    /**
+     * Whether or not this relation can have the "SetNull" onDelete action used against it
+     * @returns 
+     */
+    isNullable() {
+        return this.isArray || this.isOptional;
+    }
+
     setRelatedKey(key: string) {
         this.relatedKey = key;
     }

@@ -106,3 +106,8 @@ export const RetrievalError = storeErrorFactory(
     "GET_FAILED",
     "Item could not be retrieved"
 );
+
+export const OverwriteRelationError = storeErrorFactory(
+    "OVERWRITE_RELATION",
+    "Relation cannot be overwritten"
+);

@@ -9,11 +9,15 @@
 -   [x] "Include" query field
     -   [x] Enforce that either "include" xor "select" is in the query object
     -   [x] modify the query object so that on relations it is recursive
--   [ ] Fix testing not running correctly
--   [ ] Complete update action
-    -   [ ] Finish `updateSingleton` action
--   [ ] Unique model fields: Use "unique" indexes to enforce this.
--   [ ] Optimize batch `add` editing with cursor functionality
+-   [x] Complete update action
+-   [ ] Redo Mutation type. It should provide structurally no change:
+    -   [ ] Split `add` and `update` mutation until completely separate interfaces
+    -   [ ] -Many or -All are only present on `ArrayRelation`'s,
+    -   [ ] Make MutType a string union
+    -   [ ] Update actions only appear when `MutType` is update
+    -   [ ] Cannot use `delete` or `disconnect` on non-nullable (1-1) relations
+-   [ ] Build Extension System
+-   [ ] Wrap all calls in tx.wrap()
 -   [ ] Make sure non-optional and non-array relations do not have the `SetNull` onDelete action
 -   [ ] Dump database to different formats:
     -   [ ] JSON
@@ -26,11 +30,6 @@
     -   [ ] findMany
     -   [ ] updateMany
 -   [ ] Convert internal string unions to enums
--   [x] Remove external dependencies
-    -   [x] deep-equal
-    -   [x] type-fest
-    -   [x] uuid
-    -   [x] zod
 -   [ ] Make subpackages for adapters for different validation languages
     -   [ ] Zod
     -   [ ] Yup
@@ -39,5 +38,7 @@
 
 ### Roadmap - Maybe
 
+-   [ ] Optimize batch `add` editing with cursor functionality
+-   [ ] Optimize vanilla property validation by stringifying function bodies and constructing functions instead of wrapping
 -   [ ] Discriminated union models: Be able to differentiate subtypes of a model by a discriminator key
 -   [ ] Error Handling: Instead of needing to type `tx.abort(...)` just use the `throw new ...` syntax and catch the error and automatically abort the transaction. This will require actions to be wrapped in some kind of try-catch block.

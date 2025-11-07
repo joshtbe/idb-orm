@@ -59,12 +59,35 @@ const createDb = async ({ pkg }: Packages) => {
 
     const client = await db.createClient();
 
+    client.stores.classes.updateFirst({
+        where: {
+            id: 20,
+        },
+        data: {
+            name: "Warlock",
+            description: ["A worse sorc"],
+            spellList: {
+                $create: {
+                    name: "Warlock Spell List",
+                    spells: [
+                        {
+                            $create: {
+                                name: "yo",
+                                components: ["V"],
+                                range: "",
+                            },
+                        },
+                    ],
+                },
+            },
+        },
+    });
+
     // @ts-ignore
     return client;
 };
 
 test.describe("1 page multi-test", () => {
-
     let page: Page;
     let session: ContextSession<SessionArguments>;
     test.beforeAll(async ({ browser }) => {

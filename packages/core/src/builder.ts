@@ -10,7 +10,7 @@ import {
 } from "./field";
 import type { Dict, Keyof } from "./util-types";
 import { getKeys, handleRequest, stringTypeToEnum } from "./utils";
-import { StoreError } from "./error";
+import { InvalidConfigError, StoreError } from "./error";
 
 export type CollectionObject<Names extends string> = {
     [K in Names]: Model<K, any>;
@@ -56,6 +56,7 @@ export class CompiledDb<
                 if (field instanceof AbstractProperty) {
                     schema[fieldKey] = field.validate;
                 } else if (field instanceof BaseRelation) {
+                    const { onDelete } = field.getActions();
                     const linkedModel = this.models[field.to as Keyof<C>];
                     const linkedPrimary = linkedModel.getPrimaryKey();
                     schema[fieldKey] =
@@ -91,6 +92,14 @@ export class CompiledDb<
                                 if (hasRelation) {
                                     field.setRelatedKey(otherKey);
                                     element.setRelatedKey(fieldKey);
+                                    if (
+                                        onDelete === "SetNull" &&
+                                        !element.isNullable()
+                                    ) {
+                                        throw new InvalidConfigError(
+                                            `Key '${fieldKey}' on model '${model.name}': Non-optional relation cannot have the 'SetNull' action`
+                                        );
+                                    }
                                 }
                                 break;
                             }
