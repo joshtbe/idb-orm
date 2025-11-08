@@ -1,4 +1,4 @@
-import { Dict, ValidKey, ValidKeyType } from "../util-types.js";
+import { Dict, ValidKey } from "../util-types.js";
 import PrimaryKey from "./primary-key.js";
 import { AbstractProperty, ParseFn, Property } from "./property.js";
 import { BaseRelation, OptionalRelation, ArrayRelation } from "./relation.js";
@@ -16,7 +16,7 @@ export interface RelationActions {
 }
 
 export const enum FieldTypes {
-    Field,
+    Property,
     Relation,
     PrimaryKey,
     Invalid,
@@ -74,51 +74,3 @@ export type PropertyUnion<
     : T extends ParseFn<infer Type>
     ? Type
     : never;
-
-export const VALIDATORS: {
-    [K in ValidKeyType]: ParseFn<FunctionMatch<K>>;
-} = {
-    string: (test) => {
-        if (typeof test === "string") {
-            return {
-                success: true,
-                data: test,
-            };
-        } else
-            return {
-                success: false,
-                error: "Value is not a string",
-            };
-    },
-    number: (test) => {
-        if (typeof test === "number") {
-            return {
-                success: true,
-                data: test,
-            };
-        } else
-            return {
-                success: false,
-                error: "Value is not a string",
-            };
-    },
-    date: (test) => {
-        if (test instanceof Date) {
-            if (!isNaN(test.getTime())) {
-                return {
-                    success: true,
-                    data: test,
-                };
-            } else {
-                return {
-                    success: false,
-                    error: "Value is not a valid date",
-                };
-            }
-        }
-        return {
-            success: false,
-            error: "Value is not a date",
-        };
-    },
-};

@@ -1,27 +1,32 @@
-import { ValidKey, ValidKeyType } from "../util-types.js";
-import { uuid } from "../utils.js";
-import { GenFunction, VALIDATORS } from "./field-types.js";
+import { InvalidConfigError } from "../error.js";
+import { Type, ValidKey, ValidKeyType } from "../util-types.js";
+import { getDate, uuid } from "../utils.js";
+import { GenFunction } from "./field-types.js";
+import { VALIDATORS } from "./validators.js";
 
 export default class PrimaryKey<
     AutoGenerate extends boolean,
-    Type extends ValidKey
+    KeyType extends ValidKey
 > {
-    private genFn?: GenFunction<Type>;
+    private genFn?: GenFunction<KeyType>;
     private autoGenerate: AutoGenerate;
     public readonly type: ValidKeyType;
 
     constructor();
     constructor(type: ValidKeyType);
-    constructor(type: ValidKeyType, generator: GenFunction<Type>);
+    constructor(type: ValidKeyType, generator: GenFunction<KeyType>);
 
     constructor(
         type?: ValidKeyType | void,
-        generator?: GenFunction<Type> | void
+        generator?: GenFunction<KeyType> | void
     ) {
         if (!type) {
             this.autoGenerate = false as AutoGenerate;
-            this.type = "number";
+            this.type = Type.Number;
         } else {
+            if (type > Type.Date) {
+                throw new InvalidConfigError("Invalid Primary Key Type");
+            }
             this.type = type;
             if (generator) {
                 this.autoGenerate = true as AutoGenerate;
@@ -32,29 +37,34 @@ export default class PrimaryKey<
         }
     }
 
-    autoIncrement() {
-        if (this.type === "number") {
-            this.genFn = undefined;
-            this.autoGenerate = true as AutoGenerate;
-            return this as PrimaryKey<true, number>;
-        }
-        const obj = new PrimaryKey<true, number>();
-        obj.genFn = undefined;
-        obj.autoGenerate = true as (typeof obj)["autoGenerate"];
-        return obj;
-    }
-
-    generator(genFn: GenFunction<Type>) {
+    generator(genFn: GenFunction<KeyType>) {
         this.genFn = genFn;
         this.autoGenerate = true as AutoGenerate;
-        return this as PrimaryKey<true, Type>;
+        return this as PrimaryKey<true, KeyType>;
+    }
+
+    autoIncrement<
+        Result = KeyType extends number ? PrimaryKey<true, number> : never
+    >(): Result {
+        if (this.type === Type.Number) {
+            this.genFn = undefined;
+            this.autoGenerate = true as AutoGenerate;
+            return this as unknown as Result;
+        }
+        throw new InvalidConfigError(
+            "Primary key must be a number to use autoIncrement()"
+        );
     }
 
     uuid() {
         if (!window.isSecureContext) {
             throw new Error("Window is not in a secure context");
         }
-        return new PrimaryKey<true, string>("string", uuid);
+        return new PrimaryKey<true, string>(Type.String, uuid);
+    }
+
+    date() {
+        return new PrimaryKey<true, Date>(Type.Date, getDate);
     }
 
     genKey() {

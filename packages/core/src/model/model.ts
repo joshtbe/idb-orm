@@ -71,7 +71,7 @@ export default class Model<
     keyType(key: Keyof<F>): FieldTypes {
         const f = this.fields[key];
         if (!f) return FieldTypes.Invalid;
-        else if (f instanceof AbstractProperty) return FieldTypes.Field;
+        else if (f instanceof AbstractProperty) return FieldTypes.Property;
         else if (f instanceof BaseRelation) return FieldTypes.Relation;
         else if (f instanceof PrimaryKey) return FieldTypes.PrimaryKey;
         else return FieldTypes.Invalid;
@@ -88,7 +88,7 @@ export default class Model<
 
     parseField<K extends Keyof<F>>(field: K, value: unknown): ParseResult<any> {
         if (this.fields[field] instanceof AbstractProperty) {
-            return this.fields[field].validate(value);
+            return this.fields[field].parse(value);
         }
         return null as never;
     }

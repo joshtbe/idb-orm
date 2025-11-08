@@ -1,6 +1,6 @@
 import { Builder } from "./builder.js";
 import { StoreError, type ErrorType } from "./error.js";
-import "./dev.js";
+import "./core.js";
 
 export { Builder, StoreError, ErrorType };
 
@@ -14,5 +14,5 @@ import type { ModelType } from "./model";
 export { ModelType };
 
 // Export all the dev types/functions here
-import * as dev from "./dev";
-export { dev };
+import * as core from "./core.js";
+export { core };

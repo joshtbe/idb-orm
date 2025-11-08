@@ -3,6 +3,9 @@ import type {
     MakeOptional,
     RemoveNeverValues,
     PartialOnUndefined,
+    Extends,
+    If,
+    Or,
 } from "../../util-types.js";
 import type {
     BaseRelation,
@@ -29,14 +32,125 @@ export type MutationAction =
     | "$disconnectMany"
     | "$disconnectAll";
 
-type MutationType = "add" | "update";
+type WhereSelection<Struct extends object> = Struct extends Model<
+    any,
+    infer Fields,
+    any
+>
+    ? WhereObject<Fields>
+    : never;
 
-export type Mutation<
+type _UpdateRelationMutation<
+    This extends All,
+    All extends string,
+    C extends CollectionObject<All>,
+    To extends All,
+    Name extends string,
+    Relation extends BaseRelation<To, Name>,
+    IsOptional extends boolean = Extends<Relation, OptionalRelation<any, any>>,
+    IsArray extends boolean = Extends<Relation, ArrayRelation<any, any>>
+> = MakeOptional<
+    IsOptional,
+    | MakeArrayable<
+          IsArray,
+          | {
+                $connect: RelationValue<To, C>;
+            }
+          | {
+                $create: Omit<
+                    AddMutation<To, All, C[To], C>,
+                    FindRelationKey<This, Name, C[To]>
+                >;
+            }
+          | {
+                $update: If<
+                    IsArray,
+                    UpdateMutation<To, All, C[To], C>,
+                    UpdateMutation<To, All, C[To], C>["data"]
+                >;
+            }
+          | If<
+                Or<IsArray, IsOptional>,
+                | {
+                      $delete: If<IsArray, RelationValue<To, C>, true>;
+                  }
+                | {
+                      $disconnect: If<IsArray, RelationValue<To, C>, true>;
+                  },
+                never
+            >
+      >
+    | If<
+          IsArray,
+          | {
+                $connectMany: RelationValue<To, C>[];
+            }
+          | {
+                $createMany: Omit<
+                    AddMutation<To, All, C[To], C>,
+                    FindRelationKey<This, Name, C[To]>
+                >[];
+            }
+          | {
+                $updateMany: UpdateMutation<To, All, C[To], C>[];
+            }
+          | {
+                $deleteMany: RelationValue<To, C>[];
+            }
+          | {
+                $deleteAll: true;
+            }
+          | {
+                $disconnectMany: RelationValue<To, C>[];
+            }
+          | {
+                $disconnectAll: true;
+            },
+          never
+      >
+>;
+
+export type UpdateMutation<
     This extends All,
     All extends string,
     Struct extends object,
-    C extends CollectionObject<All>,
-    MutType extends MutationType = "add"
+    C extends CollectionObject<All>
+> = {
+    where?: WhereSelection<Struct>;
+    data: PartialOnUndefined<
+        RemoveNeverValues<
+            Struct extends Model<any, infer Fields, any>
+                ? {
+                      [K in keyof Fields]: Fields[K] extends AbstractProperty<
+                          infer Type,
+                          any
+                      >
+                          ? Type | undefined | ((value: Type) => Type)
+                          : Fields[K] extends PrimaryKey<any, any>
+                          ? never
+                          : Fields[K] extends BaseRelation<infer To, infer Name>
+                          ? To extends All
+                              ? _UpdateRelationMutation<
+                                    This,
+                                    All,
+                                    C,
+                                    To,
+                                    Name,
+                                    Fields[K]
+                                >
+                              : never
+                          : never;
+                  }
+                : never
+        >
+    >;
+};
+
+export type AddMutation<
+    This extends All,
+    All extends string,
+    Struct extends object,
+    C extends CollectionObject<All>
 > = PartialOnUndefined<
     RemoveNeverValues<
         Struct extends Model<any, infer Fields, any>
@@ -45,15 +159,11 @@ export type Mutation<
                       infer Type,
                       infer HasDefault
                   >
-                      ? MutType extends "update"
-                          ? Type | undefined | ((value: Type) => Type)
-                          : HasDefault extends true
+                      ? HasDefault extends true
                           ? Type | undefined
                           : Type
                       : Fields[K] extends PrimaryKey<infer IsAuto, infer Type>
-                      ? MutType extends "update"
-                          ? never
-                          : IsAuto extends true
+                      ? IsAuto extends true
                           ? never
                           : Type
                       : Fields[K] extends BaseRelation<infer To, infer Name>
@@ -62,8 +172,6 @@ export type Mutation<
                                 Fields[K] extends OptionalRelation<any, any>
                                     ? true
                                     : Fields[K] extends ArrayRelation<any, any>
-                                    ? true
-                                    : MutType extends "update"
                                     ? true
                                     : false,
                                 | MakeArrayable<
@@ -75,13 +183,7 @@ export type Mutation<
                                         }
                                       | {
                                             $create: Omit<
-                                                Mutation<
-                                                    To,
-                                                    All,
-                                                    C[To],
-                                                    C,
-                                                    "add"
-                                                >,
+                                                AddMutation<To, All, C[To], C>,
                                                 FindRelationKey<
                                                     This,
                                                     Name,
@@ -89,56 +191,6 @@ export type Mutation<
                                                 >
                                             >;
                                         }
-                                      | (MutType extends "update"
-                                            ?
-                                                  | {
-                                                        $update: Fields[K] extends ArrayRelation<
-                                                            any,
-                                                            any
-                                                        >
-                                                            ? {
-                                                                  where?: WhereSelection<
-                                                                      C[To]
-                                                                  >;
-                                                                  data: Mutation<
-                                                                      To,
-                                                                      All,
-                                                                      C[To],
-                                                                      C,
-                                                                      MutType
-                                                                  >;
-                                                              }
-                                                            : Mutation<
-                                                                  To,
-                                                                  All,
-                                                                  C[To],
-                                                                  C,
-                                                                  MutType
-                                                              >;
-                                                    }
-                                                  | {
-                                                        $delete: Fields[K] extends ArrayRelation<
-                                                            any,
-                                                            any
-                                                        >
-                                                            ? RelationValue<
-                                                                  To,
-                                                                  C
-                                                              >
-                                                            : true;
-                                                    }
-                                                  | {
-                                                        $disconnect: Fields[K] extends ArrayRelation<
-                                                            any,
-                                                            any
-                                                        >
-                                                            ? RelationValue<
-                                                                  To,
-                                                                  C
-                                                              >
-                                                            : true;
-                                                    }
-                                            : never)
                                   >
                                 | (Fields[K] extends ArrayRelation<any, any>
                                       ?
@@ -150,12 +202,11 @@ export type Mutation<
                                               }
                                             | {
                                                   $createMany: Omit<
-                                                      Mutation<
+                                                      AddMutation<
                                                           To,
                                                           All,
                                                           C[To],
-                                                          C,
-                                                          "add"
+                                                          C
                                                       >,
                                                       FindRelationKey<
                                                           This,
@@ -163,38 +214,6 @@ export type Mutation<
                                                           C[To]
                                                       >
                                                   >[];
-                                              }
-                                            | {
-                                                  $updateMany: {
-                                                      where?: WhereSelection<
-                                                          C[To]
-                                                      >;
-                                                      data: Mutation<
-                                                          To,
-                                                          All,
-                                                          C[To],
-                                                          C,
-                                                          MutType
-                                                      >;
-                                                  }[];
-                                              }
-                                            | {
-                                                  $deleteMany: RelationValue<
-                                                      To,
-                                                      C
-                                                  >[];
-                                              }
-                                            | {
-                                                  $deleteAll: true;
-                                              }
-                                            | {
-                                                  $disconnectMany: RelationValue<
-                                                      To,
-                                                      C
-                                                  >[];
-                                              }
-                                            | {
-                                                  $disconnectAll: true;
                                               }
                                       : never)
                             >
@@ -204,28 +223,3 @@ export type Mutation<
             : never
     >
 >;
-
-export type AddMutation<
-    This extends All,
-    All extends string,
-    Struct extends object,
-    C extends CollectionObject<All>
-> = Mutation<This, All, Struct, C, "add">;
-
-export interface UpdateMutation<
-    This extends All,
-    All extends string,
-    Struct extends object,
-    C extends CollectionObject<All>
-> {
-    where?: WhereSelection<Struct>;
-    data: Mutation<This, All, Struct, C, "update">;
-}
-
-type WhereSelection<Struct extends object> = Struct extends Model<
-    any,
-    infer Fields,
-    any
->
-    ? WhereObject<Fields>
-    : never;

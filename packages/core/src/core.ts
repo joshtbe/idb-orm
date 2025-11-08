@@ -7,13 +7,13 @@ import {
 import { PropertyUnion } from "./field/field-types";
 export * from "./util-types";
 import { Model } from "./model";
+import { VALIDATORS } from "./field/validators.js";
 export * from "./field";
 export * from "./client";
-import { Type } from "./utils";
 export {
+    VALIDATORS,
     ParseFn,
     AbstractProperty,
-    Type,
     PropertyOptions,
     PropertyInputOptions,
     PropertyUnion,

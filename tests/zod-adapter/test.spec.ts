@@ -9,7 +9,6 @@ export type Packages = {
 };
 export type SessionArguments = Packages;
 
-
 // TODO: Fix this not working in vscode
 test.describe("Simple Validation", () => {
     let page: Page;
@@ -30,7 +29,7 @@ test.describe("Simple Validation", () => {
     test("Sample DB", async () => {
         const result = await session.evaluate(async ({ adapter }) => {
             const string = adapter.Property.string();
-            const parse = string.validate("Hello");
+            const parse = string.parse("Hello");
             return parse.success;
         });
         expect(result).toBeTruthy();

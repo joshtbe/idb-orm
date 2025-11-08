@@ -1,4 +1,4 @@
-import { Arrayable, Keyof, ValidKeyType } from "./util-types";
+import { Arrayable, Keyof, Type } from "./util-types";
 import type { Transaction } from "./transaction.js";
 import { UnknownError } from "./error.js";
 
@@ -34,7 +34,7 @@ export function toArray<T>(value: Arrayable<T>): T[] {
     return value;
 }
 
-export function stringTypeToEnum(type: ValidKeyType): Type {
+export function stringTypeToEnum(type: "string" | "date" | "number"): Type {
     switch (type) {
         case "date":
             return Type.Date;
@@ -43,10 +43,15 @@ export function stringTypeToEnum(type: ValidKeyType): Type {
         case "string":
             return Type.String;
     }
+    return Type.Unknown;
 }
 
 export function uuid() {
     return crypto.randomUUID();
+}
+
+export function getDate() {
+    return new Date();
 }
 
 /**
@@ -73,16 +78,4 @@ export function makeFunction<Sig extends Function>(options: {
     body: string;
 }): Sig {
     return new Function(...options.args, options.body) as Sig;
-}
-
-export enum Type {
-    String,
-    Number,
-    BigInt,
-    Boolean,
-    Symbol,
-    Array,
-    Date,
-    Object,
-    Unknown,
 }

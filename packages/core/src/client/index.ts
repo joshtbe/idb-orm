@@ -204,7 +204,7 @@ export class DbClient<
                             `Key '${key}' does ont exist on model '${name}'`
                         )
                     );
-                case FieldTypes.Field: {
+                case FieldTypes.Property: {
                     const parseResult = model.parseField(key, element);
                     if (!parseResult) throw tx.abort(new UnknownError());
                     if (!parseResult.success) {
@@ -354,7 +354,7 @@ export class DbClient<
         const unused = Array.from(new Set(model.keys()).difference(visited));
         for (const unusedField of unused) {
             switch (model.keyType(unusedField)) {
-                case FieldTypes.Field: {
+                case FieldTypes.Property: {
                     const parseResult = model.parseField(
                         unusedField,
                         undefined
@@ -464,6 +464,7 @@ export class DbClient<
         return result;
     }
 
+    // TODO: Handle special case where $update|$delete|$disconnect on 1-1 relation does not use cursor
     private async update<
         N extends ModelNames,
         U extends UpdateMutation<N, ModelNames, Models[N], Models>
@@ -485,7 +486,7 @@ export class DbClient<
         const keyObjs: KeyObject<keyof T>[] = [];
         for (const key of getKeys(item.data)) {
             switch (model.keyType(key as string)) {
-                case FieldTypes.Field:
+                case FieldTypes.Property:
                     keyObjs.push({
                         key: key,
                         isRelation: false,

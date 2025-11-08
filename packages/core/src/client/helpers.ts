@@ -144,7 +144,7 @@ export function generateSelector<
                     }
                     break;
                 }
-                case FieldTypes.Field:
+                case FieldTypes.Property:
                 case FieldTypes.PrimaryKey:
                     if (isSelect) getters.push({ key: key as Keyof<I> });
                     break;

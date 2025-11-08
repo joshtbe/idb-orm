@@ -9,8 +9,9 @@ import {
     Property,
 } from "./field";
 import type { Dict, Keyof } from "./util-types";
-import { getKeys, handleRequest, stringTypeToEnum } from "./utils";
+import { getKeys, handleRequest } from "./utils";
 import { InvalidConfigError, StoreError } from "./error";
+import { VALIDATORS } from "./field/validators.js";
 
 export type CollectionObject<Names extends string> = {
     [K in Names]: Model<K, any>;
@@ -54,23 +55,22 @@ export class CompiledDb<
             for (const fieldKey of model.keys()) {
                 const field = model.get(fieldKey);
                 if (field instanceof AbstractProperty) {
-                    schema[fieldKey] = field.validate;
+                    schema[fieldKey] = field.parse;
                 } else if (field instanceof BaseRelation) {
                     const { onDelete } = field.getActions();
                     const linkedModel = this.models[field.to as Keyof<C>];
                     const linkedPrimary = linkedModel.getPrimaryKey();
-                    schema[fieldKey] =
-                        AbstractProperty.validators[linkedPrimary.type];
+                    schema[fieldKey] = VALIDATORS[linkedPrimary.type];
                     if (field.isOptional) {
                         schema[fieldKey] = new Property(
                             schema[fieldKey],
-                            stringTypeToEnum(linkedPrimary.type)
-                        ).optional().validate;
+                            linkedPrimary.type
+                        ).optional().parse;
                     } else if (field.isArray) {
                         schema[fieldKey] = schema[fieldKey] = new Property(
                             schema[fieldKey],
-                            stringTypeToEnum(linkedPrimary.type)
-                        ).array().validate;
+                            linkedPrimary.type
+                        ).array().parse;
                     }
 
                     let hasRelation = !!field.getRelatedKey();
@@ -112,7 +112,7 @@ export class CompiledDb<
                             `Relation '${field.name}' of model ${key} does not have an equivalent relation on model '${field.to}'`
                         );
                 } else if (field instanceof PrimaryKey) {
-                    schema[fieldKey] = AbstractProperty.validators[field.type];
+                    schema[fieldKey] = VALIDATORS[field.type];
                 } else {
                     throw new StoreError(
                         "INVALID_CONFIG",

@@ -42,7 +42,7 @@ export class Transaction<
     /**
      * A record of store names to `IDBObjectStore` objects
      */
-    private readonly objectStores: Record<Stores, ObjectStore>;
+    private readonly objectStores: Map<Stores, ObjectStore>;
 
     constructor(transaction: Transaction<Mode, Stores>);
 
@@ -71,10 +71,9 @@ export class Transaction<
             this.storeNames = Array.from(
                 this.internal.objectStoreNames
             ) as Stores[];
-            this.objectStores = {} as Record<Stores, ObjectStore>;
-            for (const store of this.storeNames) {
-                this.objectStores[store] = this.getObjectstore(store);
-            }
+            this.objectStores = new Map(
+                this.storeNames.map((s) => [s, this.getObjectstore(s)])
+            );
             this.internal.onabort = this.registerHandler(
                 "aborted",
                 options.onAbort
@@ -131,7 +130,7 @@ export class Transaction<
     }
 
     getStore(store: Stores): ObjectStore {
-        const s = this.objectStores[store];
+        const s = this.objectStores.get(store);
         if (!s)
             throw this.abort(
                 new InvalidTransactionError(
