@@ -48,9 +48,10 @@ type _UpdateRelationMutation<
     Name extends string,
     Relation extends BaseRelation<To, Name>,
     IsOptional extends boolean = Extends<Relation, OptionalRelation<any, any>>,
-    IsArray extends boolean = Extends<Relation, ArrayRelation<any, any>>
+    IsArray extends boolean = Extends<Relation, ArrayRelation<any, any>>,
+    IsNullable extends boolean = Or<IsOptional, IsArray>
 > = MakeOptional<
-    IsOptional,
+    IsNullable,
     | MakeArrayable<
           IsArray,
           | {
@@ -70,7 +71,7 @@ type _UpdateRelationMutation<
                 >;
             }
           | If<
-                Or<IsArray, IsOptional>,
+                IsNullable,
                 | {
                       $delete: If<IsArray, RelationValue<To, C>, true>;
                   }
