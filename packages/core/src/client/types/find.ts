@@ -29,8 +29,8 @@ export type WhereObject<Fields extends Dict<ValidValue>> = Partial<
         >
             ? Output | FilterFn<Output>
             : Fields[K] extends PrimaryKey<any, infer Type>
-            ? ProhibitObjects<Type> | FilterFn<Type>
-            : never;
+            ? Type | FilterFn<Type>
+            : Fields[K];
     }>
 >;
 

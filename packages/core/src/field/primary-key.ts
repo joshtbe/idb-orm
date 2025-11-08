@@ -43,13 +43,11 @@ export default class PrimaryKey<
         return this as PrimaryKey<true, KeyType>;
     }
 
-    autoIncrement<
-        Result = KeyType extends number ? PrimaryKey<true, number> : never
-    >(): Result {
+    autoIncrement() {
         if (this.type === Type.Number) {
             this.genFn = undefined;
             this.autoGenerate = true as AutoGenerate;
-            return this as unknown as Result;
+            return this as PrimaryKey<true, number>;
         }
         throw new InvalidConfigError(
             "Primary key must be a number to use autoIncrement()"
