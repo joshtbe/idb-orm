@@ -19,7 +19,11 @@ export type FilterFn<Input> = (item: Input) => boolean;
 /**
  * If an property is an object type (dictionary, array, map, set, etc...) return never. If it's a union it strips out any object types
  */
-export type ProhibitObjects<T> = T extends object ? never : T;
+export type ProhibitObjects<T> = T extends Date
+    ? Date
+    : T extends object
+    ? never
+    : T;
 
 export type WhereObject<Fields extends Dict<ValidValue>> = Partial<
     RemoveNeverValues<{
@@ -29,8 +33,8 @@ export type WhereObject<Fields extends Dict<ValidValue>> = Partial<
         >
             ? Output | FilterFn<Output>
             : Fields[K] extends PrimaryKey<any, infer Type>
-            ? Type | FilterFn<Type>
-            : Fields[K];
+            ? ProhibitObjects<Type> | FilterFn<Type>
+            : never;
     }>
 >;
 

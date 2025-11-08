@@ -5,7 +5,7 @@ import type {
     Promisable,
     ValidKey,
 } from "../util-types.js";
-import { getKeys, identity, toArray, unionSets } from "../utils.js";
+import { getKeys, identity, returnTrue, toArray, unionSets } from "../utils.js";
 import type { DbClient } from "./index.ts";
 import type { CollectionObject } from "../builder.ts";
 import type {
@@ -19,7 +19,7 @@ import { InvalidItemError } from "../error.js";
 import { FieldTypes } from "../field/field-types.js";
 
 export function generateWhereClause(where?: Dict): (obj: unknown) => boolean {
-    if (!where) return () => true;
+    if (!where) return returnTrue;
     const checkFns: [key: string, fn: (value: unknown) => boolean][] = [];
     for (const whereKey in where) {
         if (!Object.hasOwn(where, whereKey)) continue;
@@ -29,7 +29,16 @@ export function generateWhereClause(where?: Dict): (obj: unknown) => boolean {
                 checkFns.push([whereKey, where[whereKey] as () => boolean]);
                 break;
             case "object":
-                // Just skip checking them
+                // Just skip checking them (unless they are dates)
+                if (where[whereKey] instanceof Date) {
+                    const date: Date = where[whereKey];
+                    checkFns.push([
+                        whereKey,
+                        (value) =>
+                            value instanceof Date &&
+                            value.getTime() === date.getTime(),
+                    ]);
+                }
                 break;
             default:
                 checkFns.push([whereKey, (value) => value === where[whereKey]]);

@@ -55,6 +55,14 @@ export function getDate() {
 }
 
 /**
+ * A function that always returns true
+ * @returns true
+ */
+export function returnTrue() {
+    return true;
+}
+
+/**
  * Identity Function, it returns the first argument it is given, all others are ignored
  * @param value Value
  * @returns Same Value
