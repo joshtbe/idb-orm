@@ -14,7 +14,7 @@
 -   [x] Redo Mutation type. It should provide structurally no change:
     -   [x] Split `add` and `update` mutation until completely separate interfaces?
     -   [x] -Many or -All are only present on `ArrayRelation`'s,
-    -   [ ] Cannot use `delete` or `disconnect` on non-nullable (1-1) relations
+    -   [x] Cannot use `delete` or `disconnect` on non-nullable (1-1) relations
 -   [ ] Build Extension System
 -   [ ] Error Handling: Instead of needing to type `tx.abort(...)` just use the `throw new ...` syntax and catch the error and automatically abort the transaction. This will require actions to be wrapped in some kind of try-catch block.
 -   [ ] Dump database to different formats:

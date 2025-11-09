@@ -131,14 +131,16 @@ export type UpdateMutation<
                           ? never
                           : Fields[K] extends BaseRelation<infer To, infer Name>
                           ? To extends All
-                              ? _UpdateRelationMutation<
-                                    This,
-                                    All,
-                                    C,
-                                    To,
-                                    Name,
-                                    Fields[K]
-                                >
+                              ?
+                                    | _UpdateRelationMutation<
+                                          This,
+                                          All,
+                                          C,
+                                          To,
+                                          Name,
+                                          Fields[K]
+                                      >
+                                    | undefined
                               : never
                           : never;
                   }
