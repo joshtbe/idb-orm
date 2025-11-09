@@ -30,7 +30,7 @@ export class ObjectStore {
      *
      * Returns `undefined` if no value was found
      */
-    async get(key: ValidKey): Promise<Dict> {
+    async get(key: ValidKey): Promise<Dict | undefined> {
         return (await this.handleRequest(
             this.store.get(key),
             () => new RetrievalError()

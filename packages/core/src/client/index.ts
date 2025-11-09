@@ -253,8 +253,7 @@ export class DbClient<
 
                     // Set of all connection keys
                     const usedKeys = new Set<ValidKey>();
-
-                    // TODO: Optimize with batch editing with cursor
+                    
                     for (const item of value) {
                         const firstKey = getKeys(item)[0];
                         if (!firstKey)
@@ -464,7 +463,6 @@ export class DbClient<
         return result;
     }
 
-    // TODO: Handle special case where $update|$delete|$disconnect on 1-1 relation does not use cursor
     private async update<
         N extends ModelNames,
         U extends UpdateMutation<N, ModelNames, Models[N], Models>
@@ -475,29 +473,39 @@ export class DbClient<
         _state: MutationState<ModelNames> = {}
     ): Promise<PrimaryKeyType<Models[N]>[]> {
         type T = U["data"];
-        const { data } = item;
-        let { tx } = _state;
-        const accessed = this.getAccessedStores(name, item.data, true, tx);
-        tx = Transaction.create(this.db, accessed, "readwrite", tx);
+        const { singleton } = _state;
+        const updateData = _state.singleton ? item : item.data;
+        const accessed = this.getAccessedStores(
+            name,
+            updateData,
+            true,
+            _state.tx
+        );
+        const tx = Transaction.create(
+            this.db,
+            accessed,
+            "readwrite",
+            _state.tx
+        );
 
         const store = tx.getStore(name);
         const model = this.getModel(name);
 
         const keyObjs: KeyObject<keyof T>[] = [];
-        for (const key of getKeys(item.data)) {
+        for (const key of getKeys(updateData)) {
             switch (model.keyType(key as string)) {
                 case FieldTypes.Property:
                     keyObjs.push({
                         key: key,
                         isRelation: false,
-                        updateFn: (typeof data[key] === "function"
-                            ? data[key]
-                            : () => data[key]) as <T>() => T,
+                        updateFn: (typeof updateData[key] === "function"
+                            ? updateData[key]
+                            : () => updateData[key]) as <T>() => T,
                     });
                     break;
                 case FieldTypes.Relation: {
                     const element = toArray(
-                        item.data[key] as Arrayable<
+                        updateData[key] as Arrayable<
                             Record<MutationAction, unknown[]>
                         >
                     );
@@ -559,120 +567,121 @@ export class DbClient<
             }
         }
 
-        const where = generateWhereClause(item.where);
         const keys: ValidKey[] = [];
 
-        await store.openCursor(async (cursor) => {
-            const value = cursor.value;
-            if (where(value)) {
-                const thisId: ValidKey = cursor.value[model.primaryKey];
-                for (const { key, ...obj } of keyObjs) {
-                    const relation = obj.relation as BaseRelation<
-                        ModelNames,
-                        string
-                    >;
-                    if (obj.isRelation) {
-                        for (const [action, payload] of obj.actions) {
-                            switch (action) {
-                                case "$connect": {
-                                    // payload is the id of the other object
-                                    if (value[key] && !relation.isArray) {
-                                        await this.disconnectDocument(
-                                            relation,
-                                            thisId,
-                                            value[key] as ValidKey,
-                                            tx
-                                        ).catch(tx.onRejection);
-                                    }
-
-                                    await this.connectDocument(
-                                        relation,
-                                        thisId,
-                                        payload as ValidKey,
-                                        tx
-                                    ).catch(tx.onRejection);
-                                    if (relation.isArray) {
-                                        (value[key] as unknown[]).push(payload);
-                                    } else {
-                                        value[key] = payload;
-                                    }
-                                    break;
-                                }
-                                case "$create": {
-                                    // payload is the creation object
-                                    const newId = await this.add(
-                                        relation.to,
-                                        payload as AddMutation<
-                                            ModelNames,
-                                            ModelNames,
-                                            Models[ModelNames],
-                                            Models
-                                        >,
-                                        {
-                                            tx,
-                                            relation: {
-                                                id: thisId,
-                                                key: relation.getRelatedKey(),
-                                            },
-                                        }
-                                    );
-                                    if (relation.isArray) {
-                                        (value[key] as ValidKey[]).push(newId);
-                                    } else {
-                                        value[key] = newId;
-                                    }
-                                    break;
-                                }
-                                case "$delete":
-                                    if (!relation.isNullable()) {
-                                        throw tx.abort(
-                                            new InvalidItemError(
-                                                "Item cannot be deleted, relation is required"
-                                            )
-                                        );
-                                    }
-                                    // payload is the id of the other object
-                                    value[key] =
-                                        relation.isArray &&
-                                        Array.isArray(value[key])
-                                            ? value[key].filter(
-                                                  (v) => v !== payload
-                                              )
-                                            : null;
-                                    await deleteItems(
-                                        relation.to,
-                                        this,
-                                        {},
-                                        true,
-                                        {
-                                            tx,
-                                            singleton: {
-                                                id: payload as ValidKey,
-                                            },
-                                        }
-                                    );
-
-                                    break;
-                                case "$disconnect":
-                                    // payload is the id of the other object
-
-                                    value[key] =
-                                        relation.isArray &&
-                                        Array.isArray(value[key])
-                                            ? value[key].filter(
-                                                  (v) => v !== payload
-                                              )
-                                            : null;
+        const updateDocument = async (value: any): Promise<Dict> => {
+            const thisId: ValidKey = value[model.primaryKey as keyof T];
+            for (const { key, ...obj } of keyObjs) {
+                const relation = obj.relation as BaseRelation<
+                    ModelNames,
+                    string
+                >;
+                if (obj.isRelation) {
+                    for (const [action, payload] of obj.actions) {
+                        switch (action) {
+                            case "$connect": {
+                                // payload is the id of the other object
+                                if (value[key] && !relation.isArray) {
                                     await this.disconnectDocument(
                                         relation,
                                         thisId,
-                                        payload as ValidKey,
+                                        value[key] as ValidKey,
                                         tx
-                                    );
+                                    ).catch(tx.onRejection);
+                                }
 
-                                    break;
-                                case "$update":
-                                    // payload is the update object for that store
+                                await this.connectDocument(
+                                    relation,
+                                    thisId,
+                                    payload as ValidKey,
+                                    tx
+                                ).catch(tx.onRejection);
+                                if (relation.isArray) {
+                                    (value[key] as unknown[]).push(payload);
+                                } else {
+                                    value[key] = payload as ValidKey;
+                                }
+                                break;
+                            }
+                            case "$create": {
+                                // payload is the creation object
+                                const newId = await this.add(
+                                    relation.to,
+                                    payload as AddMutation<
+                                        ModelNames,
+                                        ModelNames,
+                                        Models[ModelNames],
+                                        Models
+                                    >,
+                                    {
+                                        tx,
+                                        relation: {
+                                            id: thisId,
+                                            key: relation.getRelatedKey(),
+                                        },
+                                    }
+                                );
+                                if (relation.isArray) {
+                                    (value[key] as ValidKey[]).push(newId);
+                                } else {
+                                    value[key] = newId;
+                                }
+                                break;
+                            }
+                            case "$delete":
+                                if (!relation.isNullable()) {
+                                    throw tx.abort(
+                                        new InvalidItemError(
+                                            "Item cannot be deleted, relation is required"
+                                        )
+                                    );
+                                }
+                                // payload is the id of the other object
+                                value[key] =
+                                    relation.isArray &&
+                                    Array.isArray(value[key])
+                                        ? value[key].filter(
+                                              (v) => v !== (payload as ValidKey)
+                                          )
+                                        : null;
+                                await deleteItems(relation.to, this, {}, true, {
+                                    tx,
+                                    singleton: {
+                                        id: payload as ValidKey,
+                                    },
+                                });
+
+                                break;
+                            case "$disconnect":
+                                // payload is the id of the other object
+                                if (!relation.isNullable()) {
+                                    throw tx.abort(
+                                        new InvalidItemError(
+                                            "Item cannot be disconnected, relation is required"
+                                        )
+                                    );
+                                }
+
+                                value[key] =
+                                    relation.isArray &&
+                                    Array.isArray(value[key])
+                                        ? value[key].filter(
+                                              (v) => v !== payload
+                                          )
+                                        : null;
+                                await this.disconnectDocument(
+                                    relation,
+                                    thisId,
+                                    payload as ValidKey,
+                                    tx
+                                );
+
+                                break;
+                            case "$update": {
+                                // payload is the update object (no where clause) for that store
+
+                                if (relation.isArray) {
+                                    // If the relationship on this end is an array, payload is a full UpdateMutation
                                     await this.update(
                                         relation.to,
                                         payload as UpdateMutation<
@@ -684,81 +693,123 @@ export class DbClient<
                                         false,
                                         { tx }
                                     );
-                                    break;
-                                case "$deleteAll":
-                                    // payload should be truthy
-                                    if (
-                                        payload &&
-                                        relation.isArray &&
-                                        Array.isArray(value[key])
-                                    ) {
-                                        const otherModel = this.getModel(
-                                            relation.to
-                                        );
-                                        const idSet = new Set(
-                                            value[key] as ValidKey[]
-                                        );
-                                        await deleteItems(
-                                            relation.to,
-                                            this,
-                                            {
-                                                [otherModel.primaryKey]: (
-                                                    value: ValidKey
-                                                ) => idSet.has(value),
-                                            } as WhereObject<
-                                                ExtractFields<
-                                                    Models[ModelNames]
-                                                >
-                                            >,
-                                            false,
-                                            { tx }
-                                        );
-                                        value[key] = [];
-                                    }
-                                    break;
-                                case "$disconnectAll":
-                                    // payload should be truthy
-                                    if (
-                                        payload &&
-                                        relation.isArray &&
-                                        Array.isArray(value[key])
-                                    ) {
-                                        for (const item of value[
-                                            key
-                                        ] as ValidKey[]) {
-                                            await this.disconnectDocument(
-                                                relation,
-                                                thisId,
-                                                item,
-                                                tx
-                                            );
+                                } else if (value[key] != null) {
+                                    // Otherwise, make the sure the relation is actually there
+                                    await this.update(
+                                        relation.to,
+                                        payload as UpdateMutation<
+                                            ModelNames,
+                                            ModelNames,
+                                            Models[ModelNames],
+                                            Models
+                                        >,
+                                        false,
+                                        {
+                                            tx,
+                                            singleton: {
+                                                id: thisId,
+                                            },
                                         }
-                                        value[key] = [];
-                                    }
-                                    break;
-                                default:
-                                    break;
+                                    );
+                                }
+
+                                break;
                             }
+                            case "$deleteAll":
+                                // payload should be truthy
+                                if (
+                                    payload &&
+                                    relation.isArray &&
+                                    Array.isArray(value[key])
+                                ) {
+                                    const otherModel = this.getModel(
+                                        relation.to
+                                    );
+                                    const idSet = new Set(
+                                        value[key] as ValidKey[]
+                                    );
+                                    await deleteItems(
+                                        relation.to,
+                                        this,
+                                        {
+                                            [otherModel.primaryKey]: (
+                                                value: ValidKey
+                                            ) => idSet.has(value),
+                                        } as WhereObject<
+                                            ExtractFields<Models[ModelNames]>
+                                        >,
+                                        false,
+                                        { tx }
+                                    );
+                                    value[key] = [];
+                                }
+                                break;
+                            case "$disconnectAll":
+                                // payload should be truthy
+                                if (
+                                    payload &&
+                                    relation.isArray &&
+                                    Array.isArray(value[key])
+                                ) {
+                                    for (const item of value[
+                                        key
+                                    ] as ValidKey[]) {
+                                        await this.disconnectDocument(
+                                            relation,
+                                            thisId,
+                                            item,
+                                            tx
+                                        );
+                                    }
+                                    value[key] = [];
+                                }
+                                break;
+                            default:
+                                break;
                         }
-                    } else {
-                        cursor.value[key] = obj.updateFn(cursor.value[key]);
                     }
-                }
-
-                await handleRequest(
-                    cursor.update(cursor.value) as IDBRequest<ValidKey>
-                )
-                    .then((data) => keys.push(data))
-                    .catch(tx.onRejection);
-
-                if (stopOnFirst) {
-                    return false;
+                } else {
+                    value[key] = obj.updateFn(value[key]);
                 }
             }
-            cursor.continue();
-            return true;
-        });
-        return keys as PrimaryKeyType<Models[N]>[];
+            return value as Dict;
+        };
+
+        if (singleton) {
+            const getResult = await store.get(singleton.id);
+            if (!getResult) {
+                throw tx.abort(
+                    new DocumentNotFoundError(
+                        `${model.name} with priamry key '${singleton.id}' not found`
+                    )
+                );
+            }
+            return [
+                (await store.put(
+                    await updateDocument(getResult)
+                )) as PrimaryKeyType<Models[N]>,
+            ];
+        } else {
+            const where = generateWhereClause(item.where);
+            await store.openCursor(async (cursor) => {
+                const value = cursor.value;
+                if (where(value)) {
+                    const newValue = await updateDocument(value);
+                    await handleRequest(
+                        cursor.update(newValue) as IDBRequest<ValidKey>
+                    )
+                        .then((data) => keys.push(data))
+                        .catch(tx.onRejection);
+
+                    if (stopOnFirst) {
+                        return false;
+                    }
+                }
+                cursor.continue();
+                return true;
+            });
+            return keys as PrimaryKeyType<Models[N]>[];
+        }
     }
 
     private async connectDocument(

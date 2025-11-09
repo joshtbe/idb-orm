@@ -32,8 +32,6 @@ export class Builder<Name extends string, Names extends string> {
         return m;
     }
 
-    // TODO: Implement union models
-
     compile<M extends CollectionObject<Names>>(models: M) {
         return new CompiledDb<Name, Names, M>(this.name, models);
     }
