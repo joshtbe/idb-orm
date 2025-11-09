@@ -49,7 +49,7 @@ export type RelationOutputStructure<
 > = R extends ArrayRelation<any, any>
     ? Output[]
     : R extends OptionalRelation<any, any>
-    ? Output | undefined
+    ? Output | null
     : Output;
 
 export type NonRelationOutput<T> = T extends AbstractProperty<infer Out, any>

@@ -108,7 +108,7 @@ export class ArrayRelation<
 > extends BaseRelation<To, Name> {
     private declare readonly _brand: "ArrayRelation";
 
-    constructor(to: To, name?: Name, action: OptionalActions = "SetNull") {
+    constructor(to: To, name?: Name, action: OptionalActions = "None") {
         super(to, name, false, true, action);
     }
 }
@@ -118,7 +118,7 @@ export class OptionalRelation<
 > extends BaseRelation<To, Name> {
     private declare readonly _brand: "optionalRelation";
 
-    constructor(to: To, name?: Name, action: OptionalActions = "SetNull") {
+    constructor(to: To, name?: Name, action: OptionalActions = "None") {
         super(to, name, true, false, action);
     }
 }

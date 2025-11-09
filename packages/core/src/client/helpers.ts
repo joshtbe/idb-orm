@@ -114,6 +114,7 @@ export function generateSelector<
                                   initTx
                               )
                             : identity;
+                    const relationKey = relation.getRelatedKey();
                     if (relation.isArray) {
                         const fn = async (ids: ValidKey[], tx: Tx) => {
                             const result: Dict[] = [];
@@ -124,6 +125,7 @@ export function generateSelector<
                                     tx
                                 );
                                 if (res) {
+                                    delete res[relationKey];
                                     result.push(res);
                                 }
                             }
@@ -137,11 +139,12 @@ export function generateSelector<
                             ) => Promise<unknown>,
                         });
                     } else {
-                        const fn = async (id: ValidKey, tx: Tx) =>
-                            await subSelectFn(
+                        const fn = async (id: ValidKey, tx: Tx) => {
+                            return await subSelectFn(
                                 await tx.getStore(relation.to).get(id),
                                 tx
                             );
+                        };
 
                         getters.push({
                             key: key as Keyof<I>,
@@ -335,5 +338,5 @@ export function getAccessedStores<
 }
 
 export function getSearchableQuery(q: QueryInput<any, any, any>) {
-    return q.include ? q.include : q.select ? q.select : {};
+    return q.select ? q.select : q.include ? q.include : {};
 }

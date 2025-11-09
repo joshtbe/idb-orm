@@ -46,7 +46,7 @@ export interface ModelCache {
 }
 
 /**
- * Gets the type of a relation given its name
+ * Gets the type of a relation given its model's name
  */
 export type RelationValue<Name extends string, C> = Name extends keyof C
     ? C[Name] extends Model<any, infer Fields, infer PrimaryKey>
@@ -60,7 +60,7 @@ export type RelationValue<Name extends string, C> = Name extends keyof C
 export type GetRelationField<F, C> = F extends Relation<infer To, any>
     ? RelationValue<To, C>
     : F extends OptionalRelation<infer To, any>
-    ? RelationValue<To, C> | undefined
+    ? RelationValue<To, C> | null
     : F extends ArrayRelation<infer To, any>
     ? RelationValue<To, C>[]
     : never;

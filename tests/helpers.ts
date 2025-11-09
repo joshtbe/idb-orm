@@ -1,4 +1,4 @@
-import { Page } from "@playwright/test";
+import { Page, expect } from "@playwright/test";
 
 type Keyof<T> = Extract<keyof T, string>;
 
@@ -69,5 +69,21 @@ export class ContextSession<Types extends Record<string, any>> {
         return await this.page.evaluate(
             `(async () => await (${fn.toString()})(window.vars))();`
         );
+    }
+}
+
+export function expectEach(
+    value: unknown,
+    fn: (item: unknown) => boolean,
+    message?: string
+) {
+    if (!Array.isArray(value)) {
+        throw new Error("Value is not an array");
+    } else {
+        for (const element of value) {
+            if (!fn(element)) {
+                throw new Error(message ? `${JSON.stringify(element)}: ${message}` : "Element expectation failed");
+            }
+        }
     }
 }

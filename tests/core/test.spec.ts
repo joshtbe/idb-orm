@@ -1,5 +1,10 @@
 import { test, expect, Page } from "@playwright/test";
-import { ContextSession, EvalFn, populatePage } from "../helpers.js";
+import {
+    ContextSession,
+    EvalFn,
+    expectEach,
+    populatePage,
+} from "../helpers.js";
 
 import type * as core from "../../packages/core";
 
@@ -13,7 +18,18 @@ export type SessionArguments = Packages & {
 const createDb = async ({ pkg }: Packages) => {
     const Builder = pkg.Builder;
     const Field = pkg.Property;
-    const builder = new Builder("testdb", ["classes", "spellLists", "spells"]);
+    const builder = new Builder("testdb", [
+        "classes",
+        "spellLists",
+        "spells",
+        "subclass",
+    ]);
+
+    const subclass = builder.defineModel("subclass", {
+        id: Field.primaryKey().autoIncrement(),
+        name: Field.string(),
+        class: Field.relation("classes", { name: "class2subclass" }),
+    });
 
     const classStore = builder.defineModel("classes", {
         id: Field.primaryKey().autoIncrement(),
@@ -22,6 +38,9 @@ const createDb = async ({ pkg }: Packages) => {
         spellList: Field.relation("spellLists", {
             name: "spellList2class",
         }).optional({ onDelete: "SetNull" }),
+        subclasses: Field.relation("subclass", {
+            name: "class2subclass",
+        }).array(),
     });
 
     const spellListStore = builder.defineModel("spellLists", {
@@ -55,6 +74,7 @@ const createDb = async ({ pkg }: Packages) => {
         classes: classStore,
         spellLists: spellListStore,
         spells: spellStore,
+        subclass,
     });
 
     const client = await db.createClient();
@@ -66,6 +86,7 @@ const createDb = async ({ pkg }: Packages) => {
         data: {
             name: "Warlock",
             description: ["A worse sorc"],
+
             spellList: {
                 $create: {
                     name: "Warlock Spell List",
@@ -74,7 +95,7 @@ const createDb = async ({ pkg }: Packages) => {
                             $create: {
                                 name: "yo",
                                 components: ["V"],
-                                range: "",
+                                range: "20 feet",
                             },
                         },
                     ],
@@ -87,7 +108,9 @@ const createDb = async ({ pkg }: Packages) => {
     return client;
 };
 
-test.describe("1 page multi-test", () => {
+test.describe("Multi Stage Test", () => {
+    test.describe.configure({ mode: "serial" });
+
     let page: Page;
     let session: ContextSession<SessionArguments>;
     test.beforeAll(async ({ browser }) => {
@@ -103,7 +126,7 @@ test.describe("1 page multi-test", () => {
         await browser.close();
     });
 
-    test("Sample DB", async () => {
+    test("Add", async () => {
         const result = await session.evaluate(async ({ client }) => {
             const stores = client.stores;
             await stores.spells.add({
@@ -122,5 +145,169 @@ test.describe("1 page multi-test", () => {
         });
         expect(result).toBeInstanceOf(Array);
         expect(result.length === 1).toBeTruthy();
+    });
+
+    test("Add with $create", async () => {
+        const result = await session.evaluate(async ({ client }) => {
+            const stores = client.stores;
+            await stores.subclass.add({
+                name: "Path of the Berserker",
+                class: {
+                    $create: {
+                        name: "Barbarian",
+                        description: ["Big ragey boi"],
+                    },
+                },
+            });
+            return await stores.classes.findFirst({
+                where: { name: "Barbarian" },
+            });
+        });
+        expect(result).toBeDefined();
+    });
+    test("Add with $connect", async () => {
+        const result = await session.evaluate(async ({ client }) => {
+            const stores = client.stores;
+            const barbarian = await stores.classes.findFirst({
+                where: { name: "Barbarian" },
+            });
+            if (!barbarian) return false;
+            await stores.subclass.add({
+                name: "Path of the Giant",
+                class: {
+                    $connect: barbarian.id,
+                },
+            });
+
+            return await stores.classes.findFirst({
+                where: { name: "Barbarian" },
+                include: {
+                    subclasses: true,
+                },
+            });
+        });
+        if (!result) throw new Error("Find result is not defined");
+        expect(result.subclasses).toBeInstanceOf(Array);
+        expect(result.subclasses).toHaveLength(2);
+        for (const item of result.subclasses) {
+            if (typeof item !== "object") {
+                throw new Error(
+                    "Item is not an object, it is a " + typeof item
+                );
+            }
+        }
+    });
+    test("Add Many with $connect", async () => {
+        const result = await session.evaluate(async ({ client }) => {
+            const stores = client.stores;
+
+            const barbarian = await stores.classes.findFirst({
+                where: { name: "Barbarian" },
+                select: {
+                    id: true,
+                },
+            });
+            if (!barbarian) return false;
+            await stores.subclass.addMany([
+                {
+                    name: "Path of the Zealot",
+                    class: {
+                        $connect: barbarian.id,
+                    },
+                },
+                {
+                    name: "Path of Wild Magic",
+                    class: {
+                        $connect: barbarian.id,
+                    },
+                },
+                {
+                    name: "School of Evocation",
+                    class: {
+                        $create: {
+                            name: "Wizard",
+                            description: ["Nerdy boi", "Did I mention a nerd?"],
+                            spellList: {
+                                $create: {
+                                    name: "Wizard Spell list",
+                                    spells: {
+                                        $createMany: [
+                                            {
+                                                name: "Blur",
+                                                components: ["V"],
+                                                range: "Self",
+                                                level: 2,
+                                            },
+                                            {
+                                                name: "Catnap",
+                                                level: 3,
+                                                range: "30 feet",
+                                                components: ["S", "M"],
+                                            },
+                                            {
+                                                name: "Blight",
+                                                level: 4,
+                                                range: "30 feet",
+                                                components: ["V", "S"],
+                                            },
+                                        ],
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            ]);
+            return await stores.classes.findFirst({
+                where: { id: barbarian.id },
+                include: {
+                    subclasses: true,
+                },
+            });
+        });
+        if (!result) throw new Error("Find result is not defined");
+        expect(result.subclasses).toBeInstanceOf(Array);
+        expect(result.subclasses).toHaveLength(4);
+        for (const item of result.subclasses) {
+            if (typeof item !== "object") {
+                throw new Error(
+                    "Item is not an object, it is a " + typeof item
+                );
+            }
+        }
+    });
+
+    test("Deep Find Include", async () => {
+        const result = await session.evaluate(async ({ client }) => {
+            return await client.stores.subclass.findFirst({
+                where: {
+                    name: "School of Evocation",
+                },
+                include: {
+                    class: {
+                        include: {
+                            spellList: {
+                                select: {
+                                    spells: true,
+                                },
+                            },
+                        },
+                    },
+                },
+            });
+        });
+        expect(result).toBeDefined();
+        expect(result?.class).toBeDefined();
+        expect(result?.class?.spellList).toBeDefined();
+        expect(result?.class?.subclasses).toHaveLength(1);
+        expect(Object.keys(result?.class?.spellList || {}).length).toBe(1);
+        expect(result?.class?.spellList?.spells).toHaveLength(3);
+        expectEach(
+            result?.class?.spellList?.spells,
+            (item) =>
+                typeof item === "object" &&
+                Object.keys(item || {}).length === 5,
+            "Value is not a valid spell object"
+        );
     });
 });

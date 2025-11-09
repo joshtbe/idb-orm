@@ -16,11 +16,14 @@
     -   [x] -Many or -All are only present on `ArrayRelation`'s,
     -   [x] Cannot use `delete` or `disconnect` on non-nullable (1-1) relations
 -   [ ] Build Extension System
+    - [ ] Builder
+    - [ ] CompiledDb
+    - [ ] DbClient
+    - [ ] StoreInterface 
 -   [ ] Error Handling: Instead of needing to type `tx.abort(...)` just use the `throw new ...` syntax and catch the error and automatically abort the transaction. This will require actions to be wrapped in some kind of try-catch block.
 -   [ ] Dump database to different formats:
     -   [ ] JSON
     -   [ ] CSV
-    -   [ ] YAML
 -   [ ] Add extra object syntax to "where" object (i.e. `in`/`ne`/`gt`/...)
 -   [ ] On bulk add/puts/deletes, only wait for the last IDBRequest object
     -   [ ] addMany
@@ -29,7 +32,7 @@
     -   [ ] updateMany
 -   [ ] Convert internal string unions to enums
 -   [ ] Make subpackages for adapters for different validation languages
-    -   [ ] Zod
+    -   [x] Zod
     -   [ ] Yup
     -   [ ] Joi
     -   [ ] schema.js

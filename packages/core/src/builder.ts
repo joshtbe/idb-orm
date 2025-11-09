@@ -97,7 +97,7 @@ export class CompiledDb<
                                         !element.isNullable()
                                     ) {
                                         throw new InvalidConfigError(
-                                            `Key '${fieldKey}' on model '${model.name}': Non-optional relation cannot have the 'SetNull' action`
+                                            `Key '${otherKey}' on model '${linkedModel.name}': Non-optional relation cannot have the 'SetNull' action`
                                         );
                                     }
                                 }

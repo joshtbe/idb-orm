@@ -3,6 +3,7 @@ import type {
     ExtractFields,
     ModelStructure,
     RelationlessModelStructure,
+    RelationValue,
 } from "../../model/model-types.js";
 import type { Model } from "../../model";
 import type {
@@ -76,7 +77,7 @@ export type FindInput<
     ? QueryInput<All, Fields, C>
     : never;
 
-type _FindOutput<
+type SelectOutput<
     All extends string,
     Select extends Dict<Dict | true>,
     Fields extends Dict<ValidValue>,
@@ -85,20 +86,56 @@ type _FindOutput<
     | {
           [K in Keyof<Select>]: Fields[K] extends BaseRelation<infer To, any>
               ? To extends Keyof<C>
-                  ? C[To] extends Model<any, infer Sub, any>
+                  ? C[To] extends Model<any, any, any>
                       ? If<
                             Select[K] extends true ? true : false,
                             RelationOutputStructure<
                                 Fields[K],
                                 RelationlessModelStructure<C[To]>
                             >,
-                            Select[K] extends Dict<Dict | true>
+                            Select[K] extends FindInput<All, C[To], C>
                                 ? RelationOutputStructure<
                                       Fields[K],
-                                      _FindOutput<All, Select[K], Sub, C>
+                                      FindOutput<All, C[To], C, Select[K]>
                                   >
                                 : never
                         >
+                      : never
+                  : never
+              : Fields[K] extends PrimaryKey<any, infer Type>
+              ? Type
+              : Fields[K] extends AbstractProperty<infer Type, any>
+              ? Type
+              : never;
+      }
+    | undefined;
+
+type IncludeOutput<
+    All extends string,
+    Include extends Dict<Dict | true>,
+    Fields extends Dict<ValidValue>,
+    C extends CollectionObject<All>
+> =
+    | {
+          [K in Keyof<Fields>]: Fields[K] extends BaseRelation<infer To, any>
+              ? To extends Keyof<C>
+                  ? C[To] extends Model<any, any, any>
+                      ? K extends Keyof<Include>
+                          ? Include[K] extends true
+                              ? RelationOutputStructure<
+                                    Fields[K],
+                                    RelationlessModelStructure<C[To]>
+                                >
+                              : Include[K] extends FindInput<All, C[To], C>
+                              ? RelationOutputStructure<
+                                    Fields[K],
+                                    FindOutput<All, C[To], C, Include[K]>
+                                >
+                              : unknown
+                          : RelationOutputStructure<
+                                Fields[K],
+                                RelationValue<To, C>
+                            >
                       : never
                   : never
               : Fields[K] extends PrimaryKey<any, infer Type>
@@ -115,11 +152,11 @@ export type FindOutput<
     C extends CollectionObject<All>,
     F extends FindInput<All, Struct, C>
 > = Struct extends Model<any, infer Fields, any>
-    ? F extends object
-        ?
-              | (F["select"] extends Dict<true | Dict>
-                    ? _FindOutput<All, F["select"], Fields, C>
-                    : ModelStructure<ExtractFields<Struct>, C>)
-              | undefined
-        : never
+    ?
+          | (F["select"] extends Dict<true | Dict>
+                ? SelectOutput<All, F["select"], Fields, C>
+                : F["include"] extends Dict<true | Dict>
+                ? IncludeOutput<All, F["include"], Fields, C>
+                : ModelStructure<ExtractFields<Struct>, C>)
+          | undefined
     : never;
