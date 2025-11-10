@@ -5,7 +5,7 @@ import type {
     Promisable,
     ValidKey,
 } from "../util-types.js";
-import { getKeys, identity, returnTrue, toArray, unionSets } from "../utils.js";
+import { getKeys, identity, toArray, unionSets } from "../utils.js";
 import type { DbClient } from "./index.ts";
 import type { CollectionObject } from "../builder.ts";
 import type {
@@ -18,22 +18,27 @@ import type { Transaction } from "../transaction.js";
 import { InvalidItemError } from "../error.js";
 import { FieldTypes } from "../field/field-types.js";
 
-export function generateWhereClause(where?: Dict): (obj: unknown) => boolean {
-    if (!where) return returnTrue;
-    const checkFns: [key: string, fn: (value: unknown) => boolean][] = [];
+type WhereClauseElement =
+    | [key: string, isFun: true, fn: (value: unknown) => boolean]
+    | [key: string, isFun: false, value: unknown];
+
+export function generateWhereClause(where?: Dict): WhereClauseElement[] {
+    if (!where) return [];
+    const checks: WhereClauseElement[] = [];
     for (const whereKey in where) {
         if (!Object.hasOwn(where, whereKey)) continue;
 
         switch (typeof where[whereKey]) {
             case "function":
-                checkFns.push([whereKey, where[whereKey] as () => boolean]);
+                checks.push([whereKey, true, where[whereKey] as () => boolean]);
                 break;
             case "object":
                 // Just skip checking them (unless they are dates)
                 if (where[whereKey] instanceof Date) {
                     const date: Date = where[whereKey];
-                    checkFns.push([
+                    checks.push([
                         whereKey,
+                        true,
                         (value) =>
                             value instanceof Date &&
                             value.getTime() === date.getTime(),
@@ -41,17 +46,34 @@ export function generateWhereClause(where?: Dict): (obj: unknown) => boolean {
                 }
                 break;
             default:
-                checkFns.push([whereKey, (value) => value === where[whereKey]]);
+                checks.push([whereKey, false, where[whereKey]]);
         }
     }
 
-    return (obj: unknown) => {
-        if (!obj || typeof obj !== "object") return false;
-        for (const item of checkFns) {
-            if (!item[1]((obj as Dict)[item[0]])) return false;
+    return checks;
+}
+
+/**
+ * Parses a WhereClause array and returns if the item passes the checks or not
+ * @param whereArray Result of `generateWhereClause()`
+ * @param obj Object to check
+ * @returns If the object satisfies the where clause or not
+ */
+export function parseWhere(
+    whereArray: WhereClauseElement[],
+    obj: unknown
+): boolean {
+    if (!obj || typeof obj !== "object") return false;
+    for (const item of whereArray) {
+        if (item[1]) {
+            if (!item[2]((obj as Dict)[item[0]])) {
+                return false;
+            }
+        } else if (item[2] !== (obj as Dict)[item[0]]) {
+            return false;
         }
-        return true;
-    };
+    }
+    return true;
 }
 
 export function generateSelector<
@@ -86,7 +108,6 @@ export function generateSelector<
     }
 
     const whereClause = generateWhereClause(query.where);
-
     const qKey = query.select ? "select" : query.include ? "include" : "";
 
     if (qKey) {
@@ -121,7 +142,7 @@ export function generateSelector<
                             const store = tx.getStore(relation.to);
                             for (const id of ids) {
                                 const res = await subSelectFn(
-                                    await store.get(id),
+                                    await store.assertGet(id),
                                     tx
                                 );
                                 if (res) {
@@ -141,7 +162,7 @@ export function generateSelector<
                     } else {
                         const fn = async (id: ValidKey, tx: Tx) => {
                             return await subSelectFn(
-                                await tx.getStore(relation.to).get(id),
+                                await tx.getStore(relation.to).assertGet(id),
                                 tx
                             );
                         };
@@ -167,7 +188,7 @@ export function generateSelector<
 
         if (isSelect) {
             return async (item: Dict, tx: Tx) => {
-                if (!whereClause(item)) return undefined;
+                if (!parseWhere(whereClause, item)) return undefined;
                 const temp: Dict = {};
                 for (const { key, getValue } of getters) {
                     temp[key] = getValue
@@ -178,14 +199,14 @@ export function generateSelector<
             };
         } else {
             return async (item: Dict, tx: Tx) => {
-                if (!whereClause(item)) return undefined;
+                if (!parseWhere(whereClause, item)) return undefined;
                 for (const { key, getValue } of getters) {
                     item[key] = await getValue!(item[key] as ValidKey, tx);
                 }
                 return item;
             };
         }
-    } else return (item) => (whereClause(item) ? item : undefined);
+    } else return (item) => (parseWhere(whereClause, item) ? item : undefined);
 }
 
 export function getAccessedStores<

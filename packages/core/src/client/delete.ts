@@ -7,7 +7,7 @@ import { DbClient } from "./index.js";
 import { DeleteError, InvalidConfigError } from "../error.js";
 import { Dict, ValidKey } from "../util-types.js";
 import { handleRequest, toArray } from "../utils.js";
-import { generateWhereClause } from "./helpers.js";
+import { generateWhereClause, parseWhere } from "./helpers.js";
 
 function generateDocumentDelete<
     ModelNames extends string,
@@ -179,7 +179,7 @@ export async function deleteItems<
     const deleteSubItems = generateDocumentDelete(model, client, tx);
 
     if (singleton) {
-        if (await deleteSubItems(await store.get(singleton.id))) {
+        if (await deleteSubItems(await store.assertGet(singleton.id))) {
             await store.delete(singleton.id);
             deleted++;
         }
@@ -188,7 +188,10 @@ export async function deleteItems<
         let promise: Promise<undefined> | undefined;
         await store.openCursor(async (cursor) => {
             const value = cursor.value as Dict;
-            if (whereClause(value) && (await deleteSubItems(value))) {
+            if (
+                parseWhere(whereClause, value) &&
+                (await deleteSubItems(value))
+            ) {
                 promise = handleRequest(cursor.delete()).catch(tx.onRejection);
             }
             if (stopOnFirst && deleted > 0) {

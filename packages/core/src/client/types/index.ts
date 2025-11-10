@@ -71,7 +71,14 @@ export interface StoreInterface<
     compileQuery<T extends FindInput<Names, C[Name], C>>(
         query: T
     ): CompiledQuery<Names, C, DbClient<string, Names, C>, T>;
-    get(key: KeyType): Promise<any>;
+    get(
+        key: KeyType
+    ): Promise<
+        | (C[Name] extends Model<any, infer Fields, any>
+              ? ModelStructure<Fields, C>
+              : never)
+        | undefined
+    >;
 }
 
 export type InterfaceMap<

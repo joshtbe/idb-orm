@@ -55,7 +55,7 @@ export abstract class AbstractProperty<Value, HasDefault extends boolean> {
     abstract array(...args: unknown[]): AbstractProperty<Value[], false>;
 
     abstract default(
-        defaultValue: NoUndefined<Value>
+        defaultValue: NoUndefined<Value> | (() => NoUndefined<Value>)
     ): AbstractProperty<NoUndefined<Value>, true>;
 
     abstract optional(
@@ -180,13 +180,16 @@ export class Property<
     }
 
     default(
-        defaultValue: NoUndefined<Value>
+        defaultValue: NoUndefined<Value> | (() => NoUndefined<Value>)
     ): Property<NoUndefined<Value>, true> {
         const newFn: ParseFn<NoUndefined<Value>> = (value: unknown) => {
             if (value == null) {
                 return {
                     success: true,
-                    data: defaultValue,
+                    data:
+                        typeof defaultValue === "function"
+                            ? (defaultValue as () => NoUndefined<Value>)()
+                            : defaultValue,
                 };
             } else
                 return this.parseFn(value) as ParseResult<NoUndefined<Value>>;

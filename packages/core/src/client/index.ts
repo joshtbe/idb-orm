@@ -1,6 +1,10 @@
 import type { CollectionObject, CompiledDb } from "../builder";
 import type { Arrayable, Dict, Keyof, ValidKey } from "../util-types";
-import type { ExtractFields, PrimaryKeyType } from "../model/model-types.ts";
+import type {
+    ExtractFields,
+    ModelStructure,
+    PrimaryKeyType,
+} from "../model/model-types.ts";
 import { getKeys, handleRequest, toArray, unionSets } from "../utils";
 import { Transaction, type TransactionOptions } from "../transaction";
 import {
@@ -19,6 +23,7 @@ import {
     generateWhereClause,
     getAccessedStores,
     getSearchableQuery,
+    parseWhere,
 } from "./helpers.js";
 import { CompiledQuery } from "./compiled-query.js";
 import {
@@ -32,6 +37,7 @@ import { FieldTypes } from "../field/field-types.js";
 import { deleteItems } from "./delete.js";
 import { MutationAction } from "./types/mutation.js";
 import { BaseRelation } from "../field";
+import { Model } from "../model/index.js";
 
 export class DbClient<
     Name extends string,
@@ -133,7 +139,11 @@ export class DbClient<
             put: async () => {},
             get: async (key) => {
                 const tx = this.createTransaction("readonly", modelName);
-                return await tx.getStore(modelName).get(key);
+                return (await tx.getStore(modelName).get(key)) as
+                    | (Models[N] extends Model<any, infer Fields, any>
+                          ? ModelStructure<Fields, Models>
+                          : never)
+                    | undefined;
             },
             insert: async (_mutation, _tx) => {
                 await new Promise<void>((res) => res());
@@ -253,7 +263,7 @@ export class DbClient<
 
                     // Set of all connection keys
                     const usedKeys = new Set<ValidKey>();
-                    
+
                     for (const item of value) {
                         const firstKey = getKeys(item)[0];
                         if (!firstKey)
@@ -793,7 +803,7 @@ export class DbClient<
             const where = generateWhereClause(item.where);
             await store.openCursor(async (cursor) => {
                 const value = cursor.value;
-                if (where(value)) {
+                if (parseWhere(where, value)) {
                     const newValue = await updateDocument(value);
                     await handleRequest(
                         cursor.update(newValue) as IDBRequest<ValidKey>

@@ -4,6 +4,7 @@
 import {
     AddError,
     DeleteError,
+    DocumentNotFoundError,
     OpenCursorError,
     RetrievalError,
     StoreError,
@@ -12,13 +13,13 @@ import {
 import { Transaction } from "./transaction.js";
 import { Dict, Promisable, ValidKey } from "./util-types.js";
 
-export class ObjectStore {
+export class ObjectStore<T = Dict> {
     constructor(
         private readonly tx: Transaction<IDBTransactionMode, string>,
         public readonly store: IDBObjectStore
     ) {}
 
-    async add(item: Dict) {
+    async add(item: T) {
         return (await this.handleRequest(
             this.store.add(item),
             () => new AddError()
@@ -30,14 +31,26 @@ export class ObjectStore {
      *
      * Returns `undefined` if no value was found
      */
-    async get(key: ValidKey): Promise<Dict | undefined> {
+    async get(key: ValidKey): Promise<T | undefined> {
         return (await this.handleRequest(
             this.store.get(key),
             () => new RetrievalError()
-        )) as Dict;
+        )) as T | undefined;
     }
 
-    async put(item: Dict) {
+    /**
+     * Like .get(), but throws an error if the item could not be found
+     */
+    async assertGet(key: ValidKey): Promise<T> {
+        const item = (await this.handleRequest(
+            this.store.get(key),
+            () => new RetrievalError()
+        )) as T | undefined;
+        if (!item) throw this.tx.abort(new DocumentNotFoundError());
+        return item;
+    }
+
+    async put(item: T) {
         return (await this.handleRequest(
             this.store.put(item),
             () => new UpdateError()

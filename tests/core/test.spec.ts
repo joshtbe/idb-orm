@@ -310,4 +310,149 @@ test.describe("Multi Stage Test", () => {
             "Value is not a valid spell object"
         );
     });
+
+    test("Create w/ Bad Input", async () => {
+        const result = await session.evaluate(async ({ client }) => {
+            try {
+                await client.stores.subclass.add({
+                    name: 200 as any,
+                    class: {
+                        $connect: 0,
+                    },
+                });
+                return false;
+            } catch (error) {
+                return error;
+            }
+        });
+        if (result instanceof Error) {
+            expect(result.message).toBe(
+                "Key 'name' has the following validation error: Value is not a string"
+            );
+        } else {
+            throw new Error("result is not an error");
+        }
+    });
+
+    test("Create w/ Bad Connection", async () => {
+        const result = await session.evaluate(async ({ client }) => {
+            try {
+                await client.stores.subclass.add({
+                    name: "Hexblade",
+                    class: {
+                        $connect: 0,
+                    },
+                });
+                return false;
+            } catch (error) {
+                return error;
+            }
+        });
+        if (result instanceof Error) {
+            expect(result.message).toBe(
+                "Document with Primary Key '0' could not be found in model 'classes'"
+            );
+        } else {
+            throw new Error("result is not an error");
+        }
+    });
+
+    test("Create w/ Nested Bad Input", async () => {
+        const result = await session.evaluate(async ({ client }) => {
+            try {
+                await client.stores.subclass.add({
+                    name: "Hexblade",
+                    class: {
+                        $create: {
+                            name: "Warlock",
+                            description: 200 as any,
+                        },
+                    },
+                });
+                return false;
+            } catch (error) {
+                // Make sure warlock was not added
+                const item = await client.stores.classes.findFirst({
+                    where: {
+                        name: "Warlock",
+                    },
+                });
+                if (item) return false;
+                return error;
+            }
+        });
+        if (result instanceof Error) {
+            expect(result.message).toBe(
+                "Key 'description' has the following validation error: Value is not an array"
+            );
+        } else {
+            throw new Error("result is not an error");
+        }
+    });
+
+    test("Create w/ Nested Bad Connect Input", async () => {
+        const result = await session.evaluate(async ({ client }) => {
+            try {
+                await client.stores.subclass.add({
+                    name: "Hexblade",
+                    class: {
+                        $create: {
+                            name: "Warlock",
+                            description: [],
+                            spellList: {
+                                $connect: 0,
+                            },
+                        },
+                    },
+                });
+                return false;
+            } catch (error) {
+                // Make sure warlock was not added
+                const item = await client.stores.classes.findFirst({
+                    where: {
+                        name: "Warlock",
+                    },
+                });
+                if (item) return false;
+                return error;
+            }
+        });
+        if (result instanceof Error) {
+            expect(result.message).toBe(
+                "Document with Primary Key '0' could not be found in model 'spellLists'"
+            );
+        } else {
+            throw new Error("result is not an error");
+        }
+    });
+    test("Empty Find", async () => {
+        const result = await session.evaluate(async ({ client }) => {
+            return await client.stores.subclass.find({});
+        });
+        expect(result).toHaveLength(5);
+    });
+    test("Empty Find First", async () => {
+        const result = await session.evaluate(async ({ client }) => {
+            return await client.stores.subclass.findFirst({});
+        });
+        expect(result).toBeDefined();
+    });
+
+    test("Find with no results", async () => {
+        const result = await session.evaluate(async ({ client }) => {
+            return await client.stores.subclass.find({
+                where: { name: "Hexblade" },
+            });
+        });
+        expect(result).toHaveLength(0);
+    });
+
+    test("Find First with no results", async () => {
+        const result = await session.evaluate(async ({ client }) => {
+            return await client.stores.subclass.findFirst({
+                where: { name: "Hexblade" },
+            });
+        });
+        expect(result).toBeUndefined();
+    });
 });

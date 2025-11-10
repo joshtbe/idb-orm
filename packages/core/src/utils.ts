@@ -55,14 +55,6 @@ export function getDate() {
 }
 
 /**
- * A function that always returns true
- * @returns true
- */
-export function returnTrue() {
-    return true;
-}
-
-/**
  * Identity Function, it returns the first argument it is given, all others are ignored
  * @param value Value
  * @returns Same Value
@@ -79,11 +71,4 @@ export function unionSets<T>(set: Set<T>, other: Set<T>) {
         set.add(key);
     }
     return set;
-}
-
-export function makeFunction<Sig extends Function>(options: {
-    args: string[];
-    body: string;
-}): Sig {
-    return new Function(...options.args, options.body) as Sig;
 }
