@@ -5,108 +5,7 @@ import {
     expectEach,
     populatePage,
 } from "../helpers.js";
-
-import type * as core from "../../packages/core";
-
-export type Packages = {
-    pkg: typeof core;
-};
-export type SessionArguments = Packages & {
-    client: Awaited<ReturnType<typeof createDb>>;
-};
-
-const createDb = async ({ pkg }: Packages) => {
-    const Builder = pkg.Builder;
-    const Field = pkg.Property;
-    const builder = new Builder("testdb", [
-        "classes",
-        "spellLists",
-        "spells",
-        "subclass",
-    ]);
-
-    const subclass = builder.defineModel("subclass", {
-        id: Field.primaryKey().autoIncrement(),
-        name: Field.string(),
-        class: Field.relation("classes", { name: "class2subclass" }),
-    });
-
-    const classStore = builder.defineModel("classes", {
-        id: Field.primaryKey().autoIncrement(),
-        name: Field.string(),
-        description: Field.string().array(),
-        spellList: Field.relation("spellLists", {
-            name: "spellList2class",
-        }).optional({ onDelete: "SetNull" }),
-        subclasses: Field.relation("subclass", {
-            name: "class2subclass",
-        }).array(),
-    });
-
-    const spellListStore = builder.defineModel("spellLists", {
-        id: Field.primaryKey().autoIncrement(),
-        name: Field.string(),
-        class: Field.relation("classes", {
-            name: "spellList2class",
-            onDelete: "Cascade",
-        }).optional(),
-        spells: Field.relation("spells", {
-            name: "spells2spellLists",
-        }).array(),
-    });
-
-    const spellStore = builder.defineModel("spells", {
-        id: Field.primaryKey().autoIncrement(),
-        name: Field.string(),
-        range: Field.string(),
-        components: Field.union([
-            Field.literal("V"),
-            Field.literal("S"),
-            Field.literal("M"),
-        ]).array(),
-        level: Field.number().default(0),
-        lists: Field.relation("spellLists", {
-            name: "spells2spellLists",
-        }).array(),
-    });
-
-    const db = builder.compile({
-        classes: classStore,
-        spellLists: spellListStore,
-        spells: spellStore,
-        subclass,
-    });
-
-    const client = await db.createClient();
-
-    client.stores.classes.updateFirst({
-        where: {
-            id: 20,
-        },
-        data: {
-            name: "Warlock",
-            description: ["A worse sorc"],
-
-            spellList: {
-                $create: {
-                    name: "Warlock Spell List",
-                    spells: [
-                        {
-                            $create: {
-                                name: "yo",
-                                components: ["V"],
-                                range: "20 feet",
-                            },
-                        },
-                    ],
-                },
-            },
-        },
-    });
-
-    // @ts-ignore
-    return client;
-};
+import { createDb, SessionArguments } from "./create-db.js";
 
 test.describe("Multi Stage Test", () => {
     test.describe.configure({ mode: "serial" });
@@ -454,5 +353,57 @@ test.describe("Multi Stage Test", () => {
             });
         });
         expect(result).toBeUndefined();
+    });
+
+    test("Find First with Nested Where", async () => {
+        const result = await session.evaluate(async ({ client }) => {
+            return await client.stores.spellLists.findFirst({
+                where: { name: "Wizard Spell list" },
+                include: {
+                    spells: {
+                        where: {
+                            name: "Widasdsdsh",
+                        },
+                    },
+                },
+            });
+        });
+        expect(result).toBeDefined();
+        expect(result?.spells).toHaveLength(0);
+    });
+
+    test("Find First with Nested Where (Empty)", async () => {
+        const result = await session.evaluate(async ({ client }) => {
+            return await client.stores.spellLists.findFirst({
+                where: { name: "Wizard Spell list" },
+                include: {
+                    spells: {
+                        where: {
+                            level: 3,
+                        },
+                    },
+                },
+            });
+        });
+        expect(result).toBeDefined();
+        expect(result?.spells).toHaveLength(1);
+    });
+
+    test("Find First with where function", async () => {
+        const result = await session.evaluate(async ({ client }) => {
+            return await client.stores.spellLists.findFirst({
+                where: { name: (name) => name === "Wizard Spell list" },
+                include: {
+                    spells: {
+                        where: {
+                            level: (level) => level > 2,
+                            components: (c) => c.includes("V"),
+                        },
+                    },
+                },
+            });
+        });
+        expect(result).toBeDefined();
+        expect(result?.spells).toHaveLength(1);
     });
 });

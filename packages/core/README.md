@@ -15,11 +15,14 @@
     -   [x] Split `add` and `update` mutation until completely separate interfaces?
     -   [x] -Many or -All are only present on `ArrayRelation`'s,
     -   [x] Cannot use `delete` or `disconnect` on non-nullable (1-1) relations
+-   [ ] Add additional functions to the storeInterface
+    -   [ ] get([primaryKey], [include/select])
+    -   [ ] update([primaryKey], [updateMutation without where])
 -   [ ] Build Extension System
-    - [ ] Builder
-    - [ ] CompiledDb
-    - [ ] DbClient
-    - [ ] StoreInterface 
+    -   [ ] Builder
+    -   [ ] CompiledDb
+    -   [ ] DbClient
+    -   [ ] StoreInterface
 -   [ ] Error Handling: Instead of needing to type `tx.abort(...)` just use the `throw new ...` syntax and catch the error and automatically abort the transaction. This will require actions to be wrapped in some kind of try-catch block.
 -   [ ] Dump database to different formats:
     -   [ ] JSON

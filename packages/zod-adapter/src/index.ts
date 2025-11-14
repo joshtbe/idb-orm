@@ -17,7 +17,7 @@ export class Property<
     HasDefault extends boolean
 > extends core.AbstractProperty<Value, HasDefault> {
     constructor(
-        private schema: z.ZodType<Value>,
+        protected schema: z.ZodType<Value>,
         options?: core.PropertyInputOptions
     ) {
         super(
@@ -98,6 +98,13 @@ export class Property<
         return new Property(Property.zodValidators.string, options);
     }
 
+    static set<T>(
+        schema: z.ZodType<T>,
+        options?: core.PropertyInputOptions
+    ): Property<Set<T>, false> {
+        return new Property(z.set(schema), options);
+    }
+
     static union<const T extends readonly z.core.SomeType[]>(
         items: T,
         options?: core.PropertyInputOptions
@@ -108,7 +115,136 @@ export class Property<
         );
     }
 
-    private regenerateValidator() {
+    protected regenerateValidator() {
         this.parseFn = parseAdapter(this.schema);
+    }
+}
+
+interface ZodStringCache
+    extends Partial<{
+        email: z.ZodEmail;
+        uuid: z.ZodUUID;
+        url: z.ZodURL;
+        httpUrl: z.ZodURL;
+    }> {}
+
+export class StringProperty<HasDefault extends boolean> extends Property<
+    string,
+    HasDefault
+> {
+    constructor(options?: core.PropertyInputOptions) {
+        super(Property.zodValidators.string, options);
+    }
+
+    private static readonly cache: ZodStringCache = {};
+    private static getSchema<K extends keyof ZodStringCache>(
+        key: K
+    ): NonNullable<ZodStringCache[K]> {
+        if (!this.cache[key]) {
+            this.cache[key] = z[key]() as ZodStringCache[K];
+        }
+        return this.cache[key]!;
+    }
+
+    min(length: number) {
+        this.schema = (this.schema as z.ZodString).min(length);
+        this.regenerateValidator();
+        return this;
+    }
+
+    max(length: number) {
+        this.schema = (this.schema as z.ZodString).max(length);
+        this.regenerateValidator();
+        return this;
+    }
+
+    length(length: number) {
+        this.schema = (this.schema as z.ZodString).length(length);
+        this.regenerateValidator();
+        return this;
+    }
+
+    regex(regex: RegExp) {
+        this.schema = (this.schema as z.ZodString).regex(regex);
+        this.regenerateValidator();
+        return this;
+    }
+
+    startsWith(text: string) {
+        this.schema = (this.schema as z.ZodString).startsWith(text);
+        this.regenerateValidator();
+        return this;
+    }
+
+    endsWith(text: string) {
+        this.schema = (this.schema as z.ZodString).endsWith(text);
+        this.regenerateValidator();
+        return this;
+    }
+
+    includes(text: string) {
+        this.schema = (this.schema as z.ZodString).includes(text);
+        this.regenerateValidator();
+        return this;
+    }
+
+    uppercase() {
+        this.schema = (this.schema as z.ZodString).uppercase();
+        this.regenerateValidator();
+        return this;
+    }
+
+    toUpperCase() {
+        this.schema = (this.schema as z.ZodString).toUpperCase();
+        this.regenerateValidator();
+        return this;
+    }
+
+    lowercase() {
+        this.schema = (this.schema as z.ZodString).lowercase();
+        this.regenerateValidator();
+        return this;
+    }
+
+    toLowerCase() {
+        this.schema = (this.schema as z.ZodString).toLowerCase();
+        this.regenerateValidator();
+        return this;
+    }
+
+    normalize() {
+        this.schema = (this.schema as z.ZodString).normalize();
+        this.regenerateValidator();
+        return this;
+    }
+
+    trim() {
+        this.schema = (this.schema as z.ZodString).trim();
+        this.regenerateValidator();
+        return this;
+    }
+
+    email() {
+        this.schema = StringProperty.getSchema("email");
+        this.regenerateValidator();
+        return this;
+    }
+
+    uuid() {
+        this.schema = StringProperty.getSchema("uuid");
+        this.regenerateValidator();
+        return this;
+    }
+
+    url() {
+        this.schema = StringProperty.getSchema("url");
+        this.regenerateValidator();
+        return this;
+    }
+
+    httpUrl() {
+        this.schema = StringProperty.getSchema("httpUrl");
+        this.regenerateValidator();
+        return this;
     }
 }

@@ -100,6 +100,10 @@ export abstract class AbstractProperty<Value, HasDefault extends boolean> {
         throw new Error("Method Not Implemented");
     }
 
+    static set<T>(..._: unknown[]): AbstractProperty<Set<T>, false> {
+        throw new Error("Method Not Implemented");
+    }
+
     static string(..._: unknown[]): AbstractProperty<string, false> {
         throw new Error("Method Not Implemented");
     }
@@ -128,7 +132,7 @@ export abstract class AbstractProperty<Value, HasDefault extends boolean> {
         return this.hasDefault;
     }
 
-    static relation<To extends string, Name extends string = never>(
+    static relation<To extends string, const Name extends string = never>(
         to: To,
         options?: RelationOptions<Name, ReferenceActions>
     ) {
@@ -282,6 +286,39 @@ export class Property<
 
     static string(options?: PropertyInputOptions): Property<string, false> {
         return new Property(VALIDATORS[Type.String], Type.String, options);
+    }
+
+    static set<T>(
+        item: ParseFn<T> | Property<T, boolean>,
+        options?: PropertyInputOptions
+    ): Property<Set<T>, false> {
+        const parseFn = item instanceof Property ? item.parseFn : item;
+        return new Property(
+            (items: unknown): ParseResult<Set<T>> => {
+                if (items instanceof Set) {
+                    const resultData = new Set<T>();
+                    for (const item of items) {
+                        const result = parseFn(item);
+                        if (!result.success) {
+                            return result;
+                        } else {
+                            resultData.add(result.data);
+                        }
+                    }
+                    return {
+                        success: true,
+                        data: resultData,
+                    };
+                } else {
+                    return {
+                        success: false,
+                        error: "Value is not an array",
+                    };
+                }
+            },
+            Type.Set,
+            options
+        );
     }
 
     static union<

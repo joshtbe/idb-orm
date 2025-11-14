@@ -47,7 +47,7 @@ export class BaseRelation<To extends string, Name extends string = never> {
 
     /**
      * Whether or not this relation can have the "SetNull" onDelete action used against it
-     * @returns 
+     * @returns
      */
     isNullable() {
         return this.isArray || this.isOptional;
@@ -67,7 +67,7 @@ export class BaseRelation<To extends string, Name extends string = never> {
 
 export class Relation<
     To extends string,
-    Name extends string
+    const Name extends string
 > extends BaseRelation<To, Name> {
     private declare readonly _brand: "relation";
 

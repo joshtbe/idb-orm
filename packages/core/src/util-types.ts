@@ -33,6 +33,7 @@ export enum Type {
     Symbol,
     Array,
     Object,
+    Set,
     Unknown,
     Any,
 }

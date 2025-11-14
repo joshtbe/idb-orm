@@ -46,11 +46,6 @@ export interface StoreInterface<
         query: T,
         transaction?: Transaction<IDBTransactionMode, Names>
     ): Promise<FindOutput<Names, C[Name], C, T>>;
-    put(): Promise<void>;
-    insert(
-        item: InsertMutation<Name, C>,
-        transaction?: Transaction<"readwrite", Names>
-    ): Promise<KeyType>;
     updateFirst(
         item: Update,
         transaction?: Transaction<"readwrite", Names>
@@ -63,11 +58,6 @@ export interface StoreInterface<
     delete(key: KeyType): Promise<boolean>;
     deleteFirst(where?: WhereObject<ExtractFields<C[Name]>>): Promise<boolean>;
     deleteMany(where: WhereObject<ExtractFields<C[Name]>>): Promise<number>;
-
-    /**
-     * Clears a store (does not update any relations)
-     */
-    clear(transaction?: Transaction<"readwrite", Names>): Promise<void>;
     compileQuery<T extends FindInput<Names, C[Name], C>>(
         query: T
     ): CompiledQuery<Names, C, DbClient<string, Names, C>, T>;

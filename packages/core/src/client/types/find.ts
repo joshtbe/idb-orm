@@ -32,7 +32,7 @@ export type WhereObject<Fields extends Dict<ValidValue>> = Partial<
             infer Output,
             any
         >
-            ? Output | FilterFn<Output>
+            ? ProhibitObjects<Output> | FilterFn<Output>
             : Fields[K] extends PrimaryKey<any, infer Type>
             ? ProhibitObjects<Type> | FilterFn<Type>
             : never;

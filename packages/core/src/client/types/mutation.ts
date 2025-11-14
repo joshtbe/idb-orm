@@ -6,6 +6,7 @@ import type {
     Extends,
     If,
     Or,
+    Keyof,
 } from "../../util-types.js";
 import type {
     BaseRelation,
@@ -47,6 +48,8 @@ type _UpdateRelationMutation<
     To extends All,
     Name extends string,
     Relation extends BaseRelation<To, Name>,
+    ThisKey extends string,
+    OmitKeys extends string,
     IsOptional extends boolean = Extends<Relation, OptionalRelation<any, any>>,
     IsArray extends boolean = Extends<Relation, ArrayRelation<any, any>>,
     IsNullable extends boolean = Or<IsOptional, IsArray>
@@ -60,14 +63,14 @@ type _UpdateRelationMutation<
           | {
                 $create: Omit<
                     AddMutation<To, All, C[To], C>,
-                    FindRelationKey<This, Name, C[To]>
+                    OmitKeys | FindRelationKey<This, Name, C[To]>
                 >;
             }
           | {
                 $update: If<
                     IsArray,
-                    UpdateMutation<To, All, C[To], C>,
-                    UpdateMutation<To, All, C[To], C>["data"]
+                    UpdateMutation<To, All, C[To], C, OmitKeys | ThisKey>,
+                    Omit<UpdateMutation<To, All, C[To], C>["data"], OmitKeys>
                 >;
             }
           | If<
@@ -89,11 +92,17 @@ type _UpdateRelationMutation<
           | {
                 $createMany: Omit<
                     AddMutation<To, All, C[To], C>,
-                    FindRelationKey<This, Name, C[To]>
+                    OmitKeys | FindRelationKey<This, Name, C[To]>
                 >[];
             }
           | {
-                $updateMany: UpdateMutation<To, All, C[To], C>[];
+                $updateMany: UpdateMutation<
+                    To,
+                    All,
+                    C[To],
+                    C,
+                    OmitKeys | ThisKey
+                >[];
             }
           | {
                 $deleteMany: RelationValue<To, C>[];
@@ -115,17 +124,18 @@ export type UpdateMutation<
     This extends All,
     All extends string,
     Struct extends object,
-    C extends CollectionObject<All>
+    C extends CollectionObject<All>,
+    OmitKeys extends string = never
 > = {
     where?: WhereSelection<Struct>;
     data: PartialOnUndefined<
         RemoveNeverValues<
             Struct extends Model<any, infer Fields, any>
                 ? {
-                      [K in keyof Fields]: Fields[K] extends AbstractProperty<
-                          infer Type,
-                          any
-                      >
+                      [K in Exclude<
+                          Keyof<Fields>,
+                          OmitKeys
+                      >]: Fields[K] extends AbstractProperty<infer Type, any>
                           ? Type | undefined | ((value: Type) => Type)
                           : Fields[K] extends PrimaryKey<any, any>
                           ? never
@@ -138,7 +148,9 @@ export type UpdateMutation<
                                           C,
                                           To,
                                           Name,
-                                          Fields[K]
+                                          Fields[K],
+                                          K,
+                                          OmitKeys
                                       >
                                     | undefined
                               : never

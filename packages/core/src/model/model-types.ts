@@ -10,15 +10,6 @@ import {
     PrimaryKey,
     ParseFnWrap,
 } from "../field";
-// import {
-//     BaseRelation,
-//     OptionalRelation,
-//     PrimaryKey,
-//     Relation,
-//     ArrayRelation,
-//     RelationOutput,
-//     ValidValue,
-// } from "../field";
 import { Dict, Keyof } from "../util-types.js";
 import Model from "./model.js";
 

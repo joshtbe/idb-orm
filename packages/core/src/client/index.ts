@@ -131,12 +131,10 @@ export class DbClient<
                 }
                 return result;
             },
-            clear: async (tx) => await this.clear(modelName, { tx }),
             findFirst: async (query, tx) =>
                 (await this.find(modelName, query, true, { tx }))[0],
             find: async (query, tx) =>
                 await this.find(modelName, query, false, { tx }),
-            put: async () => {},
             get: async (key) => {
                 const tx = this.createTransaction("readonly", modelName);
                 return (await tx.getStore(modelName).get(key)) as
@@ -144,10 +142,6 @@ export class DbClient<
                           ? ModelStructure<Fields, Models>
                           : never)
                     | undefined;
-            },
-            insert: async (_mutation, _tx) => {
-                await new Promise<void>((res) => res());
-                return 5 as PrimaryKeyType<Models[N]>;
             },
             updateFirst: async (mutation, tx) =>
                 (await this.update(modelName, mutation, true, { tx }))[0],
@@ -844,10 +838,15 @@ export class DbClient<
             relatedKey
         )!;
 
-        if (otherRelation.isArray) {
-            (current[relation.getRelatedKey()] as unknown[]).push(thisId);
+        const value = current[relatedKey];
+        if (
+            otherRelation.isArray &&
+            Array.isArray(value) &&
+            !value.includes(thisId)
+        ) {
+            value.push(thisId);
         } else {
-            if (current[relatedKey]) {
+            if (value) {
                 throw tx.abort(new OverwriteRelationError());
             }
             current[relatedKey] = thisId;
