@@ -18,7 +18,13 @@ export default class Model<
     F extends Record<string, ValidValue>,
     Primary extends FindPrimaryKey<F> = FindPrimaryKey<F>
 > {
+    /**
+     * Array of all the model's fields
+     */
     private readonly fieldKeys: readonly Keyof<F>[];
+    /**
+     * Set of other models this model links to
+     */
     private readonly relationLinks = new Set<string>();
     private cache: ModelCache = {};
     public readonly primaryKey: Primary;
@@ -80,6 +86,19 @@ export default class Model<
     links<Names extends string = string>() {
         // Shallow-copy the set so it can't be modified accidentally
         return this.relationLinks.keys() as SetIterator<Names>;
+    }
+
+    /**
+     * Generator for all of the relations present on the model
+     */
+    *relations<K extends string = string>(): Generator<
+        [key: string, relation: BaseRelation<K, string>]
+    > {
+        for (const key of this.fieldKeys) {
+            if (this.fields[key] instanceof BaseRelation) {
+                yield [key, this.fields[key] as BaseRelation<K, string>];
+            }
+        }
     }
 
     keys() {

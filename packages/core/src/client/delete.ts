@@ -22,8 +22,7 @@ function generateDocumentDelete<
         if (!item) return false;
         const primaryKeyValue = item[model.primaryKey] as ValidKey;
 
-        for (const relationKey of model.links<ModelNames>()) {
-            const relation = model.getRelation<ModelNames>(relationKey)!;
+        for (const [relationKey, relation] of model.relations<ModelNames>()) {
             const { onDelete } = relation.getActions();
             const fieldItem = item[relationKey];
             const relatedModel = client.getModel(relation.to);
@@ -129,7 +128,7 @@ function generateDocumentDelete<
                     ) {
                         throw tx.abort(
                             new DeleteError(
-                                `Key '${relationKey}' on model '${name}' deletion is restricted while there is an active relation`
+                                `Key '${relationKey}' on model '${model.name}' deletion is restricted while there is an active relation`
                             )
                         );
                     }

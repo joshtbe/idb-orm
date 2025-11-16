@@ -19,6 +19,14 @@ export type MakeOptional<B extends boolean, T> = B extends true
     ? T | undefined
     : T;
 
+export type MakeRequired<B extends boolean, T> = B extends true
+    ? NonNullable<T>
+    : T;
+
+export type Simplify<T> = {
+    [K in keyof T]: T[K];
+} & {};
+
 export type MakeArray<B extends boolean, T> = B extends true ? T[] : T;
 export type MakeArrayable<B extends boolean, T> = B extends true
     ? Arrayable<T>
@@ -31,6 +39,8 @@ export enum Type {
     BigInt,
     Boolean,
     Symbol,
+
+    // NO FUTURE PRIMTIVE TYPES SHOULD GO AFTER THIS ONE
     Array,
     Object,
     Set,

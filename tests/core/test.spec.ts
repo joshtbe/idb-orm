@@ -226,7 +226,7 @@ test.describe("Multi Stage Test", () => {
         });
         if (result instanceof Error) {
             expect(result.message).toBe(
-                "Key 'name' has the following validation error: Value is not a string"
+                "(INVALID_ITEM) Key 'name' has the following validation error: Value is not a string"
             );
         } else {
             throw new Error("result is not an error");
@@ -249,7 +249,7 @@ test.describe("Multi Stage Test", () => {
         });
         if (result instanceof Error) {
             expect(result.message).toBe(
-                "Document with Primary Key '0' could not be found in model 'classes'"
+                "(NOT_FOUND) Document with Primary Key '0' could not be found in model 'classes'"
             );
         } else {
             throw new Error("result is not an error");
@@ -282,7 +282,7 @@ test.describe("Multi Stage Test", () => {
         });
         if (result instanceof Error) {
             expect(result.message).toBe(
-                "Key 'description' has the following validation error: Value is not an array"
+                "(INVALID_ITEM) Key 'description' has the following validation error: Value is not an array"
             );
         } else {
             throw new Error("result is not an error");
@@ -318,7 +318,7 @@ test.describe("Multi Stage Test", () => {
         });
         if (result instanceof Error) {
             expect(result.message).toBe(
-                "Document with Primary Key '0' could not be found in model 'spellLists'"
+                "(NOT_FOUND) Document with Primary Key '0' could not be found in model 'spellLists'"
             );
         } else {
             throw new Error("result is not an error");
@@ -369,6 +369,7 @@ test.describe("Multi Stage Test", () => {
             });
         });
         expect(result).toBeDefined();
+        expect(result?.class).toBeDefined();
         expect(result?.spells).toHaveLength(0);
     });
 

@@ -1,10 +1,18 @@
-import type { Dict, If, Keyof, RemoveNeverValues } from "../../util-types.js";
+import type {
+    Dict,
+    If,
+    Keyof,
+    MakeRequired,
+    NoUndefined,
+    RemoveNeverValues,
+    Simplify,
+} from "../../util-types.js";
 import type {
     ExtractFields,
     ModelStructure,
     RelationlessModelStructure,
     RelationValue,
-} from "../../model/model-types.js";
+} from "../../model/model-types";
 import type { Model } from "../../model";
 import type {
     BaseRelation,
@@ -12,8 +20,9 @@ import type {
     PrimaryKey,
     RelationOutputStructure,
     ValidValue,
+    Relation,
 } from "../../field";
-import type { CollectionObject } from "../../builder.ts";
+import type { CollectionObject } from "../../builder";
 
 export type FilterFn<Input> = (item: Input) => boolean;
 
@@ -107,44 +116,47 @@ type SelectOutput<
               : Fields[K] extends AbstractProperty<infer Type, any>
               ? Type
               : never;
-      }
-    | undefined;
+      };
 
 type IncludeOutput<
     All extends string,
     Include extends Dict<Dict | true>,
     Fields extends Dict<ValidValue>,
     C extends CollectionObject<All>
-> =
-    | {
-          [K in Keyof<Fields>]: Fields[K] extends BaseRelation<infer To, any>
-              ? To extends Keyof<C>
-                  ? C[To] extends Model<any, any, any>
-                      ? K extends Keyof<Include>
-                          ? Include[K] extends true
-                              ? RelationOutputStructure<
-                                    Fields[K],
-                                    RelationlessModelStructure<C[To]>
-                                >
-                              : Include[K] extends FindInput<All, C[To], C>
-                              ? RelationOutputStructure<
-                                    Fields[K],
-                                    FindOutput<All, C[To], C, Include[K]>
-                                >
-                              : unknown
-                          : RelationOutputStructure<
-                                Fields[K],
-                                RelationValue<To, C>
-                            >
-                      : never
-                  : never
-              : Fields[K] extends PrimaryKey<any, infer Type>
-              ? Type
-              : Fields[K] extends AbstractProperty<infer Type, any>
-              ? Type
-              : never;
-      }
-    | undefined;
+> = Simplify<{
+    [K in Keyof<Fields>]: Fields[K] extends BaseRelation<infer To, any>
+        ? To extends Keyof<C>
+            ? C[To] extends Model<any, any, any>
+                ? K extends Keyof<Include>
+                    ? Include[K] extends true
+                        ? RelationOutputStructure<
+                              Fields[K],
+                              RelationlessModelStructure<C[To]>
+                          >
+                        : Include[K] extends FindInput<All, C[To], C>
+                        ? MakeRequired<
+                              Fields[K] extends Relation<any, any>
+                                  ? true
+                                  : false,
+                              NoUndefined<
+                                  RelationOutputStructure<
+                                      Fields[K],
+                                      NoUndefined<
+                                          FindOutput<All, C[To], C, Include[K]>
+                                      >
+                                  >
+                              >
+                          >
+                        : unknown
+                    : RelationOutputStructure<Fields[K], RelationValue<To, C>>
+                : never
+            : never
+        : Fields[K] extends PrimaryKey<any, infer Type>
+        ? Type
+        : Fields[K] extends AbstractProperty<infer Type, any>
+        ? Type
+        : never;
+}>;
 
 export type FindOutput<
     All extends string,
@@ -153,10 +165,12 @@ export type FindOutput<
     F extends FindInput<All, Struct, C>
 > = Struct extends Model<any, infer Fields, any>
     ?
-          | (F["select"] extends Dict<true | Dict>
-                ? SelectOutput<All, F["select"], Fields, C>
-                : F["include"] extends Dict<true | Dict>
-                ? IncludeOutput<All, F["include"], Fields, C>
-                : ModelStructure<ExtractFields<Struct>, C>)
+          | Simplify<
+                F["select"] extends Dict<true | Dict>
+                    ? SelectOutput<All, F["select"], Fields, C>
+                    : F["include"] extends Dict<true | Dict>
+                    ? IncludeOutput<All, F["include"], Fields, C>
+                    : ModelStructure<ExtractFields<Struct>, C>
+            >
           | undefined
     : never;

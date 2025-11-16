@@ -1,10 +1,6 @@
 import type { CollectionObject, CompiledDb } from "../builder";
 import type { Arrayable, Dict, Keyof, ValidKey } from "../util-types";
-import type {
-    ExtractFields,
-    ModelStructure,
-    PrimaryKeyType,
-} from "../model/model-types.ts";
+import type { ExtractFields, PrimaryKeyType } from "../model/model-types.ts";
 import { getKeys, handleRequest, toArray, unionSets } from "../utils";
 import { Transaction, type TransactionOptions } from "../transaction";
 import {
@@ -16,6 +12,7 @@ import {
     UpdateMutation,
     KeyObject,
     ActionItem,
+    GetStructure,
 } from "./types";
 import type { FindInput, FindOutput, WhereObject } from "./types/find.ts";
 import {
@@ -37,7 +34,6 @@ import { FieldTypes } from "../field/field-types.js";
 import { deleteItems } from "./delete.js";
 import { MutationAction } from "./types/mutation.js";
 import { BaseRelation } from "../field";
-import { Model } from "../model/index.js";
 
 export class DbClient<
     Name extends string,
@@ -127,7 +123,7 @@ export class DbClient<
                 type T = PrimaryKeyType<Models[N]>;
                 const result: T[] = [];
                 for (const mut of mutations) {
-                    await this.add(modelName, mut, { tx });
+                    result.push(await this.add(modelName, mut, { tx }));
                 }
                 return result;
             },
@@ -137,11 +133,17 @@ export class DbClient<
                 await this.find(modelName, query, false, { tx }),
             get: async (key) => {
                 const tx = this.createTransaction("readonly", modelName);
-                return (await tx.getStore(modelName).get(key)) as
-                    | (Models[N] extends Model<any, infer Fields, any>
-                          ? ModelStructure<Fields, Models>
-                          : never)
-                    | undefined;
+                return (await tx.getStore(modelName).get(key)) as GetStructure<
+                    N,
+                    Models
+                >;
+            },
+            update: async (key, data) => {
+                return (
+                    await this.update(modelName, { data }, true, {
+                        singleton: { id: key },
+                    })
+                )[0];
             },
             updateFirst: async (mutation, tx) =>
                 (await this.update(modelName, mutation, true, { tx }))[0],
@@ -475,7 +477,7 @@ export class DbClient<
         item: U,
         stopOnFirst: boolean,
         _state: MutationState<ModelNames> = {}
-    ): Promise<PrimaryKeyType<Models[N]>[]> {
+    ): Promise<GetStructure<N, Models>[]> {
         type T = U["data"];
         const { singleton } = _state;
         const updateData = _state.singleton ? item : item.data;
@@ -530,7 +532,6 @@ export class DbClient<
                                         0,
                                         elementKey.length - 4
                                     ) as MutationAction;
-
                                     for (const item of elementItem[
                                         elementKey
                                     ]) {
@@ -570,10 +571,10 @@ export class DbClient<
                     );
             }
         }
-
-        const keys: ValidKey[] = [];
-
-        const updateDocument = async (value: any): Promise<Dict> => {
+        const results: GetStructure<N, Models>[] = [];
+        const updateDocument = async (
+            value: any
+        ): Promise<GetStructure<N, Models>> => {
             const thisId: ValidKey = value[model.primaryKey as keyof T];
             for (const { key, ...obj } of keyObjs) {
                 const relation = obj.relation as BaseRelation<
@@ -656,15 +657,34 @@ export class DbClient<
                                 });
 
                                 break;
-                            case "$disconnect":
+                            case "$disconnect": {
                                 // payload is the id of the other object
+
                                 if (!relation.isNullable()) {
                                     throw tx.abort(
                                         new InvalidItemError(
                                             "Item cannot be disconnected, relation is required"
                                         )
                                     );
+                                } else if (
+                                    !value[key] ||
+                                    value[key]?.lenth === 0
+                                ) {
+                                    break;
                                 }
+
+                                const otherRelation = this.getModel(
+                                    relation.to
+                                ).getRelation(relation.getRelatedKey())!;
+
+                                await this.disconnectDocument(
+                                    relation,
+                                    thisId,
+                                    (otherRelation.isArray
+                                        ? payload
+                                        : value[key]) as ValidKey,
+                                    tx
+                                ).catch(tx.onRejection);
 
                                 value[key] =
                                     relation.isArray &&
@@ -673,14 +693,8 @@ export class DbClient<
                                               (v) => v !== payload
                                           )
                                         : null;
-                                await this.disconnectDocument(
-                                    relation,
-                                    thisId,
-                                    payload as ValidKey,
-                                    tx
-                                );
-
                                 break;
+                            }
                             case "$update": {
                                 // payload is the update object (no where clause) for that store
 
@@ -776,7 +790,7 @@ export class DbClient<
                     value[key] = obj.updateFn(value[key]);
                 }
             }
-            return value as Dict;
+            return value as GetStructure<N, Models>;
         };
 
         if (singleton) {
@@ -788,21 +802,23 @@ export class DbClient<
                     )
                 );
             }
-            return [
-                (await store.put(
-                    await updateDocument(getResult)
-                )) as PrimaryKeyType<Models[N]>,
-            ];
+            const updateResult = await updateDocument(getResult).catch(
+                tx.onRejection
+            );
+            await store.put(updateResult);
+            return [updateResult];
         } else {
             const where = generateWhereClause(item.where);
             await store.openCursor(async (cursor) => {
                 const value = cursor.value;
                 if (parseWhere(where, value)) {
-                    const newValue = await updateDocument(value);
+                    const newValue = await updateDocument(value).catch(
+                        tx.onRejection
+                    );
                     await handleRequest(
                         cursor.update(newValue) as IDBRequest<ValidKey>
                     )
-                        .then((data) => keys.push(data))
+                        .then(() => results.push(newValue))
                         .catch(tx.onRejection);
 
                     if (stopOnFirst) {
@@ -812,7 +828,7 @@ export class DbClient<
                 cursor.continue();
                 return true;
             });
-            return keys as PrimaryKeyType<Models[N]>[];
+            return results;
         }
     }
 
@@ -839,12 +855,8 @@ export class DbClient<
         )!;
 
         const value = current[relatedKey];
-        if (
-            otherRelation.isArray &&
-            Array.isArray(value) &&
-            !value.includes(thisId)
-        ) {
-            value.push(thisId);
+        if (otherRelation.isArray && Array.isArray(value)) {
+            if (!value.includes(thisId)) value.push(thisId);
         } else {
             if (value) {
                 throw tx.abort(new OverwriteRelationError());

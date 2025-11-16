@@ -8,6 +8,7 @@ import {
     OpenCursorError,
     RetrievalError,
     StoreError,
+    UnknownError,
     UpdateError,
 } from "./error.js";
 import { Transaction } from "./transaction.js";
@@ -19,11 +20,11 @@ export class ObjectStore<T = Dict> {
         public readonly store: IDBObjectStore
     ) {}
 
-    async add(item: T) {
-        return (await this.handleRequest(
+    add(item: T) {
+        return this.handleRequest(
             this.store.add(item),
             () => new AddError()
-        )) as ValidKey;
+        ) as Promise<ValidKey>;
     }
 
     /**
@@ -31,11 +32,11 @@ export class ObjectStore<T = Dict> {
      *
      * Returns `undefined` if no value was found
      */
-    async get(key: ValidKey): Promise<T | undefined> {
-        return (await this.handleRequest(
+    get(key: ValidKey): Promise<T | undefined> {
+        return this.handleRequest(
             this.store.get(key),
             () => new RetrievalError()
-        )) as T | undefined;
+        );
     }
 
     /**
@@ -50,15 +51,15 @@ export class ObjectStore<T = Dict> {
         return item;
     }
 
-    async put(item: T) {
-        return (await this.handleRequest(
+    put(item: T) {
+        return this.handleRequest(
             this.store.put(item),
             () => new UpdateError()
-        )) as ValidKey;
+        ) as Promise<ValidKey>;
     }
 
-    async delete(key: ValidKey): Promise<undefined> {
-        return await this.handleRequest(
+    delete(key: ValidKey): Promise<undefined> {
+        return this.handleRequest(
             this.store.delete(key),
             () => new DeleteError()
         );
@@ -77,28 +78,36 @@ export class ObjectStore<T = Dict> {
     ) {
         const onError = options.onError || (() => new OpenCursorError());
         const request = this.store.openCursor(options.query, options.direction);
-        await new Promise<void>((res) => {
+        await new Promise<void>((res, reject) => {
             request.onsuccess = async (event) => {
-                if (!event.target) {
-                    throw this.tx.abort(onError());
-                }
-                const cursor = (event.target as IDBRequest<IDBCursorWithValue>)
-                    .result;
-                if (!cursor || !(await callback(cursor, this.tx))) {
-                    res();
+                try {
+                    if (!event.target) {
+                        reject(this.tx.abort(onError()));
+                    }
+                    const cursor = (
+                        event.target as IDBRequest<IDBCursorWithValue>
+                    ).result;
+                    if (!cursor || !(await callback(cursor, this.tx))) {
+                        res();
+                    }
+                } catch (error) {
+                    reject(
+                        this.tx.abort(
+                            error instanceof StoreError
+                                ? error
+                                : new UnknownError(String(error))
+                        )
+                    );
                 }
             };
             request.onerror = () => {
-                throw this.tx.abort(onError());
+                reject(this.tx.abort(onError()));
             };
         });
     }
 
-    private async handleRequest<T>(
-        req: IDBRequest<T>,
-        onError: () => StoreError
-    ) {
-        return await new Promise<T>((res) => {
+    private handleRequest<T>(req: IDBRequest<T>, onError: () => StoreError) {
+        return new Promise<T>((res) => {
             req.onsuccess = () => {
                 res(req.result);
             };

@@ -63,6 +63,14 @@ export class BaseRelation<To extends string, Name extends string = never> {
     getRelatedKey() {
         return this.relatedKey;
     }
+
+    toString() {
+        return `${
+            this.isArray ? "Array" : this.isOptional ? "Optional" : "Standard"
+        } relation from this model to model '${this.to}' on key '${
+            this.relatedKey
+        }'`;
+    }
 }
 
 export class Relation<

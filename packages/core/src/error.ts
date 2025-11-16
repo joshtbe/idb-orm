@@ -24,7 +24,7 @@ export type ErrorType =
 export class StoreError extends Error {
     public readonly code: ErrorType;
     constructor(code: ErrorType, message: string) {
-        super(message);
+        super(`(${code}) ${message}`);
         this.code = code;
     }
 }

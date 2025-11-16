@@ -64,6 +64,8 @@ export type ModelStructure<F extends Dict<ValidValue>, C> = {
         : GetRelationField<F[K], C>;
 };
 
+
+
 export type ModelType<
     M extends Model<any, any, any>,
     C extends CompiledDb<any, any, any>

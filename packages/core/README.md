@@ -15,9 +15,9 @@
     -   [x] Split `add` and `update` mutation until completely separate interfaces?
     -   [x] -Many or -All are only present on `ArrayRelation`'s,
     -   [x] Cannot use `delete` or `disconnect` on non-nullable (1-1) relations
--   [ ] Add additional functions to the storeInterface
-    -   [ ] get([primaryKey], [include/select])
-    -   [ ] update([primaryKey], [updateMutation without where])
+-   [x] Add additional functions to the storeInterface
+    -   [x] get([primaryKey], [include/select])
+    -   [x] update([primaryKey], [updateMutation without where])
 -   [ ] Build Extension System
     -   [ ] Builder
     -   [ ] CompiledDb
@@ -27,13 +27,9 @@
 -   [ ] Dump database to different formats:
     -   [ ] JSON
     -   [ ] CSV
--   [ ] Add extra object syntax to "where" object (i.e. `in`/`ne`/`gt`/...)
--   [ ] On bulk add/puts/deletes, only wait for the last IDBRequest object
-    -   [ ] addMany
-    -   [ ] deleteMany
-    -   [ ] findMany
-    -   [ ] updateMany
--   [ ] Convert internal string unions to enums
+-   [ ] Add extra object syntax to "where" clause (i.e. `in`/`ne`/`gt`/...)
+-   [ ] Allow object types in where clauses
+-   [x] Convert internal string unions to enums
 -   [ ] Make subpackages for adapters for different validation languages
     -   [x] Zod
     -   [ ] Yup

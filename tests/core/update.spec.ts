@@ -32,7 +32,7 @@ test.describe("Multi Stage Test", () => {
                 description: ["A big magic nerd"],
             });
 
-            await client.stores.classes.updateFirst({
+            return await client.stores.classes.updateFirst({
                 where: {
                     id,
                 },
@@ -43,8 +43,6 @@ test.describe("Multi Stage Test", () => {
                     ],
                 },
             });
-
-            return client.stores.classes.findFirst({ where: { id } });
         });
         expect(result).toBeDefined();
         expect(result?.description).toHaveLength(2);
@@ -61,7 +59,7 @@ test.describe("Multi Stage Test", () => {
             });
             if (!wizard) throw new Error("Wizard not found");
 
-            await client.stores.classes.updateFirst({
+            return await client.stores.classes.updateFirst({
                 where: {
                     id: wizard.id,
                 },
@@ -72,10 +70,6 @@ test.describe("Multi Stage Test", () => {
                     },
                 },
             });
-
-            return client.stores.classes.findFirst({
-                where: { id: wizard.id },
-            });
         });
         expect(result).toBeDefined();
         expect(result?.description).toHaveLength(1);
@@ -84,7 +78,7 @@ test.describe("Multi Stage Test", () => {
 
     test("Basic Update with no matching element", async () => {
         const result = await session.evaluate(async ({ client }) => {
-            await client.stores.classes.updateFirst({
+            return await client.stores.classes.updateFirst({
                 where: {
                     name: "Warlock",
                 },
@@ -95,17 +89,13 @@ test.describe("Multi Stage Test", () => {
                     },
                 },
             });
-
-            return client.stores.classes.findFirst({
-                where: { name: "Warlock" },
-            });
         });
         expect(result).toBeUndefined();
     });
 
     test("Update Create element", async () => {
         const result = await session.evaluate(async ({ client }) => {
-            const id = await client.stores.classes.updateFirst({
+            return await client.stores.classes.updateFirst({
                 where: {
                     name: "Wizard",
                 },
@@ -123,10 +113,6 @@ test.describe("Multi Stage Test", () => {
                     },
                 },
             });
-
-            return client.stores.classes.findFirst({
-                where: { id },
-            });
         });
         expect(result?.spellList).toBeDefined();
         expect(result?.subclasses).toHaveLength(2);
@@ -143,7 +129,7 @@ test.describe("Multi Stage Test", () => {
                 name: "Warlock Spell List",
             });
 
-            await client.stores.spellLists.updateFirst({
+            return await client.stores.spellLists.updateFirst({
                 where: {
                     id: spellListId,
                 },
@@ -153,13 +139,208 @@ test.describe("Multi Stage Test", () => {
                     },
                 },
             });
+        });
+        expect(result?.class).toBeDefined();
+    });
 
-            return await client.stores.spellLists.findFirst({
+    test("Update Disconnect element", async () => {
+        const result = await session.evaluate(async ({ client, pkg }) => {
+            return await client.stores.spellLists.updateFirst({
                 where: {
-                    id: spellListId,
+                    name: "Warlock Spell List",
+                },
+                data: {
+                    class: {
+                        $disconnect: true,
+                    },
                 },
             });
         });
-        expect(result?.class).toBeDefined();
+        expect(result?.class).toBe(null);
+    });
+
+    test("Update ConnectMany element", async () => {
+        const result = await session.evaluate(async ({ client, pkg }) => {
+            const spells = await client.stores.spells.addMany([
+                {
+                    name: "Chromatic Orb",
+                    level: 1,
+                    components: ["V"],
+                    range: "120 ft",
+                },
+                {
+                    name: "Booming Blade",
+                    level: 0,
+                    components: ["S", "M"],
+                    range: "5 ft",
+                },
+            ]);
+            if (spells.length !== 2) return;
+
+            return await client.stores.spellLists.updateFirst({
+                where: {
+                    name: "Warlock Spell List",
+                },
+                data: {
+                    spells: {
+                        $connectMany: spells,
+                    },
+                },
+            });
+        });
+        expect(result?.spells, JSON.stringify(result)).toHaveLength(2);
+    });
+    test("Update Append ConnectMany", async () => {
+        const result = await session.evaluate(async ({ client, pkg }) => {
+            const spells = await client.stores.spells.addMany([
+                {
+                    name: "Greater Invisbility",
+                    level: 4,
+                    components: ["V"],
+                    range: "5 ft",
+                },
+                {
+                    name: "Invisibility",
+                    level: 2,
+                    components: ["S", "M"],
+                    range: "5 ft",
+                },
+            ]);
+            return await client.stores.spellLists.updateFirst({
+                where: {
+                    name: "Warlock Spell List",
+                },
+                data: {
+                    spells: {
+                        $connectMany: spells,
+                    },
+                },
+            });
+        });
+        expect(result?.spells).toHaveLength(4);
+    });
+
+    test("Update Append CreateMany", async () => {
+        const result = await session.evaluate(async ({ client, pkg }) => {
+            return await client.stores.spellLists.updateFirst({
+                where: {
+                    name: "Warlock Spell List",
+                },
+                data: {
+                    spells: {
+                        $createMany: [
+                            {
+                                name: "Darkness",
+                                level: 2,
+                                components: ["V", "S", "M"],
+                                range: "60 ft",
+                            },
+                            {
+                                name: "Eldritch Blast",
+                                level: 0,
+                                components: ["S"],
+                                range: "120 ft",
+                            },
+                            {
+                                name: "Mage Armor",
+                                level: 1,
+                                components: ["M"],
+                                range: "5 ft",
+                            },
+                        ],
+                    },
+                },
+            });
+        });
+        expect(result?.spells).toHaveLength(7);
+    });
+    test("Update DisconnectMany", async () => {
+        const result = await session.evaluate(async ({ client, pkg }) => {
+            const level2 = await client.stores.spells.find({
+                where: { level: 2 },
+            });
+            return await client.stores.spellLists.updateFirst({
+                where: {
+                    name: "Warlock Spell List",
+                },
+                data: {
+                    spells: {
+                        $disconnectMany: level2.map((l) => l.id),
+                    },
+                },
+            });
+        });
+        expect(result?.spells).toHaveLength(5);
+    });
+
+    test("Update Multiple Disconnect", async () => {
+        const result = await session.evaluate(async ({ client, pkg }) => {
+            const level2 = await client.stores.spells.find({
+                where: { level: 0 },
+            });
+            if (level2.length !== 2) return;
+
+            return await client.stores.spellLists.updateFirst({
+                where: {
+                    name: "Warlock Spell List",
+                },
+                data: {
+                    spells: [
+                        { $disconnect: level2[0].id },
+                        { $disconnect: level2[1].id },
+                    ],
+                },
+            });
+        });
+        expect(result?.spells).toHaveLength(3);
+    });
+
+    test("Update Multiple Connect", async () => {
+        const result = await session.evaluate(async ({ client, pkg }) => {
+            const level0 = await client.stores.spells.find({
+                where: { level: 0 },
+            });
+            if (level0.length !== 2) return;
+
+            return await client.stores.spellLists.updateFirst({
+                where: {
+                    name: "Warlock Spell List",
+                },
+                data: {
+                    spells: [
+                        { $connect: level0[0].id },
+                        { $connect: level0[1].id },
+                    ],
+                },
+            });
+        });
+        expect(result?.spells).toHaveLength(5);
+    });
+
+    test("Update Delete", async () => {
+        const result = await session.evaluate(async ({ client, pkg }) => {
+            const level0 = await client.stores.spells.find({
+                where: { level: 0 },
+            });
+            if (level0.length !== 2) return;
+
+            return {
+                update: await client.stores.spellLists.updateFirst({
+                    where: {
+                        name: "Warlock Spell List",
+                    },
+                    data: {
+                        spells: {
+                            $delete: level0[0].id,
+                        },
+                    },
+                }),
+                cantrips: await client.stores.spells.find({
+                    where: { level: 0 },
+                }),
+            };
+        });
+        expect(result?.update?.spells).toHaveLength(4);
+        expect(result?.cantrips).toHaveLength(1);
     });
 });

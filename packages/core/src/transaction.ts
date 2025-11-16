@@ -8,7 +8,12 @@ import {
 import { ObjectStore } from "./object-store.js";
 import { Arrayable } from "./util-types.js";
 
-export type TransactionStatus = "running" | "aborted" | "complete" | "error";
+export const enum TransactionStatus {
+    Running,
+    Aborted,
+    Complete,
+    Error,
+}
 export type TransactionEventHandler = (
     tx: Transaction<IDBTransactionMode>,
     ev: Event
@@ -67,7 +72,7 @@ export class Transaction<
             this.objectStores = first.getAllStores();
         } else {
             this.internal = first.transaction(stores!, mode);
-            this.status = "running";
+            this.status = TransactionStatus.Running;
             this.storeNames = Array.from(
                 this.internal.objectStoreNames
             ) as Stores[];
@@ -75,15 +80,15 @@ export class Transaction<
                 this.storeNames.map((s) => [s, this.getObjectstore(s)])
             );
             this.internal.onabort = this.registerHandler(
-                "aborted",
+                TransactionStatus.Aborted,
                 options.onAbort
             );
             this.internal.onerror = this.registerHandler(
-                "error",
+                TransactionStatus.Error,
                 options.onError
             );
             this.internal.oncomplete = this.registerHandler(
-                "complete",
+                TransactionStatus.Complete,
                 options.onComplete
             );
         }
@@ -110,7 +115,10 @@ export class Transaction<
     }
 
     abort(error: StoreError) {
-        this.internal.abort();
+        if (this.status !== TransactionStatus.Aborted) {
+            this.internal.abort();
+        }
+        this.status = TransactionStatus.Aborted;
         this.error = error;
         return this.error;
     }
@@ -204,7 +212,10 @@ export class Transaction<
                 this.stackCount--;
                 return result;
             } catch (error) {
-                if (error instanceof StoreError && this.status === "aborted") {
+                if (
+                    error instanceof StoreError &&
+                    this.status === TransactionStatus.Aborted
+                ) {
                     throw error;
                 } else {
                     throw this.abort(new UnknownError());

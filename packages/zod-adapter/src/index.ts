@@ -1,17 +1,6 @@
 import { core, Property as P } from "@idb-orm/core";
 import { z } from "zod";
 
-function parseAdapter<T>(schema: z.ZodType<T>): core.ParseFn<T> {
-    return ((value: unknown) => {
-        const result = schema.safeParse(value);
-        return {
-            success: result.success,
-            data: result.data,
-            error: result?.error ? z.prettifyError(result.error) : undefined,
-        };
-    }) as core.ParseFn<T>;
-}
-
 export class Property<
     Value,
     HasDefault extends boolean
@@ -21,7 +10,7 @@ export class Property<
         options?: core.PropertyInputOptions
     ) {
         super(
-            parseAdapter(schema),
+            Property.parseAdapter(schema),
             core.AbstractProperty.nameToType(schema.type),
             options
         );
@@ -86,16 +75,12 @@ export class Property<
         return new Property(z.literal(value), options);
     }
 
-    static number(
-        options?: core.PropertyInputOptions
-    ): Property<number, false> {
-        return new Property(Property.zodValidators.number, options);
+    static number(options?: core.PropertyInputOptions): NumberProperty<false> {
+        return new NumberProperty(options);
     }
 
-    static string(
-        options?: core.PropertyInputOptions
-    ): Property<string, false> {
-        return new Property(Property.zodValidators.string, options);
+    static string(options?: core.PropertyInputOptions): StringProperty<false> {
+        return new StringProperty(options);
     }
 
     static set<T>(
@@ -115,8 +100,103 @@ export class Property<
         );
     }
 
+    public static parseAdapter<T>(schema: z.ZodType<T>): core.ParseFn<T> {
+        return ((value: unknown) => {
+            const result = schema.safeParse(value);
+            return {
+                success: result.success,
+                data: result.data,
+                error: result?.error
+                    ? z.prettifyError(result.error)
+                    : undefined,
+            };
+        }) as core.ParseFn<T>;
+    }
+
+    /**
+     * Regenerates the stored parse function based on the schema
+     */
     protected regenerateValidator() {
-        this.parseFn = parseAdapter(this.schema);
+        this.parseFn = Property.parseAdapter(this.schema);
+    }
+}
+
+class NumberProperty<HasDefault extends boolean> extends Property<
+    number,
+    HasDefault
+> {
+    constructor(options?: core.PropertyInputOptions) {
+        super(Property.zodValidators.number, options);
+    }
+
+    default(value: number) {
+        return super.default(value) as NumberProperty<true>;
+    }
+
+    min(value: number) {
+        this.schema = (this.schema as z.ZodNumber).min(value);
+        this.regenerateValidator();
+        return this;
+    }
+
+    gte(value: number) {
+        this.schema = (this.schema as z.ZodNumber).gte(value);
+        this.regenerateValidator();
+        return this;
+    }
+
+    max(value: number) {
+        this.schema = (this.schema as z.ZodNumber).max(value);
+        this.regenerateValidator();
+        return this;
+    }
+
+    lte(value: number) {
+        this.schema = (this.schema as z.ZodNumber).lte(value);
+        this.regenerateValidator();
+        return this;
+    }
+
+    lt(value: number) {
+        this.schema = (this.schema as z.ZodNumber).lt(value);
+        this.regenerateValidator();
+        return this;
+    }
+
+    gt(value: number) {
+        this.schema = (this.schema as z.ZodNumber).gt(value);
+        this.regenerateValidator();
+        return this;
+    }
+
+    positive() {
+        this.schema = (this.schema as z.ZodNumber).positive();
+        this.regenerateValidator();
+        return this;
+    }
+
+    negative() {
+        this.schema = (this.schema as z.ZodNumber).negative();
+        this.regenerateValidator();
+        return this;
+    }
+
+    nonnegative() {
+        this.schema = (this.schema as z.ZodNumber).nonnegative();
+        this.regenerateValidator();
+        return this;
+    }
+
+    nonpositive() {
+        this.schema = (this.schema as z.ZodNumber).nonpositive();
+        this.regenerateValidator();
+        return this;
+    }
+
+    multipleOf(value: number) {
+        this.schema = (this.schema as z.ZodNumber).multipleOf(value);
+        this.regenerateValidator();
+        return this;
     }
 }
 
@@ -128,12 +208,16 @@ interface ZodStringCache
         httpUrl: z.ZodURL;
     }> {}
 
-export class StringProperty<HasDefault extends boolean> extends Property<
+class StringProperty<HasDefault extends boolean> extends Property<
     string,
     HasDefault
 > {
     constructor(options?: core.PropertyInputOptions) {
         super(Property.zodValidators.string, options);
+    }
+
+    default(value: string) {
+        return super.default(value) as StringProperty<true>;
     }
 
     private static readonly cache: ZodStringCache = {};

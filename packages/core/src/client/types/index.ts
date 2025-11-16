@@ -1,7 +1,8 @@
 import type { CollectionObject } from "../../builder.ts";
-import type { Dict, ValidKey } from "../../util-types.js";
+import type { Dict, Simplify, ValidKey } from "../../util-types.js";
 import type {
     ExtractFields,
+    // GetRelationField,
     Model,
     ModelStructure,
     PrimaryKeyType,
@@ -17,10 +18,13 @@ import type { DbClient } from "../index.ts";
 import { Transaction } from "../../transaction.js";
 import { BaseRelation } from "../../field";
 
-export type InsertMutation<
-    N extends string,
-    C extends Dict
-> = C[N] extends Model<N, infer F, any> ? ModelStructure<F, C> : never;
+export type GetStructure<N extends string, C extends Dict> = C[N] extends Model<
+    N,
+    infer F,
+    any
+>
+    ? Simplify<ModelStructure<F, C>>
+    : never;
 
 export interface StoreInterface<
     Name extends Names,
@@ -28,7 +32,12 @@ export interface StoreInterface<
     C extends CollectionObject<Names>,
     KeyType = PrimaryKeyType<C[Name]>,
     Add = AddMutation<Name, Names, C[Name], C>,
-    Update = UpdateMutation<Name, Names, C[Name], C>
+    Update extends UpdateMutation<Name, Names, C[Name], C> = UpdateMutation<
+        Name,
+        Names,
+        C[Name],
+        C
+    >
 > {
     add(
         mutation: Add,
@@ -41,19 +50,20 @@ export interface StoreInterface<
     find<T extends FindInput<Names, C[Name], C>>(
         query: T,
         transaction?: Transaction<IDBTransactionMode, Names>
-    ): Promise<FindOutput<Names, C[Name], C, T>[]>;
+    ): Promise<NonNullable<FindOutput<Names, C[Name], C, T>>[]>;
     findFirst<T extends FindInput<Names, C[Name], C>>(
         query: T,
         transaction?: Transaction<IDBTransactionMode, Names>
     ): Promise<FindOutput<Names, C[Name], C, T>>;
+    update(key: KeyType, data: Update["data"]): Promise<GetStructure<Name, C>>;
     updateFirst(
         item: Update,
         transaction?: Transaction<"readwrite", Names>
-    ): Promise<KeyType | undefined>;
+    ): Promise<GetStructure<Name, C> | undefined>;
     updateMany(
         item: Update,
         transaction?: Transaction<"readwrite", Names>
-    ): Promise<KeyType[]>;
+    ): Promise<GetStructure<Name, C>[]>;
 
     delete(key: KeyType): Promise<boolean>;
     deleteFirst(where?: WhereObject<ExtractFields<C[Name]>>): Promise<boolean>;
@@ -61,14 +71,7 @@ export interface StoreInterface<
     compileQuery<T extends FindInput<Names, C[Name], C>>(
         query: T
     ): CompiledQuery<Names, C, DbClient<string, Names, C>, T>;
-    get(
-        key: KeyType
-    ): Promise<
-        | (C[Name] extends Model<any, infer Fields, any>
-              ? ModelStructure<Fields, C>
-              : never)
-        | undefined
-    >;
+    get(key: KeyType): Promise<GetStructure<Name, C> | undefined>;
 }
 
 export type InterfaceMap<
@@ -81,20 +84,6 @@ export type InterfaceMap<
 export interface QueryState<Names extends string> {
     tx?: Transaction<IDBTransactionMode, Names>;
 }
-
-export const enum MutationBreath {
-    Find,
-    Singleton,
-}
-
-export enum Action {
-    connect,
-    create,
-    disconnect,
-    update,
-    delete,
-}
-export type ActionKey = keyof typeof Action;
 
 export interface MutationState<Names extends string>
     extends Partial<{

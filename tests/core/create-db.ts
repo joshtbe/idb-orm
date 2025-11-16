@@ -17,12 +17,6 @@ export const createDb = async ({ pkg }: Packages) => {
         "subclass",
     ]);
 
-    const x = {
-        id: Field.primaryKey().autoIncrement(),
-        name: Field.string(),
-        class: Field.relation("classes", { name: "class2subclass" }),
-    };
-
     const subclass = builder.defineModel("subclass", {
         id: Field.primaryKey().autoIncrement(),
         name: Field.string(),
