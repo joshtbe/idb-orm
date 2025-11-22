@@ -5,9 +5,10 @@ import { WhereObject } from "./types/find.js";
 import { MutationState } from "./types";
 import { DbClient } from "./index.js";
 import { DeleteError, InvalidConfigError } from "../error.js";
-import { Dict, ValidKey } from "../util-types.js";
+import { Dict } from "../util-types.js";
 import { handleRequest, toArray } from "../utils.js";
 import { generateWhereClause, parseWhere } from "./helpers.js";
+import { ValidKey } from "../field";
 
 function generateDocumentDelete<
     ModelNames extends string,
@@ -82,18 +83,14 @@ function generateDocumentDelete<
                     const relatedRelation =
                         relatedModel.getRelation(relatedKey);
                     if (!relatedRelation)
-                        throw tx.abort(
-                            new InvalidConfigError(
-                                `Relation '${
-                                    relation.name
-                                }' has an invalid relation key '${relation.getRelatedKey()}'`
-                            )
+                        throw new InvalidConfigError(
+                            `Relation '${
+                                relation.name
+                            }' has an invalid relation key '${relation.getRelatedKey()}'`
                         );
                     else if (!relatedRelation.isNullable()) {
-                        throw tx.abort(
-                            new InvalidConfigError(
-                                `Key '${relatedKey}' on model '${relatedKey}': Non-optional relation cannot have the 'SetNull' action`
-                            )
+                        throw new InvalidConfigError(
+                            `Key '${relatedKey}' on model '${relatedKey}': Non-optional relation cannot have the 'SetNull' action`
                         );
                     }
 
@@ -126,10 +123,8 @@ function generateDocumentDelete<
                         (Array.isArray(fieldItem) && fieldItem.length > 0) ||
                         fieldItem
                     ) {
-                        throw tx.abort(
-                            new DeleteError(
-                                `Key '${relationKey}' on model '${model.name}' deletion is restricted while there is an active relation`
-                            )
+                        throw new DeleteError(
+                            `Key '${relationKey}' on model '${model.name}' deletion is restricted while there is an active relation`
                         );
                     }
                     break;
@@ -169,41 +164,50 @@ export async function deleteItems<
     const accessed = _state.tx
         ? _state.tx.storeNames
         : Array.from(model.getDeletedStores(client));
-    const tx: Transaction<"readwrite", ModelNames> =
-        _state.tx ?? client.createTransaction("readwrite", accessed);
 
-    const store = tx.getStore(name);
-    let deleted = 0;
+    const tx = Transaction.create(
+        client.getDb(),
+        accessed,
+        "readwrite",
+        _state.tx
+    );
 
-    const deleteSubItems = generateDocumentDelete(model, client, tx);
+    return await tx.wrap(async (tx) => {
+        const store = tx.getStore(name);
+        let deleted = 0;
 
-    if (singleton) {
-        if (await deleteSubItems(await store.assertGet(singleton.id))) {
-            await store.delete(singleton.id);
-            deleted++;
-        }
-    } else {
-        const whereClause = generateWhereClause(where);
-        let promise: Promise<undefined> | undefined;
-        await store.openCursor(async (cursor) => {
-            const value = cursor.value as Dict;
-            if (
-                parseWhere(whereClause, value) &&
-                (await deleteSubItems(value))
-            ) {
-                promise = handleRequest(cursor.delete()).catch(tx.onRejection);
+        const deleteSubItems = generateDocumentDelete(model, client, tx);
+
+        if (singleton) {
+            if (await deleteSubItems(await store.assertGet(singleton.id))) {
+                await store.delete(singleton.id);
+                deleted++;
             }
-            if (stopOnFirst && deleted > 0) {
-                return false;
+        } else {
+            const whereClause = generateWhereClause(where);
+            let promise: Promise<undefined> | undefined;
+            await store.openCursor(async (cursor) => {
+                const value = cursor.value as Dict;
+                if (
+                    parseWhere(whereClause, value) &&
+                    (await deleteSubItems(value))
+                ) {
+                    promise = handleRequest(cursor.delete()).catch(
+                        tx.onRejection
+                    );
+                }
+                if (stopOnFirst && deleted > 0) {
+                    return false;
+                }
+                cursor.continue();
+                return true;
+            });
+
+            if (promise && finalStep) {
+                await promise;
             }
-            cursor.continue();
-            return true;
-        });
-
-        if (promise && finalStep) {
-            await promise;
         }
-    }
 
-    return deleted;
+        return deleted;
+    });
 }

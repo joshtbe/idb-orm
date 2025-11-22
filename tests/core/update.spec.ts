@@ -275,10 +275,10 @@ test.describe("Multi Stage Test", () => {
 
     test("Update Multiple Disconnect", async () => {
         const result = await session.evaluate(async ({ client, pkg }) => {
-            const level2 = await client.stores.spells.find({
+            const level0 = await client.stores.spells.find({
                 where: { level: 0 },
             });
-            if (level2.length !== 2) return;
+            if (level0.length !== 2) return;
 
             return await client.stores.spellLists.updateFirst({
                 where: {
@@ -286,8 +286,8 @@ test.describe("Multi Stage Test", () => {
                 },
                 data: {
                     spells: [
-                        { $disconnect: level2[0].id },
-                        { $disconnect: level2[1].id },
+                        { $disconnect: level0[0].id },
+                        { $disconnect: level0[1].id },
                     ],
                 },
             });
@@ -342,5 +342,52 @@ test.describe("Multi Stage Test", () => {
         });
         expect(result?.update?.spells).toHaveLength(4);
         expect(result?.cantrips).toHaveLength(1);
+    });
+
+    test("Update DeleteMany", async () => {
+        const result = await session.evaluate(async ({ client, pkg }) => {
+            const level1 = await client.stores.spells.find({
+                where: { level: 1 },
+            });
+            if (level1.length !== 2) return;
+
+            return {
+                update: await client.stores.spellLists.updateFirst({
+                    where: {
+                        name: "Warlock Spell List",
+                    },
+                    data: {
+                        spells: {
+                            $deleteMany: level1.map((l) => l.id),
+                        },
+                    },
+                }),
+                spells: await client.stores.spells.find({
+                    where: { level: 1 },
+                }),
+            };
+        });
+        expect(result?.update?.spells).toHaveLength(2);
+        expect(result?.spells).toHaveLength(0);
+    });
+
+    test("Update DeleteAll", async () => {
+        const result = await session.evaluate(async ({ client, pkg }) => {
+            return {
+                update: await client.stores.spellLists.updateFirst({
+                    where: {
+                        name: "Warlock Spell List",
+                    },
+                    data: {
+                        spells: {
+                            $deleteAll: true,
+                        },
+                    },
+                }),
+                spells: await client.stores.spells.find({}),
+            };
+        });
+        expect(result?.update?.spells).toHaveLength(0);
+        expect(result?.spells).toHaveLength(2);
     });
 });

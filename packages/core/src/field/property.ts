@@ -1,18 +1,15 @@
-import {
-    Literable,
-    NoUndefined,
-    StringValidKeyType,
-    ValidKeyType,
-} from "../util-types.js";
-import { Type } from "../util-types.js";
+import { Literable, NoUndefined } from "../util-types.js";
 import {
     FunctionMatch,
     PropertyUnion,
     ReferenceActions,
     RelationOptions,
+    ValidKeyType,
+    StringValidKeyType,
 } from "./field-types.js";
 import PrimaryKey from "./primary-key.js";
 import { Relation } from "./relation.js";
+import { Type, TypeTag } from "./type-wrapper.js";
 import { VALIDATORS } from "./validators.js";
 
 export interface PropertyOptions {
@@ -40,7 +37,7 @@ export abstract class AbstractProperty<Value, HasDefault extends boolean> {
 
     constructor(
         protected parseFn: (value: unknown) => ParseResult<Value>,
-        protected type: Type,
+        protected type: TypeTag,
         options?: PropertyInputOptions
     ) {
         this.options = {
@@ -147,11 +144,11 @@ export abstract class AbstractProperty<Value, HasDefault extends boolean> {
         );
     }
 
-    protected static literalToType(value: Literable): Type {
+    protected static literalToType(value: Literable): TypeTag {
         return AbstractProperty.nameToType(typeof value);
     }
 
-    protected static nameToType(typeName: string): Type {
+    protected static nameToType(typeName: string): TypeTag {
         switch (typeName) {
             case "boolean":
                 return Type.Boolean;
@@ -161,8 +158,6 @@ export abstract class AbstractProperty<Value, HasDefault extends boolean> {
                 return Type.Number;
             case "string":
                 return Type.Number;
-            case "object":
-                return Type.Object;
             case "symbol":
                 return Type.Symbol;
             default:
@@ -178,7 +173,7 @@ export class Property<
     array(): Property<Value[], false> {
         return new Property<Value[], false>(
             Property.generateArrayValidator(this.parseFn),
-            Type.Array,
+            Type.Array(this.type),
             this.options
         );
     }
@@ -216,14 +211,12 @@ export class Property<
     }
 
     static array<T>(
-        item: ParseFn<T> | Property<T, boolean>,
+        item: Property<T, boolean>,
         options?: PropertyInputOptions
     ): Property<T[], false> {
         return new Property(
-            Property.generateArrayValidator(
-                item instanceof Property ? item.parseFn : item
-            ),
-            Type.Array,
+            Property.generateArrayValidator(item.parseFn),
+            Type.Array(item.type),
             options
         );
     }
@@ -255,7 +248,7 @@ export class Property<
     }
 
     static date(options?: PropertyInputOptions): Property<Date, false> {
-        return new Property(VALIDATORS[Type.Date], Type.Date, options);
+        return new Property(VALIDATORS[Type.Date.tag], Type.Date, options);
     }
 
     static literal<const V extends Literable>(
@@ -281,24 +274,23 @@ export class Property<
     }
 
     static number(options?: PropertyInputOptions): Property<number, false> {
-        return new Property(VALIDATORS[Type.Number], Type.Number, options);
+        return new Property(VALIDATORS[Type.Number.tag], Type.Number, options);
     }
 
     static string(options?: PropertyInputOptions): Property<string, false> {
-        return new Property(VALIDATORS[Type.String], Type.String, options);
+        return new Property(VALIDATORS[Type.String.tag], Type.String, options);
     }
 
     static set<T>(
-        item: ParseFn<T> | Property<T, boolean>,
+        item: Property<T, boolean>,
         options?: PropertyInputOptions
     ): Property<Set<T>, false> {
-        const parseFn = item instanceof Property ? item.parseFn : item;
         return new Property(
             (items: unknown): ParseResult<Set<T>> => {
                 if (items instanceof Set) {
                     const resultData = new Set<T>();
-                    for (const item of items) {
-                        const result = parseFn(item);
+                    for (const element of items) {
+                        const result = item.parseFn(element);
                         if (!result.success) {
                             return result;
                         } else {
@@ -316,7 +308,7 @@ export class Property<
                     };
                 }
             },
-            Type.Set,
+            Type.Set(item.type),
             options
         );
     }

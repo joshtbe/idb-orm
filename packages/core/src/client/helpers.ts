@@ -1,10 +1,4 @@
-import type {
-    Arrayable,
-    Dict,
-    Keyof,
-    Promisable,
-    ValidKey,
-} from "../util-types.js";
+import type { Arrayable, Dict, Keyof, Promisable } from "../util-types.js";
 import { getKeys, identity, toArray, unionSets } from "../utils.js";
 import type { DbClient } from "./index.ts";
 import type { CollectionObject } from "../builder.ts";
@@ -16,7 +10,7 @@ import type {
 import type { QueryInput } from "./types/find.ts";
 import type { Transaction } from "../transaction.js";
 import { InvalidItemError } from "../error.js";
-import { FieldTypes } from "../field/field-types.js";
+import { FieldTypes, ValidKey } from "../field/field-types.js";
 
 type WhereClauseElement =
     | [key: string, isFun: true, fn: (value: unknown) => boolean]
@@ -98,13 +92,7 @@ export function generateSelector<
     const model = client.getModel(name);
 
     if (query.include && query.select) {
-        throw initTx
-            ? initTx.abort(
-                  new InvalidItemError(
-                      "include and select cannot both be defined"
-                  )
-              )
-            : new InvalidItemError("include and select cannot both be defined");
+        throw new InvalidItemError("include and select cannot both be defined");
     }
 
     const whereClause = generateWhereClause(query.where);

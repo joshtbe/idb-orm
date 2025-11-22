@@ -6,7 +6,7 @@ import {
     UnknownError,
 } from "./error";
 import { ObjectStore } from "./object-store.js";
-import { Arrayable } from "./util-types.js";
+import { Arrayable, Promisable } from "./util-types.js";
 
 export const enum TransactionStatus {
     Running,
@@ -25,8 +25,6 @@ export interface TransactionOptions
         onComplete: TransactionEventHandler;
     }> {}
 
-// TODO: Just throw error and have transaction abort be automatic
-
 export class Transaction<
     Mode extends IDBTransactionMode,
     Stores extends string = string
@@ -35,7 +33,7 @@ export class Transaction<
     public status: TransactionStatus;
     public error: StoreError | null = null;
     public readonly storeNames: Stores[];
-    private stackCount = 0;
+    private inWrap = false;
     public readonly onRejection = (error: any) => {
         if (error instanceof StoreError) {
             throw this.abort(error);
@@ -115,6 +113,7 @@ export class Transaction<
     }
 
     abort(error: StoreError) {
+        // Multiple aborts do nothing
         if (this.status !== TransactionStatus.Aborted) {
             this.internal.abort();
         }
@@ -203,22 +202,20 @@ export class Transaction<
         };
     }
 
-    async wrap<Output>(fn: (tx: this) => Promise<Output>): Promise<Output> {
-        // Use stackCount to avoid layering many try-catch blocks
-        if (this.stackCount === 0) {
-            this.stackCount++;
+    async wrap<Output>(fn: (tx: this) => Promisable<Output>): Promise<Output> {
+        // Use inWrap to avoid layering many try-catch blocks
+        if (!this.inWrap) {
+            this.inWrap = true;
             try {
                 const result = await fn(this);
-                this.stackCount--;
+                this.inWrap = false;
                 return result;
             } catch (error) {
-                if (
-                    error instanceof StoreError &&
-                    this.status === TransactionStatus.Aborted
-                ) {
-                    throw error;
+                this.inWrap = false;
+                if (error instanceof StoreError) {
+                    throw this.abort(error);
                 } else {
-                    throw this.abort(new UnknownError());
+                    throw this.abort(new UnknownError(JSON.stringify(error)));
                 }
             }
         } else {

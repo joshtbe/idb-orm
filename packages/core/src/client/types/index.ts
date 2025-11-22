@@ -1,8 +1,7 @@
 import type { CollectionObject } from "../../builder.ts";
-import type { Dict, Simplify, ValidKey } from "../../util-types.js";
+import type { Dict, Simplify } from "../../util-types.js";
 import type {
     ExtractFields,
-    // GetRelationField,
     Model,
     ModelStructure,
     PrimaryKeyType,
@@ -16,7 +15,7 @@ import type { FindInput, FindOutput, WhereObject } from "./find.ts";
 import type { CompiledQuery } from "../compiled-query.ts";
 import type { DbClient } from "../index.ts";
 import { Transaction } from "../../transaction.js";
-import { BaseRelation } from "../../field";
+import { BaseRelation, ValidKey } from "../../field";
 
 export type GetStructure<N extends string, C extends Dict> = C[N] extends Model<
     N,

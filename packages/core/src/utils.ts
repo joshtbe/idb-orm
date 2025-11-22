@@ -1,4 +1,4 @@
-import { Arrayable, Keyof, Type } from "./util-types";
+import { Arrayable, Keyof } from "./util-types";
 import type { Transaction } from "./transaction.js";
 import { UnknownError } from "./error.js";
 
@@ -32,18 +32,6 @@ export function addToSet<T>(set: Set<T>, items: T[]) {
 export function toArray<T>(value: Arrayable<T>): T[] {
     if (!Array.isArray(value)) value = [value];
     return value;
-}
-
-export function stringTypeToEnum(type: "string" | "date" | "number"): Type {
-    switch (type) {
-        case "date":
-            return Type.Date;
-        case "number":
-            return Type.Number;
-        case "string":
-            return Type.String;
-    }
-    return Type.Unknown;
 }
 
 export function uuid() {

@@ -7,8 +7,9 @@ import {
     PrimaryKey,
     ValidValue,
     ParseResult,
+    ValidKey,
 } from "../field";
-import { Keyof, ValidKey } from "../util-types.js";
+import { Keyof } from "../util-types.js";
 import { getKeys, unionSets } from "../utils.js";
 import { StoreError } from "../error.js";
 import { FindPrimaryKey, ModelCache } from "./model-types.js";
@@ -54,12 +55,6 @@ export default class Model<
 
     get<K extends Keyof<F>>(key: K): F[K] {
         return this.fields[key];
-    }
-
-    getModelField(key: string) {
-        const item = this.fields[key];
-        if (!item || !(item instanceof AbstractProperty)) return undefined;
-        return item;
     }
 
     getPrimaryKey() {

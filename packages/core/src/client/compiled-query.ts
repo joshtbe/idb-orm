@@ -57,23 +57,24 @@ export class CompiledQuery<
             "readonly",
             this.accessedStores
         );
-        const result: Output[] = [];
-        const initStore = tx.getStore(this.name);
-        await initStore.openCursor(async (cursor) => {
-            const selection = await this.selectClause(cursor.value, tx);
+        return await tx.wrap(async (tx) => {
+            const result: Output[] = [];
+            const initStore = tx.getStore(this.name);
+            await initStore.openCursor(async (cursor) => {
+                const selection = await this.selectClause(cursor.value, tx);
 
-            if (selection) {
-                result.push(selection);
-            }
-            // Stop early and return if it's just finding the first one
-            if (stopOnFirst && result.length) {
-                return false;
-            }
+                if (selection) {
+                    result.push(selection);
+                }
+                // Stop early and return if it's just finding the first one
+                if (stopOnFirst && result.length) {
+                    return false;
+                }
 
-            cursor.continue();
-            return true;
+                cursor.continue();
+                return true;
+            });
+            return result;
         });
-
-        return result;
     }
 }

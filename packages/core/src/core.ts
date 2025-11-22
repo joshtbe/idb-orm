@@ -19,3 +19,5 @@ export {
     PropertyUnion,
     Model,
 };
+
+export { TypeTag, Type } from "./field/type-wrapper";

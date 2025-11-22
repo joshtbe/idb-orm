@@ -1,7 +1,12 @@
-import { Dict, ValidKey } from "../util-types.js";
+import { Dict } from "../util-types.js";
 import PrimaryKey from "./primary-key.js";
 import { AbstractProperty, ParseFn, Property } from "./property.js";
 import { BaseRelation, OptionalRelation, ArrayRelation } from "./relation.js";
+import { DateTag, NumberTag, StringTag } from "./type-wrapper.js";
+
+export type ValidKey = string | number | Date;
+export type StringValidKeyType = "string" | "date" | "number";
+export type ValidKeyType = StringTag | DateTag | NumberTag;
 
 export type ReferenceActions = "Cascade" | "None" | "Restrict";
 export type OptionalActions = "SetNull" | ReferenceActions;

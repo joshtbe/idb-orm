@@ -32,25 +32,6 @@ export type MakeArrayable<B extends boolean, T> = B extends true
     ? Arrayable<T>
     : T;
 
-export enum Type {
-    String = 0,
-    Number = 1,
-    Date = 2,
-    BigInt,
-    Boolean,
-    Symbol,
-
-    // NO FUTURE PRIMTIVE TYPES SHOULD GO AFTER THIS ONE
-    Array,
-    Object,
-    Set,
-    Unknown,
-    Any,
-}
-
-export type ValidKey = string | number | Date;
-export type StringValidKeyType = "string" | "date" | "number";
-export type ValidKeyType = Type.String | Type.Date | Type.Number;
 
 export type If<
     Type extends boolean,
@@ -66,6 +47,9 @@ export type RemoveNeverValues<T extends object> = {
     [K in keyof T as T[K] extends never ? never : K]: T[K];
 };
 
+/**
+ * A type representing a dictionary from string to some type
+ */
 export type Dict<T = unknown> = Record<string, T>;
 
 type UndefinedKeys<T extends Dict> = {

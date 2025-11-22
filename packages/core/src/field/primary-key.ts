@@ -1,7 +1,7 @@
 import { InvalidConfigError } from "../error.js";
-import { Type, ValidKey, ValidKeyType } from "../util-types.js";
 import { getDate, uuid } from "../utils.js";
-import { GenFunction } from "./field-types.js";
+import { GenFunction, ValidKey, ValidKeyType } from "./field-types.js";
+import { Type } from "./type-wrapper.js";
 import { VALIDATORS } from "./validators.js";
 
 export default class PrimaryKey<
@@ -71,7 +71,7 @@ export default class PrimaryKey<
     }
 
     getSchema() {
-        return VALIDATORS[this.type];
+        return VALIDATORS[this.type.tag];
     }
 
     /**

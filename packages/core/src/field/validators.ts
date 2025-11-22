@@ -1,5 +1,5 @@
-import { Type } from "../util-types.js";
 import { ParseFn, ParseResult } from "./property.js";
+import { Type } from "./type-wrapper.js";
 
 function makeValidator<T>(
     type:
@@ -27,19 +27,19 @@ function makeValidator<T>(
 }
 
 /**
- * 
+ *
  */
 export const VALIDATORS = {
-    [Type.String]: makeValidator<string>("string"),
-    [Type.Number]: makeValidator<number>("number"),
-    [Type.BigInt]: makeValidator<bigint>("bigint"),
-    [Type.Boolean]: makeValidator<boolean>("boolean"),
-    [Type.Symbol]: makeValidator<symbol>("symbol"),
-    [Type.Any]: ((test: unknown): ParseResult<any> => ({
+    [Type.String.tag]: makeValidator<string>("string"),
+    [Type.Number.tag]: makeValidator<number>("number"),
+    [Type.BigInt.tag]: makeValidator<bigint>("bigint"),
+    [Type.Boolean.tag]: makeValidator<boolean>("boolean"),
+    [Type.Symbol.tag]: makeValidator<symbol>("symbol"),
+    [Type.Unknown.tag]: ((test: unknown): ParseResult<any> => ({
         success: true,
         data: test,
     })) as ParseFn<any>,
-    [Type.Date]: ((test: unknown): ParseResult<Date> => {
+    [Type.Date.tag]: ((test: unknown): ParseResult<Date> => {
         if (test instanceof Date) {
             if (!isNaN(test.getTime())) {
                 return {

@@ -10,7 +10,7 @@ import {
 } from "./field";
 import type { Dict, Keyof } from "./util-types";
 import { getKeys, handleRequest } from "./utils";
-import { InvalidConfigError, StoreError } from "./error";
+import { InvalidConfigError } from "./error";
 import { VALIDATORS } from "./field/validators.js";
 
 export type CollectionObject<Names extends string> = {
@@ -45,7 +45,7 @@ export class CompiledDb<
     public readonly schemas: CollectionSchema<C>;
     private readonly modelKeys: Names[];
     constructor(public readonly name: Name, private readonly models: C) {
-        this.modelKeys = getKeys(this.models) as unknown as Names[];
+        this.modelKeys = getKeys<Record<Names, unknown>>(this.models);
         this.schemas = {} as CollectionSchema<C>;
         for (const key of this.modelKeys) {
             const model = this.models[key];
@@ -56,9 +56,9 @@ export class CompiledDb<
                     schema[fieldKey] = field.parse;
                 } else if (field instanceof BaseRelation) {
                     const { onDelete } = field.getActions();
-                    const linkedModel = this.models[field.to as Keyof<C>];
-                    const linkedPrimary = linkedModel.getPrimaryKey();
-                    schema[fieldKey] = VALIDATORS[linkedPrimary.type];
+                    const linked = this.models[field.to as Keyof<C>];
+                    const linkedPrimary = linked.getPrimaryKey();
+                    schema[fieldKey] = VALIDATORS[linkedPrimary.type.tag];
                     if (field.isOptional) {
                         schema[fieldKey] = new Property(
                             schema[fieldKey],
@@ -73,31 +73,22 @@ export class CompiledDb<
 
                     let hasRelation = !!field.getRelatedKey();
                     if (!hasRelation) {
-                        for (const otherKey of linkedModel.keys()) {
-                            const element = linkedModel.get(otherKey);
+                        for (const [otherKey, element] of linked.relations()) {
                             if (
                                 fieldKey !== otherKey &&
-                                element instanceof BaseRelation &&
                                 element.to === model.name &&
                                 element.name === field.name
                             ) {
-                                // They're pointing to the same model
-                                if (element.to === field.to) {
-                                    hasRelation = fieldKey !== otherKey;
-                                } else {
-                                    hasRelation = true;
-                                }
-                                if (hasRelation) {
-                                    field.setRelatedKey(otherKey);
-                                    element.setRelatedKey(fieldKey);
-                                    if (
-                                        onDelete === "SetNull" &&
-                                        !element.isNullable()
-                                    ) {
-                                        throw new InvalidConfigError(
-                                            `Key '${otherKey}' on model '${linkedModel.name}': Non-optional relation cannot have the 'SetNull' action`
-                                        );
-                                    }
+                                hasRelation = true;
+                                field.setRelatedKey(otherKey);
+                                element.setRelatedKey(fieldKey);
+                                if (
+                                    onDelete === "SetNull" &&
+                                    !element.isNullable()
+                                ) {
+                                    throw new InvalidConfigError(
+                                        `Key '${otherKey}' on model '${linked.name}': Non-optional relation cannot have the 'SetNull' action`
+                                    );
                                 }
                                 break;
                             }
@@ -105,15 +96,13 @@ export class CompiledDb<
                     }
 
                     if (!hasRelation)
-                        throw new StoreError(
-                            "INVALID_CONFIG",
+                        throw new InvalidConfigError(
                             `Relation '${field.name}' of model ${key} does not have an equivalent relation on model '${field.to}'`
                         );
                 } else if (field instanceof PrimaryKey) {
-                    schema[fieldKey] = VALIDATORS[field.type];
+                    schema[fieldKey] = VALIDATORS[field.type.tag];
                 } else {
-                    throw new StoreError(
-                        "INVALID_CONFIG",
+                    throw new InvalidConfigError(
                         `Unknown field value detected: ${JSON.stringify(field)}`
                     );
                 }

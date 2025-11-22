@@ -11,8 +11,9 @@ import {
     UnknownError,
     UpdateError,
 } from "./error.js";
+import { ValidKey } from "./field";
 import { Transaction } from "./transaction.js";
-import { Dict, Promisable, ValidKey } from "./util-types.js";
+import { Dict, Promisable } from "./util-types.js";
 
 export class ObjectStore<T = Dict> {
     constructor(
