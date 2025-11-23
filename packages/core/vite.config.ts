@@ -8,7 +8,7 @@ export default defineConfig({
             entry: "src/index.ts",
             name: "@idb-orm/core",
             formats: ["es", "cjs"],
-            fileName: (format) => `index.${format}.js`,
+            fileName: (format: string) => `index.${format}.js`,
         },
     },
     plugins: [dts({})],

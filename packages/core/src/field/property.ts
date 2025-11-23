@@ -1,4 +1,4 @@
-import { Literable, NoUndefined } from "../util-types.js";
+import { Literable, NoUndefined, Promisable } from "../util-types.js";
 import {
     FunctionMatch,
     PropertyUnion,
@@ -17,6 +17,12 @@ export interface PropertyOptions {
 }
 
 export type PropertyInputOptions = Partial<PropertyOptions>;
+
+export interface CustomPropertyOptions<T> extends PropertyInputOptions {
+    isType: (test: unknown) => boolean;
+    serialize?: (value: T) => Promisable<unknown>;
+    deserialize?: (value: unknown) => Promisable<T>;
+}
 
 export type ParseResult<T> =
     | {
@@ -144,10 +150,6 @@ export abstract class AbstractProperty<Value, HasDefault extends boolean> {
         );
     }
 
-    protected static literalToType(value: Literable): TypeTag {
-        return AbstractProperty.nameToType(typeof value);
-    }
-
     protected static nameToType(typeName: string): TypeTag {
         switch (typeName) {
             case "boolean":
@@ -268,7 +270,7 @@ export class Property<
                     error: `${test} !== ${value}`,
                 };
             },
-            Property.literalToType(value),
+            Property.nameToType(typeof value),
             options
         );
     }

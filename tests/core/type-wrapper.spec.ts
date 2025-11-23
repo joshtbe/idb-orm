@@ -96,6 +96,51 @@ test.describe("Type-wrapper Tests", () => {
             if (!Type.is(Type.File, file)) return "Value is a file";
             if (Type.is(Type.File, "hello")) return "Value is not a file";
 
+            const object = Type.Object({
+                hello: Type.String,
+                morning: Type.Number,
+                nested: Type.Object({
+                    nestedOne: Type.Optional(Type.Boolean),
+                    nestedTwo: Type.String,
+                }),
+                arr: Type.Array(Type.Number),
+            });
+            if (
+                !Type.is(object, {
+                    hello: "",
+                    morning: 234,
+                    nested: { nestedTwo: "Hello World!" },
+                    arr: [],
+                })
+            ) {
+                return "Value is the specified object";
+            }
+            if (
+                !Type.is(object, {
+                    hello: "",
+                    morning: 234,
+                    nested: { nestedTwo: "Hello World!", nestedOne: true },
+                    arr: [],
+                })
+            ) {
+                return "Value is the specified object";
+            }
+            if (
+                Type.is(object, {
+                    hello: "",
+                    morning: 234,
+                    nested: { nestedTwo: "Hello World!" },
+                })
+            ) {
+                return "Value is not the specified object";
+            }
+            if (Type.is(object, {})) {
+                return "Value is not the specified object";
+            }
+            if (Type.is(object, 4)) {
+                return "Value is not the specified object";
+            }
+
             const custom = Type.Custom<{ hello: string; why: number }>({
                 isType: (test) => {
                     return !!(

@@ -1,6 +1,6 @@
-import { Promisable } from "../util-types.js";
+import { Dict, Promisable } from "../util-types.js";
 
-enum TypeLabel {
+const enum TypeLabel {
     string,
     number,
     boolean,
@@ -13,6 +13,7 @@ enum TypeLabel {
     optional,
     file,
     unknown,
+    object,
     custom,
 }
 export interface StringTag {
@@ -24,23 +25,52 @@ export interface NumberTag {
 export interface DateTag {
     tag: TypeLabel.date;
 }
-interface BasicTag {
-    tag:
-        | TypeLabel.boolean
-        | TypeLabel.symbol
-        | TypeLabel.bigint
-        | TypeLabel.unknown
-        | TypeLabel.file;
+
+interface BooleanTag {
+    tag: TypeLabel.boolean;
 }
 
-interface ParentTag {
-    tag: TypeLabel.array | TypeLabel.set | TypeLabel.optional;
-    of: TypeTag;
+interface SymbolTag {
+    tag: TypeLabel.symbol;
 }
 
-interface UnionTag {
+interface BigIntTag {
+    tag: TypeLabel.bigint;
+}
+
+interface UnknownTag {
+    tag: TypeLabel.unknown;
+}
+
+interface FileTag {
+    tag: TypeLabel.file;
+}
+
+interface ArrayTag<V extends TypeTag = TypeTag> {
+    tag: TypeLabel.array;
+    of: V;
+}
+
+interface SetTag<V extends TypeTag = TypeTag> {
+    tag: TypeLabel.set;
+    of: V;
+}
+
+interface OptionalTag<V extends TypeTag = TypeTag> {
+    tag: TypeLabel.optional;
+    of: V;
+}
+
+interface UnionTag<V extends TypeTag[] = TypeTag[]> {
     tag: TypeLabel.union;
-    options: TypeTag[];
+    options: V;
+}
+
+interface ObjectTag<
+    P extends Record<string, TypeTag> = Record<string, TypeTag>
+> {
+    tag: TypeLabel.object;
+    props: P;
 }
 
 interface CustomTag<V = any> {
@@ -54,9 +84,16 @@ export type TypeTag =
     | StringTag
     | NumberTag
     | DateTag
-    | BasicTag
-    | ParentTag
+    | BooleanTag
+    | SymbolTag
+    | UnknownTag
+    | FileTag
+    | BigIntTag
+    | SetTag
+    | OptionalTag
     | UnionTag
+    | ArrayTag
+    | ObjectTag
     | CustomTag;
 
 export class Type {
@@ -66,49 +103,56 @@ export class Type {
     static readonly Number: NumberTag = {
         tag: TypeLabel.number,
     };
-    static readonly Boolean: TypeTag = {
+    static readonly Boolean: BooleanTag = {
         tag: TypeLabel.boolean,
     };
-    static readonly BigInt: TypeTag = {
+    static readonly BigInt: BigIntTag = {
         tag: TypeLabel.bigint,
     };
-    static readonly Symbol: TypeTag = {
+    static readonly Symbol: SymbolTag = {
         tag: TypeLabel.symbol,
     };
 
-    static readonly File: TypeTag = {
+    static readonly File: FileTag = {
         tag: TypeLabel.file,
     };
 
     static readonly Date: DateTag = { tag: TypeLabel.date };
 
-    static readonly Unknown: TypeTag = { tag: TypeLabel.unknown };
+    static readonly Unknown: UnknownTag = { tag: TypeLabel.unknown };
 
-    static Array(element: TypeTag): ParentTag {
+    static Array<V extends TypeTag>(element: V): ArrayTag<V> {
         return {
             tag: TypeLabel.array,
             of: element,
         };
     }
 
-    static Set(element: TypeTag): ParentTag {
+    static Set<V extends TypeTag>(element: V): SetTag<V> {
         return {
             tag: TypeLabel.set,
             of: element,
         };
     }
 
-    static Union<V extends TypeTag[]>(types: V): UnionTag {
+    static Union<const V extends TypeTag[]>(types: V): UnionTag<V> {
         return {
             tag: TypeLabel.union,
             options: types,
         };
     }
 
-    static Optional<V extends TypeTag>(type: V): ParentTag {
+    static Optional<V extends TypeTag>(type: V): OptionalTag<V> {
         return {
             tag: TypeLabel.optional,
             of: type,
+        };
+    }
+
+    static Object<R extends Record<string, TypeTag>>(props: R): ObjectTag<R> {
+        return {
+            tag: TypeLabel.object,
+            props,
         };
     }
 
@@ -184,6 +228,29 @@ export class Type {
                     }),
                     name: value.name,
                 };
+            }
+            case TypeLabel.object: {
+                if (!value || typeof value !== "object") {
+                    throw new Error("Value is not an object");
+                }
+                const result: Dict = {};
+                for (const propKey in type.props) {
+                    const curType = type.props[propKey];
+                    if (
+                        !(propKey in value) &&
+                        curType.tag !== TypeLabel.optional
+                    ) {
+                        throw new Error(
+                            `Required property '${propKey}' not found`
+                        );
+                    }
+                    result[propKey] = await this.serialize(
+                        curType,
+                        (value as Dict)[propKey]
+                    );
+                }
+
+                return result;
             }
             case TypeLabel.custom:
                 if (type.serialize) return await type.serialize(value);
@@ -283,6 +350,29 @@ export class Type {
                 } else {
                     throw new Error("Value is not valid");
                 }
+            case TypeLabel.object: {
+                if (!value || typeof value !== "object") {
+                    throw new Error("Value is not an object");
+                }
+                const result: Dict = {};
+                for (const propKey in type.props) {
+                    const curType = type.props[propKey];
+                    if (
+                        !(propKey in value) &&
+                        curType.tag !== TypeLabel.optional
+                    ) {
+                        throw new Error(
+                            `Required property '${propKey}' not found`
+                        );
+                    }
+                    result[propKey] = await this.deserialize(
+                        curType,
+                        (value as Dict)[propKey]
+                    );
+                }
+
+                return result;
+            }
         }
     }
 
@@ -318,6 +408,13 @@ export class Type {
                 return type.options.some((t) => Type.is(t, value));
             case TypeLabel.file:
                 return value instanceof File;
+            case TypeLabel.object:
+                if (!value || typeof value !== "object") {
+                    return false;
+                }
+                return Object.keys(type.props).every((key) =>
+                    Type.is(type.props[key], (value as Dict)[key])
+                );
             case TypeLabel.custom:
                 return type.isType(value);
         }

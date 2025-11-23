@@ -1,17 +1,33 @@
 import { core, Property as P } from "@idb-orm/core";
 import { z } from "zod";
 
+const Type = core.Type;
+
+export type CustomOptions<T> = Partial<core.CustomPropertyOptions<T>>;
+
+function parseAdapter<T>(schema: z.ZodType<T>): core.ParseFn<T> {
+    return ((value: unknown) => {
+        const result = schema.safeParse(value);
+        return {
+            success: result.success,
+            data: result.data,
+            error: result?.error ? z.prettifyError(result.error) : undefined,
+        };
+    }) as core.ParseFn<T>;
+}
+
 export class Property<
     Value,
     HasDefault extends boolean
 > extends core.AbstractProperty<Value, HasDefault> {
     constructor(
         protected schema: z.ZodType<Value>,
-        options?: core.PropertyInputOptions
+        options?: CustomOptions<Value>,
+        type?: core.TypeTag
     ) {
         super(
-            Property.parseAdapter(schema),
-            core.AbstractProperty.nameToType(schema.type),
+            parseAdapter(schema),
+            type ? type : Property.getTypeTag(schema),
             options
         );
     }
@@ -19,6 +35,7 @@ export class Property<
     array() {
         this.schema = this.schema.array() as unknown as z.ZodType<Value>;
         this.regenerateValidator();
+        this.type = Type.Array(this.type);
         return this as Property<Value[], false>;
     }
 
@@ -34,6 +51,7 @@ export class Property<
     optional(): Property<Value | undefined, false> {
         this.schema = this.schema.optional() as unknown as z.ZodType<Value>;
         this.regenerateValidator();
+        this.type = Type.Optional(this.type);
         return this as Property<Value | undefined, false>;
     }
 
@@ -54,18 +72,22 @@ export class Property<
     static boolean(
         options?: core.PropertyInputOptions
     ): Property<boolean, false> {
-        return new Property(Property.zodValidators.boolean, options);
+        return new Property(
+            Property.zodValidators.boolean,
+            options,
+            Type.Boolean
+        );
     }
 
     static custom<T>(
         schema: z.ZodType<T>,
-        options?: core.PropertyInputOptions
+        options: CustomOptions<T>
     ): Property<T, false> {
         return new Property(schema, options);
     }
 
     static date(options?: core.PropertyInputOptions): Property<Date, false> {
-        return new Property(Property.zodValidators.date, options);
+        return new Property(Property.zodValidators.date, options, Type.Date);
     }
 
     static literal<const T extends core.Literable>(
@@ -100,24 +122,70 @@ export class Property<
         );
     }
 
-    public static parseAdapter<T>(schema: z.ZodType<T>): core.ParseFn<T> {
-        return ((value: unknown) => {
-            const result = schema.safeParse(value);
-            return {
-                success: result.success,
-                data: result.data,
-                error: result?.error
-                    ? z.prettifyError(result.error)
-                    : undefined,
-            };
-        }) as core.ParseFn<T>;
-    }
-
     /**
      * Regenerates the stored parse function based on the schema
      */
     protected regenerateValidator() {
-        this.parseFn = Property.parseAdapter(this.schema);
+        this.parseFn = parseAdapter(this.schema);
+    }
+
+    private static getTypeTag(schema: z.ZodType): core.TypeTag {
+        switch (schema.type) {
+            case "array":
+                return Type.Array(
+                    this.getTypeTag((schema as z.ZodArray).element as z.ZodType)
+                );
+            case "bigint":
+                return Type.BigInt;
+            case "number":
+                return Type.Number;
+            case "string":
+                return Type.String;
+            case "boolean":
+                return Type.Boolean;
+            case "date":
+                return Type.Date;
+            case "file":
+                return Type.File;
+            case "symbol":
+                return Type.Symbol;
+            case "literal":
+                return core.AbstractProperty.nameToType(
+                    typeof Array.from((schema as z.ZodLiteral).values)[0]
+                );
+            case "optional":
+                return Type.Optional(
+                    this.getTypeTag(
+                        (schema as z.ZodOptional).unwrap() as z.ZodType
+                    )
+                );
+            case "set":
+                return Type.Set(
+                    this.getTypeTag(
+                        (schema as z.ZodSet)._zod.def.valueType as z.ZodType
+                    )
+                );
+            case "union":
+                return Type.Union(
+                    ((schema as z.ZodUnion).options as z.ZodType[]).map((o) =>
+                        Property.getTypeTag(o)
+                    )
+                );
+            case "object": {
+                const result: Record<string, core.TypeTag> = {};
+                for (const key in (schema as z.ZodObject).shape) {
+                    if (!Object.hasOwn((schema as z.ZodObject).shape, key))
+                        continue;
+
+                    result[key] = this.getTypeTag(
+                        (schema as z.ZodObject).shape[key]
+                    );
+                }
+                return Type.Object(result);
+            }
+            default:
+                return Type.Unknown;
+        }
     }
 }
 
@@ -126,7 +194,7 @@ class NumberProperty<HasDefault extends boolean> extends Property<
     HasDefault
 > {
     constructor(options?: core.PropertyInputOptions) {
-        super(Property.zodValidators.number, options);
+        super(Property.zodValidators.number, options, Type.Number);
     }
 
     default(value: number) {
@@ -213,7 +281,7 @@ class StringProperty<HasDefault extends boolean> extends Property<
     HasDefault
 > {
     constructor(options?: core.PropertyInputOptions) {
-        super(Property.zodValidators.string, options);
+        super(Property.zodValidators.string, options, Type.String);
     }
 
     default(value: string) {
