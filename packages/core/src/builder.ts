@@ -1,4 +1,4 @@
-import { CollectionSchema, Model } from "./model";
+import { CollectionSchema, FindPrimaryKey, Model } from "./model";
 import { DbClient } from "./client";
 import {
     BaseRelation,
@@ -24,12 +24,27 @@ export class Builder<Name extends string, Names extends string> {
     }
 
     defineModel<N extends Names, T extends Dict<ValidValue<Names>>>(
+        model: Model<N, T, FindPrimaryKey<T>>
+    ): Model<N, T, FindPrimaryKey<T>>;
+
+    defineModel<N extends Names, T extends Dict<ValidValue<Names>>>(
         name: N,
         values: T
-    ) {
-        const m = new Model(name, values);
-        this.models[name] = m as any;
-        return m;
+    ): Model<N, T, FindPrimaryKey<T>>;
+
+    defineModel<N extends Names, T extends Dict<ValidValue<Names>>>(
+        nameOrModel: N | Model<N, T, FindPrimaryKey<T>>,
+        values?: T
+    ): Model<N, T, FindPrimaryKey<T>> {
+        if (nameOrModel instanceof Model) {
+            this.models[nameOrModel.name] = nameOrModel as any;
+            return nameOrModel;
+        } else {
+            if (!values) throw new Error("Model Fields must be defined");
+            const m = new Model(nameOrModel, values);
+            this.models[nameOrModel] = m as any;
+            return m;
+        }
     }
 
     compile<M extends CollectionObject<Names>>(models: M) {

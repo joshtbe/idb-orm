@@ -32,7 +32,6 @@ export type MakeArrayable<B extends boolean, T> = B extends true
     ? Arrayable<T>
     : T;
 
-
 export type If<
     Type extends boolean,
     IfBranch,
@@ -73,3 +72,5 @@ export type SinglularKey<T extends Record<string, any>> = {
         [Q in Exclude<keyof T, K>]?: never;
     };
 }[keyof T];
+
+export type Ctor<T> = new (...args: any[]) => T;

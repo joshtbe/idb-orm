@@ -150,7 +150,7 @@ export abstract class AbstractProperty<Value, HasDefault extends boolean> {
         );
     }
 
-    protected static nameToType(typeName: string): TypeTag {
+    public static nameToType(typeName: string): TypeTag {
         switch (typeName) {
             case "boolean":
                 return Type.Boolean;

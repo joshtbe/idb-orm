@@ -4,14 +4,11 @@ import "./core.js";
 
 export { Builder, StoreError, ErrorType };
 
-import { Property } from "./field";
-export { Property };
+export { Property } from "./field";
 
-import { CompiledQuery } from "./client/compiled-query.js";
-export { CompiledQuery };
+export { CompiledQuery } from "./client/compiled-query.js";
 
-import type { ModelType } from "./model";
-export { ModelType };
+export { ModelType, Model } from "./model";
 
 // Export all the dev types/functions here
 import * as core from "./core.js";

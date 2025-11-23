@@ -13,6 +13,7 @@ const enum TypeLabel {
     optional,
     file,
     unknown,
+    default,
     object,
     custom,
 }
@@ -73,6 +74,11 @@ interface ObjectTag<
     props: P;
 }
 
+interface DefaultTag<V extends TypeTag = TypeTag> {
+    tag: TypeLabel.default;
+    of: V;
+}
+
 interface CustomTag<V = any> {
     tag: TypeLabel.custom;
     isType: (test: unknown) => boolean;
@@ -94,6 +100,7 @@ export type TypeTag =
     | UnionTag
     | ArrayTag
     | ObjectTag
+    | DefaultTag
     | CustomTag;
 
 export class Type {
@@ -252,6 +259,8 @@ export class Type {
 
                 return result;
             }
+            case TypeLabel.default:
+                return this.serialize(type.of, value);
             case TypeLabel.custom:
                 if (type.serialize) return await type.serialize(value);
                 else return JSON.stringify(value);
@@ -340,6 +349,8 @@ export class Type {
                 const response = await fetch(value.data);
                 return new File([await response.blob()], value.name);
             }
+            case TypeLabel.default:
+                return this.deserialize(type.of, value);
             case TypeLabel.custom:
                 if (type.isType(value)) {
                     if (type.deserialize) {
@@ -415,6 +426,8 @@ export class Type {
                 return Object.keys(type.props).every((key) =>
                     Type.is(type.props[key], (value as Dict)[key])
                 );
+            case TypeLabel.default:
+                return this.is(type.of, value);
             case TypeLabel.custom:
                 return type.isType(value);
         }

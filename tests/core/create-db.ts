@@ -47,20 +47,37 @@ export const createDb = async ({ pkg }: Packages) => {
         }).array(),
     });
 
-    const spellStore = builder.defineModel("spells", {
-        id: Field.primaryKey().autoIncrement(),
-        name: Field.string(),
-        range: Field.string(),
-        components: Field.union([
-            Field.literal("V"),
-            Field.literal("S"),
-            Field.literal("M"),
-        ]).array(),
-        level: Field.number().default(0),
-        lists: Field.relation("spellLists", {
-            name: "spells2spellLists",
-        }).array(),
-    });
+    const spellStore = builder.defineModel(
+        new pkg.core.Model("spells", {
+            id: Field.primaryKey().autoIncrement(),
+            name: Field.string(),
+            range: Field.string(),
+            components: Field.union([
+                Field.literal("V"),
+                Field.literal("S"),
+                Field.literal("M"),
+            ]).array(),
+            level: Field.number().default(0),
+            lists: Field.relation("spellLists", {
+                name: "spells2spellLists",
+            }).array(),
+        })
+    );
+
+    // const spellStore = builder.defineModel("spells", {
+    //     id: Field.primaryKey().autoIncrement(),
+    //     name: Field.string(),
+    //     range: Field.string(),
+    //     components: Field.union([
+    //         Field.literal("V"),
+    //         Field.literal("S"),
+    //         Field.literal("M"),
+    //     ]).array(),
+    //     level: Field.number().default(0),
+    //     lists: Field.relation("spellLists", {
+    //         name: "spells2spellLists",
+    //     }).array(),
+    // });
 
     const db = builder.compile({
         classes: classStore,
