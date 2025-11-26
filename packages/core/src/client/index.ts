@@ -1,6 +1,6 @@
-import type { CollectionObject, CompiledDb } from "../builder";
+import type { CompiledDb } from "../builder";
 import type { Arrayable, Dict, Keyof } from "../util-types";
-import type { ExtractFields, PrimaryKeyType } from "../model/model-types.ts";
+import type { CollectionObject, ExtractFields, PrimaryKeyType } from "../model";
 import { getKeys, handleRequest, toArray, unionSets } from "../utils";
 import { Transaction, type TransactionOptions } from "../transaction";
 import {
@@ -33,6 +33,8 @@ import {
 import { deleteItems } from "./delete.js";
 import { MutationAction } from "./types/mutation.js";
 import { BaseRelation, ValidKey, FieldTypes } from "../field";
+import { CsvDump, JsonDump } from "../dump/class.js";
+import { dumpDatabaseToJSON, dumpStoreToJson } from "../dump/json.js";
 
 export class DbClient<
     Name extends string,
@@ -62,6 +64,10 @@ export class DbClient<
         return this.stores[name];
     }
 
+    getStoreNames() {
+        return this.models.keys();
+    }
+
     createTransaction<
         Mode extends IDBTransactionMode,
         Names extends ModelNames
@@ -69,8 +75,21 @@ export class DbClient<
         return new Transaction(this.db, stores, mode, options);
     }
 
+    // TODO: Change this to drop
     async deleteDb() {
         await handleRequest(window.indexedDB.deleteDatabase(this.name));
+    }
+
+    async dump<
+        Format extends "json" | "csv",
+        Return = Format extends "json" ? JsonDump : CsvDump
+    >(format: Format, stores?: ModelNames[]): Promise<Return> {
+        if (format === "json") {
+            return (await dumpDatabaseToJSON(this, stores)) as Return;
+            // return new JsonDump("ugh", [{ tyest: "a" }]) as Return;
+        } else {
+            return new CsvDump("d", "") as Return;
+        }
     }
 
     deleteAllStores() {
@@ -163,6 +182,20 @@ export class DbClient<
                 (await deleteItems(modelName, this, where, true)) > 0,
             deleteMany: async (where) =>
                 await deleteItems(modelName, this, where, false),
+            dump: async (format, where) => {
+                type Result = typeof format extends "json" ? JsonDump : CsvDump;
+                if (format === "json") {
+                    return (await dumpStoreToJson(
+                        // eslint-disable-next-line
+                        this as any,
+                        modelName,
+                        // eslint-disable-next-line
+                        where as any
+                    )) as Result;
+                }
+                // TODO: Change this to function call
+                return new CsvDump("", "") as Result;
+            },
         };
     }
 

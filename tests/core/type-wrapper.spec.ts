@@ -14,7 +14,7 @@ test.describe("Type-wrapper Tests", () => {
         const context = await browser.newContext();
         page = await context.newPage();
         session = await populatePage<Packages>(page, {
-            pkg: "import('./core/dist/index.js')",
+            pkg: "import('./core/dist/index.es.js')",
         });
     });
 

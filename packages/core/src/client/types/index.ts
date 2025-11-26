@@ -1,10 +1,10 @@
-import type { CollectionObject } from "../../builder.ts";
 import type { Dict, Simplify } from "../../util-types.js";
 import type {
     ExtractFields,
     Model,
     ModelStructure,
     PrimaryKeyType,
+    CollectionObject,
 } from "../../model";
 import type {
     AddMutation,
@@ -16,6 +16,7 @@ import type { CompiledQuery } from "../compiled-query.ts";
 import type { DbClient } from "../index.ts";
 import { Transaction } from "../../transaction.js";
 import { BaseRelation, ValidKey } from "../../field";
+import { CsvDump, JsonDump } from "../../dump/class.js";
 
 export type GetStructure<N extends string, C extends Dict> = C[N] extends Model<
     N,
@@ -24,6 +25,8 @@ export type GetStructure<N extends string, C extends Dict> = C[N] extends Model<
 >
     ? Simplify<ModelStructure<F, C>>
     : never;
+
+export type ExportFormat = "json";
 
 export interface StoreInterface<
     Name extends Names,
@@ -71,6 +74,13 @@ export interface StoreInterface<
         query: T
     ): CompiledQuery<Names, C, DbClient<string, Names, C>, T>;
     get(key: KeyType): Promise<GetStructure<Name, C> | undefined>;
+
+    dump<Format extends ExportFormat>(
+        format: Format,
+        where?: WhereObject<
+            C[Name] extends Model<any, infer Fields, any> ? Fields : never
+        >
+    ): Promise<Format extends "json" ? JsonDump : CsvDump>;
 }
 
 export type InterfaceMap<

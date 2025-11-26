@@ -1,7 +1,6 @@
 import type { Arrayable, Dict, Keyof, Promisable } from "../util-types.js";
 import { getKeys, identity, toArray, unionSets } from "../utils.js";
 import type { DbClient } from "./index.ts";
-import type { CollectionObject } from "../builder.ts";
 import type {
     AddMutation,
     MutationAction,
@@ -11,6 +10,7 @@ import type { QueryInput } from "./types/find.ts";
 import type { Transaction } from "../transaction.js";
 import { InvalidItemError } from "../error.js";
 import { FieldTypes, ValidKey } from "../field/field-types.js";
+import { CollectionObject } from "../model";
 
 type WhereClauseElement =
     | [key: string, isFun: true, fn: (value: unknown) => boolean]

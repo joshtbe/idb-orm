@@ -1,9 +1,10 @@
-import { Dict, Promisable } from "../util-types.js";
+import { Dict, Literable, Promisable } from "../util-types.js";
 
 const enum TypeLabel {
     string,
     number,
     boolean,
+    literal,
     date,
     symbol,
     bigint,
@@ -17,6 +18,7 @@ const enum TypeLabel {
     object,
     custom,
 }
+
 export interface StringTag {
     tag: TypeLabel.string;
 }
@@ -45,6 +47,11 @@ interface UnknownTag {
 
 interface FileTag {
     tag: TypeLabel.file;
+}
+
+interface LiteralTag<V = unknown> {
+    tag: TypeLabel.literal;
+    value: V;
 }
 
 interface ArrayTag<V extends TypeTag = TypeTag> {
@@ -87,6 +94,7 @@ interface CustomTag<V = any> {
 }
 
 export type TypeTag =
+    | LiteralTag
     | StringTag
     | NumberTag
     | DateTag
@@ -127,6 +135,13 @@ export class Type {
     static readonly Date: DateTag = { tag: TypeLabel.date };
 
     static readonly Unknown: UnknownTag = { tag: TypeLabel.unknown };
+
+    static Literal<const V extends Literable>(value: V): LiteralTag<V> {
+        return {
+            tag: TypeLabel.literal,
+            value,
+        };
+    }
 
     static Array<V extends TypeTag>(element: V): ArrayTag<V> {
         return {
@@ -187,6 +202,7 @@ export class Type {
      */
     static async serialize(type: TypeTag, value: unknown): Promise<unknown> {
         switch (type.tag) {
+            case TypeLabel.literal:
             case TypeLabel.boolean:
             case TypeLabel.number:
             case TypeLabel.bigint:
@@ -213,6 +229,7 @@ export class Type {
                 return result;
             }
             case TypeLabel.optional:
+                if (typeof value === "undefined") return null;
                 return await Type.serialize(type.of, value);
             case TypeLabel.union:
                 for (const opt of type.options) {
@@ -272,6 +289,13 @@ export class Type {
         value: unknown
     ): Promise<unknown> {
         switch (type.tag) {
+            case TypeLabel.literal:
+                if (typeof value !== typeof type.value) {
+                    throw new Error(
+                        `'${value}' is not equal to literal '${value}'`
+                    );
+                }
+                return value;
             case TypeLabel.boolean:
                 if (typeof value !== "boolean") {
                     throw new Error(`'${value}' is not a boolean`);
@@ -389,6 +413,8 @@ export class Type {
 
     static is<T extends TypeTag>(type: T, value: unknown): boolean {
         switch (type.tag) {
+            case TypeLabel.literal:
+                return value === type.value;
             case TypeLabel.boolean:
                 return typeof value === "boolean";
             case TypeLabel.number:

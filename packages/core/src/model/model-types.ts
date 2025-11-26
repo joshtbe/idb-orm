@@ -64,8 +64,6 @@ export type ModelStructure<F extends Dict<ValidValue>, C> = {
         : GetRelationField<F[K], C>;
 };
 
-
-
 export type ModelType<
     M extends Model<any, any, any>,
     C extends CompiledDb<any, any, any>
@@ -138,3 +136,7 @@ export type FindRelationKey<
               : never;
       }[Keyof<Fields>]
     : never;
+
+export type CollectionObject<Names extends string> = {
+    [K in Names]: Model<K, any>;
+};

@@ -6,8 +6,8 @@
     "types": "./dist/index.d.ts",
     "type": "module",
     "scripts": {
-        "build": "rollup --config rollup.config.ts --configPlugin typescript",
-        "watch": "rollup --watch --config rollup.config.ts --configPlugin typescript",
+        "build": "vite build",
+        "watch": "vite build --watch",
         "check": "eslint . && tsc -b --noEmit",
         "b": "vite build"
     },
@@ -19,8 +19,8 @@
     "exports": {
         ".": {
             "types": "./dist/index.d.ts",
-            "import": "./dist/index.js",
-            "require": "./dist/index.js"
+            "import": "./dist/index.es.js",
+            "require": "./dist/index.cjs.js"
         }
     },
     "license": "ISC",

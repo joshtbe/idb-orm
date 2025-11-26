@@ -16,7 +16,7 @@ test.describe("Multi Stage Test", () => {
         const context = await browser.newContext();
         page = await context.newPage();
         session = await populatePage<SessionArguments>(page, {
-            pkg: "import('./core/dist/index.js')",
+            pkg: "import('./core/dist/index.es.js')",
             client: createDb as any,
         });
     });

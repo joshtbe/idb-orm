@@ -13,7 +13,7 @@ import type {
     RelationlessModelStructure,
     RelationValue,
 } from "../../model/model-types";
-import type { Model } from "../../model";
+import type { Model, CollectionObject } from "../../model";
 import type {
     BaseRelation,
     AbstractProperty,
@@ -22,7 +22,6 @@ import type {
     ValidValue,
     Relation,
 } from "../../field";
-import type { CollectionObject } from "../../builder";
 
 export type FilterFn<Input> = (item: Input) => boolean;
 

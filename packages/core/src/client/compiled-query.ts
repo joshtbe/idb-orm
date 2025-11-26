@@ -1,4 +1,4 @@
-import type { CollectionObject } from "../builder.ts";
+import { CollectionObject } from "../model";
 import { Transaction } from "../transaction.js";
 import {
     generateSelector,

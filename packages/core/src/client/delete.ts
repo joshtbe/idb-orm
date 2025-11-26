@@ -1,5 +1,4 @@
-import { CollectionObject } from "../builder.js";
-import { ExtractFields } from "../model/model-types.js";
+import { CollectionObject, ExtractFields } from "../model";
 import { Transaction } from "../transaction.js";
 import { WhereObject } from "./types/find.js";
 import { MutationState } from "./types";

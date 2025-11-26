@@ -1,14 +1,16 @@
-export {
+export { AbstractProperty } from "./field/property";
+export type {
     ParseFn,
-    AbstractProperty,
     PropertyOptions,
     PropertyInputOptions,
 } from "./field/property";
-export { PropertyUnion } from "./field/field-types";
+export type { PropertyUnion } from "./field/field-types";
 export * from "./util-types";
-export { Model, FindPrimaryKey } from "./model";
+export { Model } from "./model";
+export type { FindPrimaryKey } from "./model";
 export { VALIDATORS } from "./field/validators.js";
 export * from "./field";
 export * from "./client";
 
-export { TypeTag, Type } from "./field/type-wrapper";
+export { Type } from "./field/type-wrapper";
+export type { TypeTag } from "./field/type-wrapper";

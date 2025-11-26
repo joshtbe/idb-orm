@@ -1,4 +1,3 @@
-import { CollectionObject } from "../builder.js";
 import { DbClient } from "../client/index.js";
 import {
     BaseRelation,
@@ -9,16 +8,20 @@ import {
     ParseResult,
     ValidKey,
 } from "../field";
-import { Keyof } from "../util-types.js";
+import { Dict, Keyof } from "../util-types.js";
 import { getKeys, unionSets } from "../utils.js";
 import { StoreError } from "../error.js";
-import { FindPrimaryKey, ModelCache } from "./model-types.js";
+import { FindPrimaryKey, ModelCache, CollectionObject } from "./model-types.js";
+
+const MODEL_SYMBOL = Symbol.for("model");
 
 export default class Model<
     Name extends string,
     F extends Record<string, ValidValue>,
     Primary extends FindPrimaryKey<F> = FindPrimaryKey<F>
 > {
+    readonly symbol = MODEL_SYMBOL;
+
     /**
      * Array of all the model's fields
      */
@@ -35,15 +38,15 @@ export default class Model<
         // Generate a set of all models this one is linked to
         for (const key of this.fieldKeys) {
             const item = this.fields[key];
-            if (item instanceof BaseRelation) {
+            if (BaseRelation.is(item)) {
                 if (item.to !== this.name) {
                     this.relationLinks.add(item.to);
                 }
             }
         }
 
-        const primaryKey = this.fieldKeys.find(
-            (k) => this.fields[k] instanceof PrimaryKey
+        const primaryKey = this.fieldKeys.find((k) =>
+            PrimaryKey.is(this.fields[k])
         );
         if (!primaryKey)
             throw new StoreError(
@@ -65,16 +68,16 @@ export default class Model<
         key: string
     ): BaseRelation<Models, string> | undefined {
         const item = this.fields[key];
-        if (!item || !(item instanceof BaseRelation)) return undefined;
+        if (!item || !BaseRelation.is(item)) return undefined;
         return item as BaseRelation<Models, string>;
     }
 
     keyType(key: Keyof<F>): FieldTypes {
         const f = this.fields[key];
         if (!f) return FieldTypes.Invalid;
-        else if (f instanceof AbstractProperty) return FieldTypes.Property;
-        else if (f instanceof BaseRelation) return FieldTypes.Relation;
-        else if (f instanceof PrimaryKey) return FieldTypes.PrimaryKey;
+        else if (AbstractProperty.is(f)) return FieldTypes.Property;
+        else if (BaseRelation.is(f)) return FieldTypes.Relation;
+        else if (PrimaryKey.is(f)) return FieldTypes.PrimaryKey;
         else return FieldTypes.Invalid;
     }
 
@@ -90,9 +93,18 @@ export default class Model<
         [key: string, relation: BaseRelation<K, string>]
     > {
         for (const key of this.fieldKeys) {
-            if (this.fields[key] instanceof BaseRelation) {
+            if (BaseRelation.is(this.fields[key])) {
                 yield [key, this.fields[key] as BaseRelation<K, string>];
             }
+        }
+    }
+
+    /**
+     * Generator for all of the entries present on the model
+     */
+    *entries(): Generator<[key: string, value: ValidValue]> {
+        for (const key of this.fieldKeys) {
+            yield [key, this.fields[key]];
         }
     }
 
@@ -101,7 +113,7 @@ export default class Model<
     }
 
     parseField<K extends Keyof<F>>(field: K, value: unknown): ParseResult<any> {
-        if (this.fields[field] instanceof AbstractProperty) {
+        if (AbstractProperty.is(this.fields[field])) {
             return this.fields[field].parse(value);
         }
         return null as never;
@@ -136,5 +148,13 @@ export default class Model<
 
         this.cache.delete = visited;
         return visited;
+    }
+
+    static is<
+        Name extends string,
+        Fields extends Dict<ValidValue>,
+        Primary extends FindPrimaryKey<Fields> = FindPrimaryKey<Fields>
+    >(value: object): value is Model<Name, Fields, Primary> {
+        return (value as any)?.symbol === MODEL_SYMBOL;
     }
 }

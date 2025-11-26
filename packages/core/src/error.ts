@@ -7,6 +7,7 @@ export type ErrorType =
     | "OVERWRITE_RELATION"
     | "NOT_FOUND"
     | "GET_FAILED"
+    | "EXPORT"
     /**
      * The given transaction is invalid for the store it is trying to access
      */
@@ -109,3 +110,5 @@ export const OverwriteRelationError = storeErrorFactory(
     "OVERWRITE_RELATION",
     "Relation cannot be overwritten"
 );
+
+export const ExportError = storeErrorFactory("EXPORT", "Export failed");

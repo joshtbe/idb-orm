@@ -6,6 +6,9 @@ import type {
 } from "./field-types.js";
 
 export class BaseRelation<To extends string, Name extends string = never> {
+    private static readonly SYMBOL = Symbol.for("baseRelation");
+    protected readonly BASE_SYMBOL = BaseRelation.SYMBOL;
+
     /**
      * Actions to be performed under certain conditions
      */
@@ -71,12 +74,26 @@ export class BaseRelation<To extends string, Name extends string = never> {
             this.relatedKey
         }'`;
     }
+
+    getBaseSymbol() {
+        return this.BASE_SYMBOL;
+    }
+
+    static is(value: object): value is BaseRelation<any, any> {
+        return (
+            "getBaseSymbol" in value &&
+            (value as { getBaseSymbol(): symbol }).getBaseSymbol() ===
+                BaseRelation.SYMBOL
+        );
+    }
 }
 
 export class Relation<
     To extends string,
     const Name extends string
 > extends BaseRelation<To, Name> {
+    private static readonly R_SYMBOL = Symbol.for("relation");
+    readonly symbol = Relation.R_SYMBOL;
     private declare readonly _brand: "relation";
 
     constructor(to: To, options: RelationOptions<Name, ReferenceActions> = {}) {
@@ -109,24 +126,41 @@ export class Relation<
         this.actions.onDelete = action;
         return this;
     }
+
+    static is(value: object): value is Relation<any, any> {
+        return (value as any)?.symbol === this.R_SYMBOL;
+    }
 }
+
 export class ArrayRelation<
     To extends string,
     Name extends string
 > extends BaseRelation<To, Name> {
+    private static readonly A_SYMBOL = Symbol.for("arrayRelation");
+    readonly symbol = ArrayRelation.A_SYMBOL;
     private declare readonly _brand: "ArrayRelation";
 
     constructor(to: To, name?: Name, action: OptionalActions = "None") {
         super(to, name, false, true, action);
+    }
+
+    static is(value: object): value is ArrayRelation<any, any> {
+        return (value as any)?.symbol === this.A_SYMBOL;
     }
 }
 export class OptionalRelation<
     To extends string,
     Name extends string
 > extends BaseRelation<To, Name> {
+    private static readonly O_SYMBOL = Symbol.for("optionalRelation");
+    readonly symbol = OptionalRelation.O_SYMBOL;
     private declare readonly _brand: "optionalRelation";
 
     constructor(to: To, name?: Name, action: OptionalActions = "None") {
         super(to, name, true, false, action);
+    }
+
+    static is(value: object): value is OptionalRelation<any, any> {
+        return (value as any)?.symbol === this.O_SYMBOL;
     }
 }

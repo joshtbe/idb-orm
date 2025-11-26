@@ -1,6 +1,8 @@
 import { Builder, core, Model } from "@idb-orm/core";
 import z from "zod";
 
+const PrimaryKey = core.PrimaryKey;
+
 type ZodHasDefault<S extends z.ZodType> = S extends z.ZodDefault<any>
     ? true
     : false;
@@ -60,6 +62,10 @@ function getTypeTag(schema: z.ZodType): core.TypeTag {
             return Type.Set(
                 getTypeTag((schema as z.ZodSet)._zod.def.valueType as z.ZodType)
             );
+        case "enum":
+            return Type.Union(
+                (schema as z.ZodEnum).options.map((o) => Type.Literal(o))
+            );
         case "union":
             return Type.Union(
                 ((schema as z.ZodUnion).options as z.ZodType[]).map((o) =>
@@ -117,12 +123,3 @@ export function zodModel<
 
     return new Model(name, innerFields);
 }
-
-const builder = new Builder("test_db", ["maybe", "hope"]);
-
-const m1 = builder.defineModel(
-    zodModel("maybe", {
-        id: core.Property.primaryKey(),
-        name: z.string().default("hello"),
-    })
-);

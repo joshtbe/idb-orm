@@ -1,4 +1,9 @@
-import { CollectionSchema, FindPrimaryKey, Model } from "./model";
+import {
+    CollectionObject,
+    CollectionSchema,
+    FindPrimaryKey,
+    Model,
+} from "./model";
 import { DbClient } from "./client";
 import {
     BaseRelation,
@@ -12,10 +17,6 @@ import type { Dict, Keyof } from "./util-types";
 import { getKeys, handleRequest } from "./utils";
 import { InvalidConfigError } from "./error";
 import { VALIDATORS } from "./field/validators.js";
-
-export type CollectionObject<Names extends string> = {
-    [K in Names]: Model<K, any>;
-};
 
 export class Builder<Name extends string, Names extends string> {
     private models: Record<Names, Model<Names, Dict<ValidValue>>>;
@@ -36,7 +37,7 @@ export class Builder<Name extends string, Names extends string> {
         nameOrModel: N | Model<N, T, FindPrimaryKey<T>>,
         values?: T
     ): Model<N, T, FindPrimaryKey<T>> {
-        if (nameOrModel instanceof Model) {
+        if (typeof nameOrModel === "object" && Model.is<N, T>(nameOrModel)) {
             this.models[nameOrModel.name] = nameOrModel as any;
             return nameOrModel;
         } else {
@@ -66,10 +67,10 @@ export class CompiledDb<
             const model = this.models[key];
             const schema: Dict<ParseFn<any>> = {};
             for (const fieldKey of model.keys()) {
-                const field = model.get(fieldKey);
-                if (field instanceof AbstractProperty) {
+                const field: object = model.get(fieldKey);
+                if (AbstractProperty.is(field)) {
                     schema[fieldKey] = field.parse;
-                } else if (field instanceof BaseRelation) {
+                } else if (BaseRelation.is(field)) {
                     const { onDelete } = field.getActions();
                     const linked = this.models[field.to as Keyof<C>];
                     const linkedPrimary = linked.getPrimaryKey();
@@ -114,7 +115,7 @@ export class CompiledDb<
                         throw new InvalidConfigError(
                             `Relation '${field.name}' of model ${key} does not have an equivalent relation on model '${field.to}'`
                         );
-                } else if (field instanceof PrimaryKey) {
+                } else if (PrimaryKey.is(field)) {
                     schema[fieldKey] = VALIDATORS[field.type.tag];
                 } else {
                     throw new InvalidConfigError(

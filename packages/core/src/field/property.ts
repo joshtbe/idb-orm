@@ -37,7 +37,10 @@ export type ParseResult<T> =
  */
 export type ParseFn<T> = (value: unknown) => ParseResult<T>;
 
+const PROPERTY_SYMBOL = Symbol.for("property");
+
 export abstract class AbstractProperty<Value, HasDefault extends boolean> {
+    readonly symbol = PROPERTY_SYMBOL;
     protected hasDefault: HasDefault = false as HasDefault;
     protected options: PropertyOptions;
 
@@ -53,6 +56,10 @@ export abstract class AbstractProperty<Value, HasDefault extends boolean> {
 
     get parse() {
         return this.parseFn;
+    }
+
+    getType() {
+        return this.type;
     }
 
     abstract array(...args: unknown[]): AbstractProperty<Value[], false>;
@@ -94,12 +101,9 @@ export abstract class AbstractProperty<Value, HasDefault extends boolean> {
         throw new Error("Method Not Implemented");
     }
 
-    static union<
-        const _T extends readonly (
-            | ParseFn<any>
-            | AbstractProperty<any, boolean>
-        )[]
-    >(..._: unknown[]): AbstractProperty<unknown, false> {
+    static union<const _T extends readonly AbstractProperty<any, boolean>[]>(
+        ..._: unknown[]
+    ): AbstractProperty<unknown, false> {
         throw new Error("Method Not Implemented");
     }
 
@@ -117,17 +121,15 @@ export abstract class AbstractProperty<Value, HasDefault extends boolean> {
      * **NOTE**: The field type must be a primitive. If this is applied to a non-primitive, it returns `null`
      */
     unique() {
-        type O = Value extends boolean | string | number | symbol ? this : null;
         switch (this.type) {
             case Type.Boolean:
             case Type.String:
             case Type.Number:
             case Type.Symbol:
                 this.options.unique = true;
-                return this as O;
+                return this;
             default:
-                console.error("A non-primitive cannot be a unique value");
-                return null as O;
+                throw new Error("A non-primitive cannot be a unique value");
         }
     }
 
@@ -165,6 +167,10 @@ export abstract class AbstractProperty<Value, HasDefault extends boolean> {
             default:
                 return Type.Unknown;
         }
+    }
+
+    public static is(value: any): value is AbstractProperty<any, any> {
+        return typeof value === "object" && value?.symbol === PROPERTY_SYMBOL;
     }
 }
 
@@ -270,7 +276,7 @@ export class Property<
                     error: `${test} !== ${value}`,
                 };
             },
-            Property.nameToType(typeof value),
+            Type.Literal(value),
             options
         );
     }
@@ -315,18 +321,11 @@ export class Property<
         );
     }
 
-    static union<
-        const T extends readonly (
-            | ParseFn<any>
-            | AbstractProperty<any, boolean>
-        )[]
-    >(
+    static union<const T extends readonly AbstractProperty<any, boolean>[]>(
         items: T,
         options?: PropertyInputOptions
     ): Property<PropertyUnion<T>, false> {
-        const functions: ParseFn<T[number]>[] = items.map((i) =>
-            i instanceof AbstractProperty ? i.parse : i
-        );
+        const functions: ParseFn<T[number]>[] = items.map((i) => i.parse);
         return new Property<PropertyUnion<T>, false>(
             ((test) => {
                 for (const fn of functions) {
@@ -340,7 +339,7 @@ export class Property<
                     error: "Value did not match any of the items",
                 };
             }) as ParseFn<PropertyUnion<T>>,
-            Type.Unknown,
+            Type.Union(items.map((i) => i.getType())),
             options
         );
     }

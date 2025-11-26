@@ -4,7 +4,8 @@
     "description": "An adapter for the Zod validation library for @idb-orm",
     "main": "dist/index.js",
     "scripts": {
-        "build": "rollup --config rollup.config.ts --configPlugin typescript"
+        "build": "vite build",
+        "build-test": "vite --config vite.config-test.ts build"
     },
     "keywords": [
         "typescript",
@@ -22,6 +23,10 @@
     },
     "author": "jtb",
     "license": "ISC",
+    "peerDependencies": {
+        "@idb-orm/core": "1.0.7",
+        "zod": "^4.1.12"
+    },
     "devDependencies": {
         "@eslint/js": "^9.38.0",
         "@rollup/plugin-alias": "^6.0.0",
@@ -34,10 +39,8 @@
         "serve": "^14.2.5",
         "tslib": "^2.8.1",
         "typescript": "^5.9.3",
-        "typescript-eslint": "^8.46.2"
-    },
-    "dependencies": {
-        "@idb-orm/core": "^1.0.5",
-        "zod": "^4.1.12"
+        "typescript-eslint": "^8.46.2",
+        "vite": "^7.2.4",
+        "vite-plugin-dts": "^4.5.4"
     }
 }

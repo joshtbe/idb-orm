@@ -15,9 +15,13 @@ import type {
     PrimaryKey,
     ArrayRelation,
 } from "../../field";
-import type { CollectionObject } from "../../builder.ts";
 import { WhereObject } from "./find.js";
-import { Model, FindRelationKey, RelationValue } from "../../model";
+import {
+    Model,
+    FindRelationKey,
+    RelationValue,
+    CollectionObject,
+} from "../../model";
 
 export type MutationAction =
     | "$connect"

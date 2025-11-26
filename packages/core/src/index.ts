@@ -8,7 +8,8 @@ export { Property } from "./field";
 
 export { CompiledQuery } from "./client/compiled-query.js";
 
-export { ModelType, Model } from "./model";
+export { Model } from "./model";
+export type { ModelType } from "./model";
 
 // Export all the dev types/functions here
 import * as core from "./core.js";

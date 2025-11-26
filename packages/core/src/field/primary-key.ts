@@ -4,10 +4,12 @@ import { GenFunction, ValidKey, ValidKeyType } from "./field-types.js";
 import { Type } from "./type-wrapper.js";
 import { VALIDATORS } from "./validators.js";
 
+const PRIMARY_KEY_SYMBOL = Symbol.for("primaryKey");
 export default class PrimaryKey<
     AutoGenerate extends boolean,
     KeyType extends ValidKey
 > {
+    readonly symbol = PRIMARY_KEY_SYMBOL;
     private genFn?: GenFunction<KeyType>;
     private autoGenerate: AutoGenerate;
     public readonly type: ValidKeyType;
@@ -35,6 +37,10 @@ export default class PrimaryKey<
                 this.autoGenerate = false as AutoGenerate;
             }
         }
+    }
+
+    getType() {
+        return this.type;
     }
 
     generator(genFn: GenFunction<KeyType>) {
@@ -80,5 +86,9 @@ export default class PrimaryKey<
      */
     isAutoIncremented() {
         return this.autoGenerate && !this.genFn;
+    }
+
+    static is(value: object): value is PrimaryKey<any, any> {
+        return (value as any)?.symbol === PRIMARY_KEY_SYMBOL;
     }
 }

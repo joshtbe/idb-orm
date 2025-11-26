@@ -1,4 +1,4 @@
-import { Dict } from "../util-types";
+import { Arrayable, Dict } from "../util-types";
 
 abstract class Dump<T> {
     constructor(
@@ -25,12 +25,14 @@ abstract class Dump<T> {
     }
 }
 
-export class JsonDump extends Dump<Record<string, unknown>> {
-    constructor(name: string, content: Dict) {
+type JsonValue = Arrayable<Dict>;
+
+export class JsonDump extends Dump<JsonValue> {
+    constructor(name: string, content: JsonValue) {
         super(name, content, "json");
     }
 
-    getValue(): Record<string, unknown> {
+    getValue(): JsonValue {
         return this.content as Dict;
     }
     toFile(

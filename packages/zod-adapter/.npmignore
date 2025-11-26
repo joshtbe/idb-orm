@@ -1,6 +1,7 @@
 src/
 tsconfig.json
-rollup.config.ts
+vite.config.ts
+vite.config-test.ts
 test-client/
 tests/
 *.config.*
