@@ -6,3 +6,4 @@ test-client/
 tests/
 *.config.*
 test-results/
+!dist/
