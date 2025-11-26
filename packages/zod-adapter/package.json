@@ -24,7 +24,7 @@
     "author": "jtb",
     "license": "ISC",
     "peerDependencies": {
-        "@idb-orm/core": "1.0.7",
+        "@idb-orm/core": "^1.0.7",
         "zod": "^4.1.12"
     },
     "devDependencies": {
