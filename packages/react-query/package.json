@@ -1,21 +1,18 @@
 {
-    "name": "@idb-orm/core",
-    "version": "1.0.10",
-    "description": "",
-    "main": "./dist/index.js",
-    "types": "./dist/index.d.ts",
-    "type": "module",
+    "name": "@idb-orm/react-query",
+    "version": "0.0.0",
+    "description": "An adapter for the Tanstack React-Query library for @idb-orm",
+    "main": "dist/index.js",
     "scripts": {
         "build": "vite build",
-        "watch": "vite build --watch",
-        "check": "eslint . && tsc -b --noEmit",
-        "b": "vite build"
+        "build-test": "vite --config vite.config-test.ts build"
     },
     "keywords": [
         "typescript",
-        "indexeddb"
+        "react-query",
+        "tanstack-query",
+        "idb-orm"
     ],
-    "author": "jtb",
     "exports": {
         ".": {
             "types": "./dist/index.d.ts",
@@ -23,18 +20,24 @@
             "require": "./dist/index.cjs.js"
         }
     },
+    "author": "jtb",
     "license": "ISC",
+    "peerDependencies": {
+        "@idb-orm/core": "^1.0.7",
+        "@tanstack/react-query": "^5.90.11",
+        "react": "^19.2.0"
+    },
     "devDependencies": {
         "@eslint/js": "^9.38.0",
-        "@rolldown/binding-win32-x64-msvc": "^1.0.0-beta.51",
+        "@rollup/plugin-alias": "^6.0.0",
         "@rollup/plugin-node-resolve": "^16.0.3",
         "@rollup/plugin-terser": "^0.4.4",
         "@rollup/plugin-typescript": "^12.1.4",
         "@types/node": "^24.9.1",
+        "@types/react": "^19.2.7",
         "eslint": "^9.38.0",
         "rollup": "^4.52.4",
         "serve": "^14.2.5",
-        "terser": "^5.44.1",
         "tslib": "^2.8.1",
         "typescript": "^5.9.3",
         "typescript-eslint": "^8.46.2",
