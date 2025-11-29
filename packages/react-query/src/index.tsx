@@ -7,13 +7,7 @@ import {
     UndefinedInitialDataOptions,
     QueryClientConfig,
 } from "@tanstack/react-query";
-import {
-    useMemo,
-    DependencyList,
-    createContext,
-    PropsWithChildren,
-    useContext,
-} from "react";
+import React from "react";
 
 type QueryOptions<O> = Omit<
     UndefinedInitialDataOptions<O>,
@@ -39,14 +33,14 @@ interface ModelQueryInterface<
         O = core.Simplify<NonNullable<core.FindOutput<Names, M, Models, I>>>[]
     >(
         options: QueryOptions<O> & { query: I },
-        deps?: DependencyList
+        deps?: React.DependencyList
     ) => DefinedUseQueryResult<O | undefined>;
     useFindFirst: <
         I extends core.FindInput<Names, M, Models>,
         O = core.Simplify<core.FindOutput<Names, M, Models, I>>
     >(
         options: QueryOptions<O> & { query: I },
-        deps?: DependencyList
+        deps?: React.DependencyList
     ) => DefinedUseQueryResult<O | undefined>;
 }
 
@@ -74,7 +68,7 @@ export function createIDBQueryClient<
 >(client: core.DbClient<string, Names, Models>, config?: QueryClientConfig) {
     type C = IDBClientInterface<Names, Models>;
     const idbClient = new IDBQueryClient(client, config);
-    const context = createContext<C>({} as C);
+    const context = React.createContext<C>({} as C);
 
     return {
         queryClient: idbClient,
@@ -82,8 +76,8 @@ export function createIDBQueryClient<
         Provider: ({
             client,
             children,
-        }: PropsWithChildren<{ client: IDBQueryClient<Names, Models> }>) => {
-            const clientInterfaces = useMemo<C>(() => {
+        }: React.PropsWithChildren<{ client: IDBQueryClient<Names, Models> }>) => {
+            const clientInterfaces = React.useMemo<C>(() => {
                 function makeModelQueryClient(
                     path: readonly string[]
                 ): ModelQueryClient {
@@ -175,7 +169,7 @@ class IDBQueryClient<
 
         return {
             ...result,
-            useClient: () => useContext(context),
+            useClient: () => React.useContext(context),
         };
     }
 }

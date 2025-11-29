@@ -19,7 +19,7 @@ useQuery({
 stores.users.useFind({ where: { id: userId } }, [userId]);
 ```
 
-The package manages the internal query keys to ensure there is no overlap, and you can state an optional dependency array similar to traditiona react hooks like `useMemo` and `useEffect`.
+The package manages the internal query keys to ensure there is no overlap, and you can state an optional dependency array similar to traditional react hooks like `useMemo` and `useEffect`.
 
 ## Installation
 
