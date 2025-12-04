@@ -19,7 +19,6 @@ export interface PropertyOptions {
 export type PropertyInputOptions = Partial<PropertyOptions>;
 
 export interface CustomPropertyOptions<T> extends PropertyInputOptions {
-    isType: (test: unknown) => boolean;
     serialize?: (value: T) => Promisable<unknown>;
     deserialize?: (value: unknown) => Promisable<T>;
 }
@@ -250,9 +249,17 @@ export class Property<
 
     static custom<T>(
         fn: ParseFn<T>,
-        options?: PropertyInputOptions
+        options?: CustomPropertyOptions<T>
     ): Property<T, false> {
-        return new Property(fn, Type.Unknown, options);
+        return new Property(
+            fn,
+            Type.Custom({
+                isType: (test) => fn(test).success,
+                serialize: options?.serialize,
+                deserialize: options?.deserialize,
+            }),
+            options
+        );
     }
 
     static date(options?: PropertyInputOptions): Property<Date, false> {

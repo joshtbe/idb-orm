@@ -166,4 +166,129 @@ test.describe("Type-wrapper Tests", () => {
         });
         expect(result).toBe(true);
     });
+
+    test("isSubtype()", async () => {
+        const result = await session.evaluate(async ({ pkg }) => {
+            const Type = pkg.core.Type;
+
+            function err(base: string, test: string, not: boolean = false) {
+                return `${test} should${
+                    not ? " not" : ""
+                } be a subtype of ${base}`;
+            }
+
+            // Literal tests
+            if (!Type.isSubtype(Type.Literal(400), Type.Literal(400)))
+                return err("literal 400", "literal 400");
+            if (Type.isSubtype(Type.Literal(400), Type.Literal(20)))
+                return err("literal 400", "literal 20", true);
+            if (Type.isSubtype(Type.Literal(400), Type.Literal("test")))
+                return err("literal 400", "literal test", true);
+
+            // Number tests
+            if (!Type.isSubtype(Type.Number, Type.Number))
+                return err("number", "number");
+            if (!Type.isSubtype(Type.Number, Type.Literal(40)))
+                return err("number", "literal number");
+            if (Type.isSubtype(Type.Number, Type.String))
+                return err("number", "string", true);
+            if (Type.isSubtype(Type.Number, Type.Literal("test")))
+                return err("number", "literal string", true);
+            if (Type.isSubtype(Type.Number, Type.BigInt))
+                return err("number", "bigint", true);
+
+            // String tests
+            if (!Type.isSubtype(Type.String, Type.String))
+                return err("string", "string");
+            if (!Type.isSubtype(Type.String, Type.Literal("test")))
+                return err("string", "literal string");
+            if (Type.isSubtype(Type.String, Type.Number))
+                return err("string", "number", true);
+            if (Type.isSubtype(Type.String, Type.Literal(33)))
+                return err("string", "literal number", true);
+            if (Type.isSubtype(Type.String, Type.BigInt))
+                return err("string", "bigint", true);
+
+            // Unknown
+            if (!Type.isSubtype(Type.Unknown, Type.Date))
+                return err("unknown", "date");
+            if (!Type.isSubtype(Type.Unknown, Type.String))
+                return err("unknown", "string");
+            if (!Type.isSubtype(Type.Unknown, Type.Array(Type.Number)))
+                return err("unknown", "number[]");
+
+            // Array
+            if (
+                !Type.isSubtype(
+                    Type.Array(Type.Number),
+                    Type.Array(Type.Number)
+                )
+            ) {
+                return err("number[]", "number[]");
+            }
+            if (
+                !Type.isSubtype(
+                    Type.Array(Type.Number),
+                    Type.Array(Type.Literal(200))
+                )
+            ) {
+                return err("number[]", "number[]");
+            }
+            if (Type.isSubtype(Type.Array(Type.Number), Type.String)) {
+                return err("number[]", "string");
+            }
+            if (
+                Type.isSubtype(Type.Array(Type.Number), Type.Array(Type.String))
+            ) {
+                return err("number[]", "string[]");
+            }
+
+            // Union
+            const u1 = Type.Union([
+                Type.Number,
+                Type.String,
+                Type.Array(Type.Number),
+            ]);
+            const u2 = Type.Union([Type.String, Type.Number]);
+            const u3 = Type.Union([...u2.options, Type.Set(Type.Number)]);
+            const u4 = Type.Union([u2, Type.String]);
+            if (!Type.isSubtype(u1, Type.String)) {
+                return err(Type.toString(u1), "string");
+            }
+            if (!Type.isSubtype(u1, u2)) {
+                return err(Type.toString(u1), Type.toString(u2));
+            }
+            if (Type.isSubtype(u1, u3)) {
+                return err(Type.toString(u1), Type.toString(u3), true);
+            }
+            if (!Type.isSubtype(u4, u2)) {
+                return err(Type.toString(u4), Type.toString(u2));
+            }
+
+            // Object
+            const o1 = Type.Object({
+                hello: Type.Number,
+                test: Type.String,
+            });
+            const o2 = Type.Object({ hello: Type.Number });
+            const o3 = Type.Object({ hello: Type.String });
+            const o4 = Type.Object({});
+            if (!Type.isSubtype(o1, o2))
+                return err(Type.toString(o1), Type.toString(o2));
+            if (!Type.isSubtype(o1, o4))
+                return err(Type.toString(o1), Type.toString(o4));
+            if (!Type.isSubtype(o1, o2))
+                return err(Type.toString(o1), Type.toString(o2));
+            if (!Type.isSubtype(o3, o4))
+                return err(Type.toString(o3), Type.toString(o4));
+            if (Type.isSubtype(o1, o3))
+                return err(Type.toString(o1), Type.toString(o3), true);
+            if (Type.isSubtype(o3, o2))
+                return err(Type.toString(o3), Type.toString(o2), true);
+            if (Type.isSubtype(o4, o3))
+                return err(Type.toString(o4), Type.toString(o3), true);
+            return true;
+        });
+        expect(result).toBe(true);
+    });
 });

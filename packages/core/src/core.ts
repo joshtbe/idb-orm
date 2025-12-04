@@ -21,3 +21,4 @@ export { Type } from "./field/type-wrapper";
 export type { TypeTag } from "./field/type-wrapper";
 export type { FindInput, FindOutput } from "./client/types/find";
 export type * from "./client/types";
+export * as Typing from "./field/type-wrapper";

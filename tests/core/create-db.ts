@@ -14,12 +14,19 @@ import { ContextSession, expectEach, populatePage } from "../helpers.js";
 export const createDb = async ({ pkg }: Packages) => {
     const Builder = pkg.Builder;
     const Field = pkg.Property;
+    const P = pkg.Property;
     const builder = new Builder("testdb", [
         "classes",
         "spellLists",
         "spells",
         "subclass",
     ]);
+
+    const t = builder.defineModel("classes", {
+        id: P.primaryKey().autoIncrement(),
+        name: P.string(),
+        email: P.string(),
+    });
 
     const subclass = builder.defineModel("subclass", {
         id: Field.primaryKey().autoIncrement(),

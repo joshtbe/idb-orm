@@ -15,12 +15,18 @@
         "packages/*"
     ],
     "scripts": {
-        "build": "npm run build:core && npm run build:zod",
-        "build-test": "npm run build:core && npm run build:zod-test",
+        "build": "npm run build:core && npm run build:zod && npm run build:query",
+        "build-test": "npm run build:core && npm run build:zod-test && npm run build:query-test",
         "build:core": "cd packages/core && npm run build",
         "build:zod": "cd packages/zod-adapter && npm run build",
+        "build:query": "cd packages/react-query && npm run build",
+
+
+        "test": "npm run build-test && playwright test",
         "build:zod-test": "cd packages/zod-adapter && npm run build-test",
-        "test": "npm run build-test && playwright test"
+        "build:query-test": "cd packages/react-query && npm run build-test"
+
+
     },
     "keywords": [],
     "author": "jtb",

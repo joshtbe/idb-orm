@@ -87,7 +87,7 @@ export type InterfaceMap<
     Names extends string,
     C extends CollectionObject<Names>
 > = {
-    [K in Names]: StoreInterface<K, Names, C>;
+    [K in Names]: Simplify<StoreInterface<K, Names, C>>;
 };
 
 export interface QueryState<Names extends string> {
