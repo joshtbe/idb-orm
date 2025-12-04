@@ -1,5 +1,7 @@
 # IDB-ORM Core
 
+> # IMPORTANT: THIS PROJECT IS STILL IN THE VERY EARLY STAGES. USE AT YOUR OWN RISK
+
 A simple object relational mapper for the [IndexedDB API](https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API). IndexedDB (IDB) is a NoSQL database built into modern web browsers. This package wraps around that API and turns it into a pseudo-relational database. This allows features like:
 
 -   Defining relations between documents
@@ -79,7 +81,6 @@ This is the basic building block for a model. It lets you define static fields o
 -   `P.array([Property])`: Defines an array field where the array's elements are defined by `[Property]`
 -   `P.set([Property])`: Defines a set field where the set's elements are defined by `[Property]`
 -   `P.union([Property1, Property2, ...])`: Defines a union type where any value that matches the given `[PropertyX]` will satisfy the validation.
--   `P.union([Property1, Property2, ...])`: Defines a union type where any value that matches the given `[PropertyX]` will satisfy the validation.
 -   `P.custom<T>((test: unknown) => boolean)`: Defines a field for a custom type that is validated by a function passed in as the first argument.
 
     For this type of field, if you plan on dumping your database to other formats, it's also recommended you populate the second `options` argument with these functions:
@@ -98,8 +99,6 @@ Additionally, there are methods of the `Property` class that allows you to attac
 ### Relation
 
 ## Putting it all together
-
-```
 
 ## Roadmap
 
@@ -134,4 +133,7 @@ Additionally, there are methods of the `Property` class that allows you to attac
 
 -   [ ] Optimize batch `add` editing with cursor functionality
 -   [ ] Discriminated union models: Be able to differentiate subtypes of a model by a discriminator key
+
+```
+
 ```
