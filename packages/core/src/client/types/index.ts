@@ -16,7 +16,7 @@ import type { CompiledQuery } from "../compiled-query.ts";
 import type { DbClient } from "../index.ts";
 import { Transaction } from "../../transaction.js";
 import { BaseRelation, ValidKey } from "../../field";
-import { CsvDump, JsonDump } from "../../dump/class.js";
+import { Dump } from "../dump.js";
 
 export type GetStructure<N extends string, C extends Dict> = C[N] extends Model<
     N,
@@ -26,7 +26,7 @@ export type GetStructure<N extends string, C extends Dict> = C[N] extends Model<
     ? Simplify<ModelStructure<F, C>>
     : never;
 
-export type ExportFormat = "json";
+export type ExportFormat = "json" | "csv";
 
 export interface StoreInterface<
     Name extends Names,
@@ -80,7 +80,7 @@ export interface StoreInterface<
         where?: WhereObject<
             C[Name] extends Model<any, infer Fields, any> ? Fields : never
         >
-    ): Promise<Format extends "json" ? JsonDump : CsvDump>;
+    ): Promise<Dump<Format>>;
 }
 
 export type InterfaceMap<

@@ -192,7 +192,6 @@ export class Type {
     };
 
     static readonly Date: DateTag = { tag: Tag.date };
-
     static readonly Unknown: UnknownTag = { tag: Tag.unknown };
 
     static Literal<const V extends Literable>(value: V): LiteralTag<V> {
@@ -430,7 +429,8 @@ export class Type {
                     throw new Error("Value is not a valid file schema");
                 }
                 const response = await fetch(value.data);
-                return new File([await response.blob()], value.name);
+                const blob = await response.blob();
+                return new File([blob], value.name);
             }
             case Tag.default:
                 return this.deserialize(type.of, value);

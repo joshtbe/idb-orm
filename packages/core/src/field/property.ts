@@ -85,6 +85,10 @@ export abstract class AbstractProperty<Value, HasDefault extends boolean> {
         throw new Error("Method Not Implemented");
     }
 
+    static file(..._: unknown[]): AbstractProperty<File, false> {
+        throw new Error("Method Not Implemented");
+    }
+
     static date(..._: unknown[]): AbstractProperty<Date, false> {
         throw new Error("Method Not Implemented");
     }
@@ -264,6 +268,10 @@ export class Property<
 
     static date(options?: PropertyInputOptions): Property<Date, false> {
         return new Property(VALIDATORS[Type.Date.tag], Type.Date, options);
+    }
+
+    static file(options?: PropertyInputOptions): Property<File, false> {
+        return new Property(VALIDATORS[Type.File.tag], Type.File, options);
     }
 
     static literal<const V extends Literable>(

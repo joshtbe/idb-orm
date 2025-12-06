@@ -308,8 +308,6 @@ export function getAccessedStores<
                                 );
                                 break;
                             }
-                            // default:
-                            //     break;
                         }
                     }
                 }

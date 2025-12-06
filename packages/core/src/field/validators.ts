@@ -35,6 +35,19 @@ export const VALIDATORS = {
     [Type.BigInt.tag]: makeValidator<bigint>("bigint"),
     [Type.Boolean.tag]: makeValidator<boolean>("boolean"),
     [Type.Symbol.tag]: makeValidator<symbol>("symbol"),
+    [Type.File.tag]: (test: unknown): ParseResult<File> => {
+        if (test instanceof File) {
+            return {
+                success: true,
+                data: test,
+            };
+        } else {
+            return {
+                success: false,
+                error: "Value is not a file object",
+            };
+        }
+    },
     [Type.Unknown.tag]: ((test: unknown): ParseResult<any> => ({
         success: true,
         data: test,

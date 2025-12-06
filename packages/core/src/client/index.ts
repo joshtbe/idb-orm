@@ -13,6 +13,7 @@ import {
     KeyObject,
     ActionItem,
     GetStructure,
+    ExportFormat,
 } from "./types";
 import type { FindInput, FindOutput, WhereObject } from "./types/find.ts";
 import {
@@ -33,8 +34,7 @@ import {
 import { deleteItems } from "./delete.js";
 import { MutationAction } from "./types/mutation.js";
 import { BaseRelation, ValidKey, FieldTypes } from "../field";
-import { CsvDump, JsonDump } from "../dump/class.js";
-import { dumpDatabaseToJSON, dumpStoreToJson } from "../dump/json.js";
+import { Dump, getDatabaseData, getStoreData } from "./dump";
 
 export class DbClient<
     Name extends string,
@@ -75,20 +75,20 @@ export class DbClient<
         return new Transaction(this.db, stores, mode, options);
     }
 
-    // TODO: Change this to drop
-    async deleteDb() {
+    async drop() {
         await handleRequest(window.indexedDB.deleteDatabase(this.name));
     }
 
-    async dump<
-        Format extends "json" | "csv",
-        Return = Format extends "json" ? JsonDump : CsvDump
-    >(format: Format, stores?: ModelNames[]): Promise<Return> {
-        if (format === "json") {
-            return (await dumpDatabaseToJSON(this, stores)) as Return;
-            // return new JsonDump("ugh", [{ tyest: "a" }]) as Return;
-        } else {
-            return new CsvDump("d", "") as Return;
+    async dump<const Format extends ExportFormat>(
+        format: Format,
+        stores?: ModelNames[]
+    ): Promise<Dump<Format>> {
+        const data = await getDatabaseData(this, stores);
+        switch (format) {
+            case "json":
+                return Dump.toJson(this.name, data) as Dump<Format>;
+            case "csv":
+                return Dump.toCsv(this.name, data) as Dump<Format>;
         }
     }
 
@@ -183,18 +183,19 @@ export class DbClient<
             deleteMany: async (where) =>
                 await deleteItems(modelName, this, where, false),
             dump: async (format, where) => {
-                type Result = typeof format extends "json" ? JsonDump : CsvDump;
-                if (format === "json") {
-                    return (await dumpStoreToJson(
-                        // eslint-disable-next-line
-                        this as any,
-                        modelName,
-                        // eslint-disable-next-line
-                        where as any
-                    )) as Result;
+                type Result = Dump<typeof format>;
+                const data = await getStoreData(
+                    // eslint-disable-next-line
+                    this as any,
+                    modelName,
+                    where as undefined
+                );
+                switch (format) {
+                    case "json":
+                        return Dump.toJson(modelName, data) as Result;
+                    case "csv":
+                        return Dump.toCsv(modelName, data) as Result;
                 }
-                // TODO: Change this to function call
-                return new CsvDump("", "") as Result;
             },
         };
     }
