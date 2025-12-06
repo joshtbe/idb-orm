@@ -25,7 +25,8 @@ interface ModelQueryInterface<
      */
     useGet: M extends Model<any, infer Fields, any>
         ? <O = core.Simplify<core.ModelStructure<Fields, Models>>>(
-              primaryKey: { key: core.PrimaryKeyType<M> } & QueryOptions<O>
+              primaryKey: { key: core.PrimaryKeyType<M> } & QueryOptions<O>,
+              deps?: React.DependencyList
           ) => DefinedUseQueryResult<O | undefined>
         : never;
     useFind: <
@@ -76,7 +77,9 @@ export function createIDBQueryClient<
         Provider: ({
             client,
             children,
-        }: React.PropsWithChildren<{ client: IDBQueryClient<Names, Models> }>) => {
+        }: React.PropsWithChildren<{
+            client: IDBQueryClient<Names, Models>;
+        }>) => {
             const clientInterfaces = React.useMemo<C>(() => {
                 function makeModelQueryClient(
                     path: readonly string[]
@@ -143,21 +146,21 @@ class IDBQueryClient<
                 useFind(options, deps = []) {
                     return useQuery({
                         ...(options as {}),
-                        queryKey: [store, "find", ...deps],
+                        queryKey: [store, "find", options.query, ...deps],
                         queryFn: () => stores[store].find(options.query),
                     });
                 },
                 useFindFirst(options, deps = []) {
                     return useQuery({
                         ...(options as {}),
-                        queryKey: [store, "findFirst", ...deps],
+                        queryKey: [store, "findFirst", options.query, ...deps],
                         queryFn: () => stores[store].findFirst(options.query),
                     });
                 },
-                useGet: (options) => {
+                useGet: (options, deps = []) => {
                     useQuery({
                         ...options,
-                        queryKey: [store, "get", options.key],
+                        queryKey: [store, "get", options.key, ...deps],
                         queryFn: () =>
                             // I don't feel like sacrificing runtime to fix these type/linter errors
                             // eslint-disable-next-line

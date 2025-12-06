@@ -4,7 +4,7 @@ import { DbClient } from ".";
 import { generateWhereClause, parseWhere } from "./helpers.js";
 import { WhereObject } from "./types/find.js";
 import { BaseRelation, PrimaryKey, Property, ValidValue, Type } from "../field";
-import { CollectionObject } from "../model";
+import { CollectionObject, Model } from "../model";
 import { Transaction } from "../transaction.js";
 import { AssertionError, ExportError } from "../error.js";
 
@@ -103,8 +103,41 @@ export async function getDatabaseData<Names extends string>(
     return result;
 }
 
-interface DumpOptions {
+export interface DumpOptions {
     pretty?: boolean;
+}
+
+function storeToCsv(model: Model<string, any, string>, data: Dict): string {
+    const lines: string[] = [`## ${model.name}`];
+    const fieldNames: string[] = [];
+    for (const [key, field] of model.entries()) {
+        if (PrimaryKey.is(field)) {
+            // Ensure the primary key is the first element
+            fieldNames.unshift(key);
+        } else {
+            fieldNames.push(key);
+        }
+    }
+    lines.push(fieldNames.join(","));
+    for (const item of Object.values(data as Dict<Dict>)) {
+        const curLine: string[] = [];
+        for (const field of fieldNames) {
+            switch (typeof item[field]) {
+                case "object":
+                    curLine.push(JSON.stringify(item[field]));
+                    break;
+                case "undefined":
+                    curLine.push("");
+                    break;
+                default:
+                    curLine.push(String(item[field]));
+                    break;
+            }
+        }
+        lines.push(curLine.join(","));
+    }
+
+    return lines.join("\n");
 }
 
 export class Dump<F extends ExportFormat> {
@@ -147,7 +180,20 @@ export class Dump<F extends ExportFormat> {
         );
     }
 
-    static toCsv(name: string, _content: Dict, _options?: DumpOptions) {
-        return new this(name, "", "csv");
+    static toCsvStore(model: Model<string, any, string>, content: Dict) {
+        return new this(model.name, storeToCsv(model, content), "csv");
+    }
+
+    static toCsvDb(
+        db: DbClient<string, string, CollectionObject<string>>,
+        stores: string[],
+        content: Dict<Dict>
+    ) {
+        const lines: string[] = [`# ${db.name}`];
+        for (const model of stores) {
+            lines.push(storeToCsv(db.getModel(model), content[model]));
+        }
+
+        return new this(db.name, lines.join("\n"), "csv");
     }
 }

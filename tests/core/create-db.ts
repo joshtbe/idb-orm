@@ -532,5 +532,43 @@ export function coreTests(createFn: any, imports: Record<string, string> = {}) {
             const download = await downloadPromise;
             await download.saveAs(download.suggestedFilename());
         });
+
+        test("Dump Database to CSV", async ({}, info) => {
+            const downloadPromise = page.waitForEvent("download");
+            const result = await session.evaluate(async ({ client }) => {
+                const dump = await client.dump("csv");
+                const file = dump.toFile();
+                const a = document.createElement("a");
+                a.download = file.name;
+                a.href = window.URL.createObjectURL(file);
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(a.href);
+            });
+
+            const download = await downloadPromise;
+            await download.saveAs(download.suggestedFilename());
+        });
+
+        test("Dump Store to CSV", async ({}, info) => {
+            const downloadPromise = page.waitForEvent("download");
+            const result = await session.evaluate(async ({ client }) => {
+                const dump = await client.stores.spells.dump("csv", {
+                    level: (l) => l > 1,
+                });
+                const file = dump.toFile();
+                const a = document.createElement("a");
+                a.download = file.name;
+                a.href = window.URL.createObjectURL(file);
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(a.href);
+            });
+
+            const download = await downloadPromise;
+            await download.saveAs(download.suggestedFilename());
+        });
     });
 }

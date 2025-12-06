@@ -34,7 +34,7 @@ import {
 import { deleteItems } from "./delete.js";
 import { MutationAction } from "./types/mutation.js";
 import { BaseRelation, ValidKey, FieldTypes } from "../field";
-import { Dump, getDatabaseData, getStoreData } from "./dump";
+import { Dump, DumpOptions, getDatabaseData, getStoreData } from "./dump";
 
 export class DbClient<
     Name extends string,
@@ -81,14 +81,23 @@ export class DbClient<
 
     async dump<const Format extends ExportFormat>(
         format: Format,
-        stores?: ModelNames[]
+        stores?: ModelNames[],
+        options?: DumpOptions
     ): Promise<Dump<Format>> {
         const data = await getDatabaseData(this, stores);
         switch (format) {
             case "json":
-                return Dump.toJson(this.name, data) as Dump<Format>;
+                return Dump.toJson(this.name, data, options) as Dump<Format>;
             case "csv":
-                return Dump.toCsv(this.name, data) as Dump<Format>;
+                return Dump.toCsvDb(
+                    this as unknown as DbClient<
+                        string,
+                        string,
+                        CollectionObject<string>
+                    >,
+                    stores || this.getStoreNames(),
+                    data
+                ) as Dump<Format>;
         }
     }
 
@@ -182,7 +191,7 @@ export class DbClient<
                 (await deleteItems(modelName, this, where, true)) > 0,
             deleteMany: async (where) =>
                 await deleteItems(modelName, this, where, false),
-            dump: async (format, where) => {
+            dump: async (format, where, options?: DumpOptions) => {
                 type Result = Dump<typeof format>;
                 const data = await getStoreData(
                     // eslint-disable-next-line
@@ -192,9 +201,12 @@ export class DbClient<
                 );
                 switch (format) {
                     case "json":
-                        return Dump.toJson(modelName, data) as Result;
+                        return Dump.toJson(modelName, data, options) as Result;
                     case "csv":
-                        return Dump.toCsv(modelName, data) as Result;
+                        return Dump.toCsvStore(
+                            this.getModel(modelName),
+                            data
+                        ) as Result;
                 }
             },
         };

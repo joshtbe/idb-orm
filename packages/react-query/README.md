@@ -9,14 +9,19 @@ A React adapter for [Tanstack's Query library](https://tanstack.com/query/latest
 Here's an example comparison on how to do a `find` query on a `users` document collection in traditional Tanstack-query and with this package.
 
 ```tsx
-// How to do it in Tanstack-query
+// How to do it in vanilla Tanstack-query
 useQuery({
     queryKey: ["users", "find", userId],
     queryFn: () => client.stores.users.find({ where: { id: userId } }),
 });
 
 // How to do it in this package
-stores.users.useFind({ where: { id: userId } }, [userId]);
+stores.users.useFind({ where: { id: userId } });
+
+// Or
+stores.users.useFind({ where: { id: userId } }, [
+    /* Any additional dependences */
+]);
 ```
 
 The package manages the internal query keys to ensure there is no overlap, and you can state an optional dependency array similar to traditional react hooks like `useMemo` and `useEffect`.
@@ -67,6 +72,6 @@ Some things to note:
 -   The `stores` field should be exported for use throughout your app. That is what provides the shortcut functions for each store.
 -   The provider component already has the Tanstack `QueryClientProvider` included!
 
-
 ## Disclaimer
+
 This project is still in the **very** early stages. Bugs will occur as I work on this package. Sorry in advance.
