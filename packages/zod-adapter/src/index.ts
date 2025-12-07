@@ -1,8 +1,6 @@
 import { Builder, core, Model } from "@idb-orm/core";
 import z from "zod";
 
-const PrimaryKey = core.PrimaryKey;
-
 type ZodHasDefault<S extends z.ZodType> = S extends z.ZodDefault<any>
     ? true
     : false;

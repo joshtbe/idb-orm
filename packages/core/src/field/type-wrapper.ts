@@ -553,7 +553,7 @@ export class Type {
             case Tag.unknown:
                 return true;
             case Tag.date:
-                return value instanceof Date;
+                return value instanceof Date && !isNaN(value.getTime());
             case Tag.array:
                 return (
                     Array.isArray(value) &&

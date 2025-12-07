@@ -64,11 +64,41 @@ function App(){
         <Provider>
     )
 }
-
 ```
+
+## Usage
+
+Anywhere inside a component, you can call one of three hooks for each store:
+
+```ts
+// Will find all documents that matches the filter/selector
+stores.users.useFind({
+    query: {
+        /* Selector Object */
+    },
+    /* Additional options */
+});
+
+// Will find the first document that matches the filter/selector
+stores.users.useFindFirst({
+    query: {
+        /* Selector Object */
+    },
+    /* Additional options */
+});
+
+// Will find the first document that matches the filter/selector
+stores.users.useGet({
+    key: /* Primary Key */
+    /* Additional options */
+});
+```
+
+These hooks return the same type as the result of the Tanstack [useQuery](https://tanstack.com/query/latest/docs/framework/react/reference/useQuery) hook. Check out their documentation for more information as well as additional options.
 
 Some things to note:
 
+-   Fields passed into the `query` key of a hook input will be used to determine query invalidation. These query objects are serialized into JSON by Tanstack, so any TS/JS types that are not serializable into JSON (functions, files, undefined) will be omitted from the serialized representation. So if any of these types of values change, the query will **NOT** be automatically invalidated.
 -   The `stores` field should be exported for use throughout your app. That is what provides the shortcut functions for each store.
 -   The provider component already has the Tanstack `QueryClientProvider` included!
 
