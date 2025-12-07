@@ -10,7 +10,7 @@ import type {
 } from "../../util-types.js";
 import type {
     BaseRelation,
-    AbstractProperty,
+    Property,
     OptionalRelation,
     PrimaryKey,
     ArrayRelation,
@@ -139,7 +139,7 @@ export type UpdateMutation<
                       [K in Exclude<
                           Keyof<Fields>,
                           OmitKeys
-                      >]: Fields[K] extends AbstractProperty<infer Type, any>
+                      >]: Fields[K] extends Property<infer Type, any>
                           ? Type | undefined | ((value: Type) => Type)
                           : Fields[K] extends PrimaryKey<any, any>
                           ? never
@@ -174,7 +174,7 @@ export type AddMutation<
     RemoveNeverValues<
         Struct extends Model<any, infer Fields, any>
             ? {
-                  [K in keyof Fields]: Fields[K] extends AbstractProperty<
+                  [K in keyof Fields]: Fields[K] extends Property<
                       infer Type,
                       infer HasDefault
                   >

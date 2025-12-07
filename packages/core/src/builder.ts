@@ -7,7 +7,6 @@ import {
 import { DbClient } from "./client";
 import {
     BaseRelation,
-    AbstractProperty,
     PrimaryKey,
     type ValidValue,
     ParseFn,
@@ -68,7 +67,7 @@ export class CompiledDb<
             const schema: Dict<ParseFn<any>> = {};
             for (const fieldKey of model.keys()) {
                 const field: object = model.get(fieldKey);
-                if (AbstractProperty.is(field)) {
+                if (Property.is(field)) {
                     schema[fieldKey] = field.parse;
                 } else if (BaseRelation.is(field)) {
                     const { onDelete } = field.getActions();

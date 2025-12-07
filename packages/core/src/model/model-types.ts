@@ -6,7 +6,7 @@ import {
     ArrayRelation,
     RelationOutput,
     Relation,
-    AbstractProperty,
+    Property,
     PrimaryKey,
     ParseFnWrap,
 } from "../field";
@@ -57,7 +57,7 @@ export type GetRelationField<F, C> = F extends Relation<infer To, any>
     : never;
 
 export type ModelStructure<F extends Dict<ValidValue>, C> = {
-    [K in keyof F]: F[K] extends AbstractProperty<infer Output, any>
+    [K in keyof F]: F[K] extends Property<infer Output, any>
         ? Output
         : F[K] extends PrimaryKey<any, infer Type>
         ? Type
@@ -99,7 +99,7 @@ export type RelationlessModelStructure<M extends Model<any, any, any>> =
               {
                   [K in Keyof<Fields>]: Fields[K] extends BaseRelation<any, any>
                       ? unknown
-                      : Fields[K] extends AbstractProperty<infer Type, any>
+                      : Fields[K] extends Property<infer Type, any>
                       ? Type
                       : Fields[K] extends PrimaryKey<any, infer Type>
                       ? Type

@@ -49,7 +49,7 @@ function getTypeTag(schema: z.ZodType): core.TypeTag {
         case "symbol":
             return Type.Symbol;
         case "literal":
-            return core.AbstractProperty.nameToType(
+            return core.Property.nameToType(
                 typeof Array.from((schema as z.ZodLiteral).values)[0]
             );
         case "optional":

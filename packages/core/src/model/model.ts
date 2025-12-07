@@ -1,7 +1,7 @@
 import { DbClient } from "../client/index.js";
 import {
     BaseRelation,
-    AbstractProperty,
+    Property,
     FieldTypes,
     PrimaryKey,
     ValidValue,
@@ -75,7 +75,7 @@ export default class Model<
     keyType(key: Keyof<F>): FieldTypes {
         const f = this.fields[key];
         if (!f) return FieldTypes.Invalid;
-        else if (AbstractProperty.is(f)) return FieldTypes.Property;
+        else if (Property.is(f)) return FieldTypes.Property;
         else if (BaseRelation.is(f)) return FieldTypes.Relation;
         else if (PrimaryKey.is(f)) return FieldTypes.PrimaryKey;
         else return FieldTypes.Invalid;
@@ -113,7 +113,7 @@ export default class Model<
     }
 
     parseField<K extends Keyof<F>>(field: K, value: unknown): ParseResult<any> {
-        if (AbstractProperty.is(this.fields[field])) {
+        if (Property.is(this.fields[field])) {
             return this.fields[field].parse(value);
         }
         return null as never;

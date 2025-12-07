@@ -16,11 +16,11 @@ import type {
 import type { Model, CollectionObject } from "../../model";
 import type {
     BaseRelation,
-    AbstractProperty,
     PrimaryKey,
     RelationOutputStructure,
     ValidValue,
     Relation,
+    Property,
 } from "../../field";
 
 export type FilterFn<Input> = (item: Input) => boolean;
@@ -36,10 +36,7 @@ export type ProhibitObjects<T> = T extends Date
 
 export type WhereObject<Fields extends Dict<ValidValue>> = Partial<
     RemoveNeverValues<{
-        [K in keyof Fields]: Fields[K] extends AbstractProperty<
-            infer Output,
-            any
-        >
+        [K in keyof Fields]: Fields[K] extends Property<infer Output, any>
             ? ProhibitObjects<Output> | FilterFn<Output>
             : Fields[K] extends PrimaryKey<any, infer Type>
             ? ProhibitObjects<Type> | FilterFn<Type>
@@ -52,7 +49,7 @@ export type SelectObject<
     Fields extends Dict<ValidValue>,
     C extends CollectionObject<All>
 > = {
-    [K in keyof Fields]?: Fields[K] extends AbstractProperty<any, any>
+    [K in keyof Fields]?: Fields[K] extends Property<any, any>
         ? true
         : Fields[K] extends PrimaryKey<any, any>
         ? true
@@ -112,7 +109,7 @@ type SelectOutput<
                   : never
               : Fields[K] extends PrimaryKey<any, infer Type>
               ? Type
-              : Fields[K] extends AbstractProperty<infer Type, any>
+              : Fields[K] extends Property<infer Type, any>
               ? Type
               : never;
       };
@@ -152,7 +149,7 @@ type IncludeOutput<
             : never
         : Fields[K] extends PrimaryKey<any, infer Type>
         ? Type
-        : Fields[K] extends AbstractProperty<infer Type, any>
+        : Fields[K] extends Property<infer Type, any>
         ? Type
         : never;
 }>;

@@ -1,6 +1,6 @@
 import { Dict } from "../util-types.js";
 import PrimaryKey from "./primary-key.js";
-import { AbstractProperty, ParseFn, Property } from "./property.js";
+import {  ParseFn, Property } from "./property.js";
 import { BaseRelation, OptionalRelation, ArrayRelation } from "./relation.js";
 import { DateTag, NumberTag, StringTag } from "./type-wrapper.js";
 
@@ -57,7 +57,7 @@ export type RelationOutputStructure<
     ? Output | null
     : Output;
 
-export type NonRelationOutput<T> = T extends AbstractProperty<infer Out, any>
+export type NonRelationOutput<T> = T extends Property<infer Out, any>
     ? Out
     : T extends PrimaryKey<any, infer Type>
     ? Type
@@ -65,7 +65,7 @@ export type NonRelationOutput<T> = T extends AbstractProperty<infer Out, any>
 
 export type ValidValue<N extends string = string> =
     | BaseRelation<N, string>
-    | AbstractProperty<any, any>
+    | Property<any, any>
     | PrimaryKey<boolean, ValidKey>;
 
 export type ParseFnWrap<T extends Dict> = {

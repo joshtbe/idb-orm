@@ -1,4 +1,3 @@
-export { AbstractProperty } from "./field/property";
 export type {
     ParseFn,
     PropertyOptions,

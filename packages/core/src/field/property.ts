@@ -38,7 +38,7 @@ export type ParseFn<T> = (value: unknown) => ParseResult<T>;
 
 const PROPERTY_SYMBOL = Symbol.for("property");
 
-export abstract class AbstractProperty<Value, HasDefault extends boolean> {
+export class Property<Value, HasDefault extends boolean> {
     readonly symbol = PROPERTY_SYMBOL;
     protected hasDefault: HasDefault = false as HasDefault;
     protected options: PropertyOptions;
@@ -61,64 +61,9 @@ export abstract class AbstractProperty<Value, HasDefault extends boolean> {
         return this.type;
     }
 
-    abstract array(...args: unknown[]): AbstractProperty<Value[], false>;
-
-    abstract default(
-        defaultValue: NoUndefined<Value> | (() => NoUndefined<Value>)
-    ): AbstractProperty<NoUndefined<Value>, true>;
-
-    abstract optional(
-        ...args: unknown[]
-    ): AbstractProperty<Value | undefined, false>;
-
-    /* "abstract" static methods */
-
-    static array<T>(..._args: unknown[]): AbstractProperty<T[], false> {
-        throw new Error("Method Not Implemented");
-    }
-
-    static boolean(..._: unknown[]): AbstractProperty<boolean, false> {
-        throw new Error("Method Not Implemented");
-    }
-
-    static custom<T>(..._: unknown[]): AbstractProperty<T, false> {
-        throw new Error("Method Not Implemented");
-    }
-
-    static file(..._: unknown[]): AbstractProperty<File, false> {
-        throw new Error("Method Not Implemented");
-    }
-
-    static date(..._: unknown[]): AbstractProperty<Date, false> {
-        throw new Error("Method Not Implemented");
-    }
-
-    static literal<const V extends Literable>(
-        _item: V,
-        ..._: unknown[]
-    ): AbstractProperty<V, false> {
-        throw new Error("Method Not Implemented");
-    }
-
-    static number(..._: unknown[]): AbstractProperty<number, false> {
-        throw new Error("Method Not Implemented");
-    }
-
-    static union<const _T extends readonly AbstractProperty<any, boolean>[]>(
-        ..._: unknown[]
-    ): AbstractProperty<unknown, false> {
-        throw new Error("Method Not Implemented");
-    }
-
-    static set<T>(..._: unknown[]): AbstractProperty<Set<T>, false> {
-        throw new Error("Method Not Implemented");
-    }
-
-    static string(..._: unknown[]): AbstractProperty<string, false> {
-        throw new Error("Method Not Implemented");
-    }
-
     /**
+     * @deprecated This functionality does not work yet
+     *
      * Indicates that a field must be unique across all documents
      *
      * **NOTE**: The field type must be a primitive. If this is applied to a non-primitive, it returns `null`
@@ -172,15 +117,10 @@ export abstract class AbstractProperty<Value, HasDefault extends boolean> {
         }
     }
 
-    public static is(value: any): value is AbstractProperty<any, any> {
+    public static is(value: any): value is Property<any, any> {
         return typeof value === "object" && value?.symbol === PROPERTY_SYMBOL;
     }
-}
 
-export class Property<
-    Value,
-    HasDefault extends boolean
-> extends AbstractProperty<Value, HasDefault> {
     array(): Property<Value[], false> {
         return new Property<Value[], false>(
             Property.generateArrayValidator(this.parseFn),
@@ -226,7 +166,7 @@ export class Property<
         options?: PropertyInputOptions
     ): Property<T[], false> {
         return new Property(
-            Property.generateArrayValidator(item.parseFn),
+            this.generateArrayValidator(item.parseFn),
             Type.Array(item.type),
             options
         );
@@ -336,7 +276,7 @@ export class Property<
         );
     }
 
-    static union<const T extends readonly AbstractProperty<any, boolean>[]>(
+    static union<const T extends readonly Property<any, boolean>[]>(
         items: T,
         options?: PropertyInputOptions
     ): Property<PropertyUnion<T>, false> {
