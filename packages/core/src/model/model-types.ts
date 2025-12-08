@@ -8,7 +8,7 @@ import {
     Relation,
     Property,
     PrimaryKey,
-    ParseFnWrap,
+    TypeTag,
 } from "../field";
 import { Dict, Keyof } from "../util-types.js";
 import Model from "./model.js";
@@ -109,13 +109,17 @@ export type RelationlessModelStructure<M extends Model<any, any, any>> =
           >
         : never;
 
+export type TypeTagWrap<T extends Dict> = {
+    [K in keyof T]: TypeTag;
+};
+
 export type CollectionSchema<C> = C extends Record<
     infer Keys,
     Model<any, any, any>
 >
     ? {
           [K in Keys]: C[K] extends Model<any, infer Fields, any>
-              ? ParseFnWrap<ModelStructure<Fields, C>>
+              ? TypeTagWrap<ModelStructure<Fields, C>>
               : never;
       }
     : never;

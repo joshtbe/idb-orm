@@ -1,8 +1,7 @@
 import { InvalidConfigError } from "../error.js";
 import { getDate, uuid } from "../utils.js";
 import { GenFunction, ValidKey, ValidKeyType } from "./field-types.js";
-import { Type } from "./type-wrapper.js";
-import { VALIDATORS } from "./validators.js";
+import { Tag, Type } from "../typing";
 
 const PRIMARY_KEY_SYMBOL = Symbol.for("primaryKey");
 export default class PrimaryKey<
@@ -24,9 +23,9 @@ export default class PrimaryKey<
     ) {
         if (!type) {
             this.autoGenerate = false as AutoGenerate;
-            this.type = Type.Number;
+            this.type = Type.Number();
         } else {
-            if (type > Type.Date) {
+            if (type.tag > Tag.date) {
                 throw new InvalidConfigError("Invalid Primary Key Type");
             }
             this.type = type;
@@ -50,7 +49,7 @@ export default class PrimaryKey<
     }
 
     autoIncrement() {
-        if (this.type === Type.Number) {
+        if (this.type.tag === Tag.number) {
             this.genFn = undefined;
             this.autoGenerate = true as AutoGenerate;
             return this as PrimaryKey<true, number>;
@@ -64,20 +63,16 @@ export default class PrimaryKey<
         if (!window.isSecureContext) {
             throw new Error("Window is not in a secure context");
         }
-        return new PrimaryKey<true, string>(Type.String, uuid);
+        return new PrimaryKey<true, string>(Type.String(), uuid);
     }
 
     date() {
-        return new PrimaryKey<true, Date>(Type.Date, getDate);
+        return new PrimaryKey<true, Date>(Type.Date(), getDate);
     }
 
     genKey() {
         if (this.genFn) return this.genFn();
         throw new Error("Generator function not defined");
-    }
-
-    getSchema() {
-        return VALIDATORS[this.type.tag];
     }
 
     /**

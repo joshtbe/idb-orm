@@ -58,7 +58,7 @@ export async function getStoreData<
                         }
                     } else if (Property.is(field) || PrimaryKey.is(field)) {
                         cursor.value[key] = await Type.serialize(
-                            field.getType(),
+                            field.type,
                             cursor.value[key]
                         );
                     } else {

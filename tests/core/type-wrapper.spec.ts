@@ -25,62 +25,62 @@ test.describe("Type-wrapper Tests", () => {
     test("is()", async () => {
         const result = await session.evaluate(async ({ pkg }) => {
             const Type = pkg.core.Type;
-            if (!Type.is(Type.Number, 400)) return "Value is a number";
-            if (Type.is(Type.Number, "")) return "Value is not a number";
+            if (!Type.is(Type.Number(), 400)) return "Value is a number";
+            if (Type.is(Type.Number(), "")) return "Value is not a number";
 
-            if (!Type.is(Type.String, "")) return "Value is a string";
-            if (Type.is(Type.String, 400)) return "Value is not a string";
+            if (!Type.is(Type.String(), "")) return "Value is a string";
+            if (Type.is(Type.String(), 400)) return "Value is not a string";
 
-            if (!Type.is(Type.Boolean, true)) return "Value is a boolean";
-            if (Type.is(Type.Boolean, 400)) return "Value is not a boolean";
+            if (!Type.is(Type.Boolean(), true)) return "Value is a boolean";
+            if (Type.is(Type.Boolean(), 400)) return "Value is not a boolean";
 
-            if (!Type.is(Type.Symbol, Symbol.for("h")))
+            if (!Type.is(Type.Symbol(), Symbol.for("h")))
                 return "Value is a symbol";
-            if (Type.is(Type.Symbol, 400)) return "Value is not a symbol";
+            if (Type.is(Type.Symbol(), 400)) return "Value is not a symbol";
 
-            if (!Type.is(Type.BigInt, 1n)) return "Value is a bigint";
-            if (Type.is(Type.BigInt, 400)) return "Value is not a bigint";
+            if (!Type.is(Type.BigInt(), 1n)) return "Value is a bigint";
+            if (Type.is(Type.BigInt(), 400)) return "Value is not a bigint";
 
-            if (!Type.is(Type.Date, new Date())) return "Value is a date";
-            if (Type.is(Type.Date, 300)) return "Value is not a bigint";
+            if (!Type.is(Type.Date(), new Date())) return "Value is a date";
+            if (Type.is(Type.Date(), 300)) return "Value is not a bigint";
 
-            if (!Type.is(Type.Unknown, new Date())) return "Value is unknown";
-            if (!Type.is(Type.Unknown, 300)) return "Value is unknown";
+            if (!Type.is(Type.Unknown(), new Date())) return "Value is unknown";
+            if (!Type.is(Type.Unknown(), 300)) return "Value is unknown";
 
-            if (!Type.is(Type.Array(Type.Number), [3, 1, 3, 45]))
+            if (!Type.is(Type.Array(Type.Number()), [3, 1, 3, 45]))
                 return "Value is a number array";
             if (
-                !Type.is(Type.Array(Type.Array(Type.Number)), [
+                !Type.is(Type.Array(Type.Array(Type.Number())), [
                     [3],
                     [12, 45],
                     [133],
                 ])
             )
                 return "Value is a 2D number array";
-            if (Type.is(Type.Array(Type.String), ["hello", 2, 3, 4, 5]))
+            if (Type.is(Type.Array(Type.String()), ["hello", 2, 3, 4, 5]))
                 return "Value is not a string array";
-            if (Type.is(Type.Array(Type.Unknown), 300))
+            if (Type.is(Type.Array(Type.Unknown()), 300))
                 return "Value is not an array";
 
-            if (!Type.is(Type.Set(Type.Number), new Set([3, 1, 3, 45])))
+            if (!Type.is(Type.Set(Type.Number()), new Set([3, 1, 3, 45])))
                 return "Value is a number set";
-            if (Type.is(Type.Set(Type.String), new Set([1, 2, 3, 4, 5])))
+            if (Type.is(Type.Set(Type.String()), new Set([1, 2, 3, 4, 5])))
                 return "Value is not a string set";
-            if (Type.is(Type.Set(Type.Unknown), 300))
+            if (Type.is(Type.Set(Type.Unknown()), 300))
                 return "Value is not a set";
 
-            if (!Type.is(Type.Optional(Type.String), ""))
+            if (!Type.is(Type.Optional(Type.String()), ""))
                 return "Value is a string";
-            if (!Type.is(Type.Optional(Type.String), undefined))
+            if (!Type.is(Type.Optional(Type.String()), undefined))
                 return "Value is undefined";
 
-            if (Type.is(Type.Optional(Type.String), 400))
+            if (Type.is(Type.Optional(Type.String()), 400))
                 return "Value is not string | undefined";
 
             const union = Type.Union([
-                Type.String,
-                Type.Number,
-                Type.Array(Type.Number),
+                Type.String(),
+                Type.Number(),
+                Type.Array(Type.Number()),
             ]);
 
             if (!Type.is(union, "hello")) return "Value is a string";
@@ -93,17 +93,17 @@ test.describe("Type-wrapper Tests", () => {
             if (Type.is(union, new Date())) return "Value is not a valid union";
 
             const file = new File(["hello"], "test.txt");
-            if (!Type.is(Type.File, file)) return "Value is a file";
-            if (Type.is(Type.File, "hello")) return "Value is not a file";
+            if (!Type.is(Type.File(), file)) return "Value is a file";
+            if (Type.is(Type.File(), "hello")) return "Value is not a file";
 
             const object = Type.Object({
-                hello: Type.String,
-                morning: Type.Number,
+                hello: Type.String(),
+                morning: Type.Number(),
                 nested: Type.Object({
-                    nestedOne: Type.Optional(Type.Boolean),
-                    nestedTwo: Type.String,
+                    nestedOne: Type.Optional(Type.Boolean()),
+                    nestedTwo: Type.String(),
                 }),
-                arr: Type.Array(Type.Number),
+                arr: Type.Array(Type.Number()),
             });
             if (
                 !Type.is(object, {
@@ -186,73 +186,76 @@ test.describe("Type-wrapper Tests", () => {
                 return err("literal 400", "literal test", true);
 
             // Number tests
-            if (!Type.isSubtype(Type.Number, Type.Number))
+            if (!Type.isSubtype(Type.Number(), Type.Number()))
                 return err("number", "number");
-            if (!Type.isSubtype(Type.Number, Type.Literal(40)))
+            if (!Type.isSubtype(Type.Number(), Type.Literal(40)))
                 return err("number", "literal number");
-            if (Type.isSubtype(Type.Number, Type.String))
+            if (Type.isSubtype(Type.Number(), Type.String()))
                 return err("number", "string", true);
-            if (Type.isSubtype(Type.Number, Type.Literal("test")))
+            if (Type.isSubtype(Type.Number(), Type.Literal("test")))
                 return err("number", "literal string", true);
-            if (Type.isSubtype(Type.Number, Type.BigInt))
+            if (Type.isSubtype(Type.Number(), Type.BigInt()))
                 return err("number", "bigint", true);
 
             // String tests
-            if (!Type.isSubtype(Type.String, Type.String))
+            if (!Type.isSubtype(Type.String(), Type.String()))
                 return err("string", "string");
-            if (!Type.isSubtype(Type.String, Type.Literal("test")))
+            if (!Type.isSubtype(Type.String(), Type.Literal("test")))
                 return err("string", "literal string");
-            if (Type.isSubtype(Type.String, Type.Number))
+            if (Type.isSubtype(Type.String(), Type.Number()))
                 return err("string", "number", true);
-            if (Type.isSubtype(Type.String, Type.Literal(33)))
+            if (Type.isSubtype(Type.String(), Type.Literal(33)))
                 return err("string", "literal number", true);
-            if (Type.isSubtype(Type.String, Type.BigInt))
+            if (Type.isSubtype(Type.String(), Type.BigInt()))
                 return err("string", "bigint", true);
 
             // Unknown
-            if (!Type.isSubtype(Type.Unknown, Type.Date))
+            if (!Type.isSubtype(Type.Unknown(), Type.Date()))
                 return err("unknown", "date");
-            if (!Type.isSubtype(Type.Unknown, Type.String))
+            if (!Type.isSubtype(Type.Unknown(), Type.String()))
                 return err("unknown", "string");
-            if (!Type.isSubtype(Type.Unknown, Type.Array(Type.Number)))
+            if (!Type.isSubtype(Type.Unknown(), Type.Array(Type.Number())))
                 return err("unknown", "number[]");
 
             // Array
             if (
                 !Type.isSubtype(
-                    Type.Array(Type.Number),
-                    Type.Array(Type.Number)
+                    Type.Array(Type.Number()),
+                    Type.Array(Type.Number())
                 )
             ) {
                 return err("number[]", "number[]");
             }
             if (
                 !Type.isSubtype(
-                    Type.Array(Type.Number),
+                    Type.Array(Type.Number()),
                     Type.Array(Type.Literal(200))
                 )
             ) {
                 return err("number[]", "number[]");
             }
-            if (Type.isSubtype(Type.Array(Type.Number), Type.String)) {
+            if (Type.isSubtype(Type.Array(Type.Number()), Type.String())) {
                 return err("number[]", "string");
             }
             if (
-                Type.isSubtype(Type.Array(Type.Number), Type.Array(Type.String))
+                Type.isSubtype(
+                    Type.Array(Type.Number()),
+                    Type.Array(Type.String())
+                )
             ) {
                 return err("number[]", "string[]");
             }
 
             // Union
             const u1 = Type.Union([
-                Type.Number,
-                Type.String,
-                Type.Array(Type.Number),
+                Type.Number(),
+                Type.String(),
+                Type.Array(Type.Number()),
             ]);
-            const u2 = Type.Union([Type.String, Type.Number]);
-            const u3 = Type.Union([...u2.options, Type.Set(Type.Number)]);
-            const u4 = Type.Union([u2, Type.String]);
-            if (!Type.isSubtype(u1, Type.String)) {
+            const u2 = Type.Union([Type.String(), Type.Number()]);
+            const u3 = Type.Union([...u2.options, Type.Set(Type.Number())]);
+            const u4 = Type.Union([u2, Type.String()]);
+            if (!Type.isSubtype(u1, Type.String())) {
                 return err(Type.toString(u1), "string");
             }
             if (!Type.isSubtype(u1, u2)) {
@@ -267,11 +270,11 @@ test.describe("Type-wrapper Tests", () => {
 
             // Object
             const o1 = Type.Object({
-                hello: Type.Number,
-                test: Type.String,
+                hello: Type.Number(),
+                test: Type.String(),
             });
-            const o2 = Type.Object({ hello: Type.Number });
-            const o3 = Type.Object({ hello: Type.String });
+            const o2 = Type.Object({ hello: Type.Number() });
+            const o3 = Type.Object({ hello: Type.String() });
             const o4 = Type.Object({});
             if (!Type.isSubtype(o1, o2))
                 return err(Type.toString(o1), Type.toString(o2));

@@ -35,19 +35,19 @@ function getTypeTag(schema: z.ZodType): core.TypeTag {
                 getTypeTag((schema as z.ZodArray).element as z.ZodType)
             );
         case "bigint":
-            return Type.BigInt;
+            return Type.BigInt();
         case "number":
-            return Type.Number;
+            return Type.Number();
         case "string":
-            return Type.String;
+            return Type.String();
         case "boolean":
-            return Type.Boolean;
+            return Type.Boolean();
         case "date":
-            return Type.Date;
+            return Type.Date();
         case "file":
-            return Type.File;
+            return Type.File();
         case "symbol":
-            return Type.Symbol;
+            return Type.Symbol();
         case "literal":
             return core.Property.nameToType(
                 typeof Array.from((schema as z.ZodLiteral).values)[0]
@@ -81,7 +81,7 @@ function getTypeTag(schema: z.ZodType): core.TypeTag {
             return Type.Object(result);
         }
         default:
-            return Type.Unknown;
+            return Type.Unknown();
     }
 }
 
@@ -89,11 +89,11 @@ function zodToProperty<S extends z.ZodType>(
     schema: S
 ): core.Property<z.output<S>, ZodHasDefault<S>> {
     const anySchema = schema as any;
-    const prop = new core.Property(parseAdapter(anySchema), getTypeTag(schema));
+    const prop = new core.Property(getTypeTag(schema));
     if (schema instanceof z.ZodDefault) {
         return zodToProperty(anySchema.unwrap() as z.ZodType) as any;
     }
-    return new core.Property(parseAdapter(anySchema), getTypeTag(schema));
+    return new core.Property(getTypeTag(schema));
 }
 
 export function zodModel<

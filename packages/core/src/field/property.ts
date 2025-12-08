@@ -7,10 +7,9 @@ import {
     ValidKeyType,
     StringValidKeyType,
 } from "./field-types.js";
-import PrimaryKey from "./primary-key.js";
-import { Relation } from "./relation.js";
-import { Type, TypeTag } from "./type-wrapper.js";
-import { VALIDATORS } from "./validators.js";
+import PrimaryKey from "./primary-key";
+import { Relation } from "./relation";
+import { Tag, Type, TypeTag } from "../typing";
 
 export interface PropertyOptions {
     unique: boolean;
@@ -43,22 +42,37 @@ export class Property<Value, HasDefault extends boolean> {
     protected hasDefault: HasDefault = false as HasDefault;
     protected options: PropertyOptions;
 
-    constructor(
-        protected parseFn: (value: unknown) => ParseResult<Value>,
-        protected type: TypeTag,
-        options?: PropertyInputOptions
-    ) {
+    constructor(public type: TypeTag, options?: PropertyInputOptions) {
         this.options = {
             unique: options?.unique ?? false,
         };
     }
 
-    get parse() {
-        return this.parseFn;
-    }
-
-    getType() {
-        return this.type;
+    parse(value: unknown): ParseResult<Value> {
+        if (Type.is(this.type, value)) {
+            if (this.type.tag === Tag.custom && this.type.parse) {
+                try {
+                    return {
+                        success: true,
+                        data: this.type.parse(value),
+                    };
+                } catch (error) {
+                    return {
+                        success: false,
+                        error: String(error),
+                    };
+                }
+            }
+            return {
+                success: true,
+                data: value as Value,
+            };
+        } else {
+            return {
+                success: false,
+                error: `Value is not a valid '${Type.toString(this.type)}'`,
+            };
+        }
     }
 
     /**
@@ -69,11 +83,11 @@ export class Property<Value, HasDefault extends boolean> {
      * **NOTE**: The field type must be a primitive. If this is applied to a non-primitive, it returns `null`
      */
     unique() {
-        switch (this.type) {
-            case Type.Boolean:
-            case Type.String:
-            case Type.Number:
-            case Type.Symbol:
+        switch (this.type.tag) {
+            case Tag.boolean:
+            case Tag.string:
+            case Tag.number:
+            case Tag.symbol:
                 this.options.unique = true;
                 return this;
             default:
@@ -103,17 +117,17 @@ export class Property<Value, HasDefault extends boolean> {
     public static nameToType(typeName: string): TypeTag {
         switch (typeName) {
             case "boolean":
-                return Type.Boolean;
+                return Type.Boolean();
             case "bigint":
-                return Type.BigInt;
+                return Type.BigInt();
             case "number":
-                return Type.Number;
+                return Type.Number();
             case "string":
-                return Type.Number;
+                return Type.String();
             case "symbol":
-                return Type.Symbol;
+                return Type.Symbol();
             default:
-                return Type.Unknown;
+                return Type.Unknown();
         }
     }
 
@@ -123,7 +137,6 @@ export class Property<Value, HasDefault extends boolean> {
 
     array(): Property<Value[], false> {
         return new Property<Value[], false>(
-            Property.generateArrayValidator(this.parseFn),
             Type.Array(this.type),
             this.options
         );
@@ -132,63 +145,26 @@ export class Property<Value, HasDefault extends boolean> {
     default(
         defaultValue: NoUndefined<Value> | (() => NoUndefined<Value>)
     ): Property<NoUndefined<Value>, true> {
-        const newFn: ParseFn<NoUndefined<Value>> = (value: unknown) => {
-            if (value == null) {
-                return {
-                    success: true,
-                    data:
-                        typeof defaultValue === "function"
-                            ? (defaultValue as () => NoUndefined<Value>)()
-                            : defaultValue,
-                };
-            } else
-                return this.parseFn(value) as ParseResult<NoUndefined<Value>>;
-        };
         this.hasDefault = true as HasDefault;
-        return new Property(newFn, this.type, this.options);
+        return new Property(
+            Type.Default(this.type, defaultValue),
+            this.options
+        );
     }
 
     optional(): Property<Value | undefined, false> {
-        const newFn: ParseFn<Value | undefined> = (value) => {
-            if (value == null) {
-                return {
-                    success: true,
-                    data: undefined,
-                };
-            }
-            return this.parseFn(value);
-        };
-        return new Property(newFn, this.type, this.options);
+        return new Property(Type.Optional(this.type), this.options);
     }
 
     static array<T>(
         item: Property<T, boolean>,
         options?: PropertyInputOptions
     ): Property<T[], false> {
-        return new Property(
-            this.generateArrayValidator(item.parseFn),
-            Type.Array(item.type),
-            options
-        );
+        return new Property(Type.Array(item.type), options);
     }
 
     static boolean(options?: PropertyInputOptions): Property<boolean, false> {
-        return new Property(
-            (test) => {
-                if (typeof test === "boolean") {
-                    return {
-                        success: true,
-                        data: test,
-                    };
-                } else
-                    return {
-                        success: false,
-                        error: "Value is not a string",
-                    };
-            },
-            Type.Boolean,
-            options
-        );
+        return new Property(Type.Boolean(), options);
     }
 
     static custom<T>(
@@ -196,9 +172,10 @@ export class Property<Value, HasDefault extends boolean> {
         options?: CustomPropertyOptions<T>
     ): Property<T, false> {
         return new Property(
-            fn,
-            Type.Custom({
-                isType: (test) => fn(test).success,
+            Type.Custom<T>({
+                isType: ((test) => fn(test).success) as (
+                    test: unknown
+                ) => test is T,
                 serialize: options?.serialize,
                 deserialize: options?.deserialize,
             }),
@@ -207,94 +184,41 @@ export class Property<Value, HasDefault extends boolean> {
     }
 
     static date(options?: PropertyInputOptions): Property<Date, false> {
-        return new Property(VALIDATORS[Type.Date.tag], Type.Date, options);
+        return new Property(Type.Date(), options);
     }
 
     static file(options?: PropertyInputOptions): Property<File, false> {
-        return new Property(VALIDATORS[Type.File.tag], Type.File, options);
+        return new Property(Type.File(), options);
     }
 
     static literal<const V extends Literable>(
         value: V,
         options?: PropertyInputOptions
     ): Property<V, false> {
-        return new Property(
-            (test): ParseResult<V> => {
-                if (test === value) {
-                    return {
-                        success: true,
-                        data: value,
-                    };
-                }
-                return {
-                    success: false,
-                    error: `${test} !== ${value}`,
-                };
-            },
-            Type.Literal(value),
-            options
-        );
+        return new Property(Type.Literal<V>(value), options);
     }
 
     static number(options?: PropertyInputOptions): Property<number, false> {
-        return new Property(VALIDATORS[Type.Number.tag], Type.Number, options);
+        return new Property(Type.Number(), options);
     }
 
     static string(options?: PropertyInputOptions): Property<string, false> {
-        return new Property(VALIDATORS[Type.String.tag], Type.String, options);
+        return new Property(Type.String(), options);
     }
 
     static set<T>(
         item: Property<T, boolean>,
         options?: PropertyInputOptions
     ): Property<Set<T>, false> {
-        return new Property(
-            (items: unknown): ParseResult<Set<T>> => {
-                if (items instanceof Set) {
-                    const resultData = new Set<T>();
-                    for (const element of items) {
-                        const result = item.parseFn(element);
-                        if (!result.success) {
-                            return result;
-                        } else {
-                            resultData.add(result.data);
-                        }
-                    }
-                    return {
-                        success: true,
-                        data: resultData,
-                    };
-                } else {
-                    return {
-                        success: false,
-                        error: "Value is not an array",
-                    };
-                }
-            },
-            Type.Set(item.type),
-            options
-        );
+        return new Property(Type.Set(item.type), options);
     }
 
     static union<const T extends readonly Property<any, boolean>[]>(
         items: T,
         options?: PropertyInputOptions
     ): Property<PropertyUnion<T>, false> {
-        const functions: ParseFn<T[number]>[] = items.map((i) => i.parse);
         return new Property<PropertyUnion<T>, false>(
-            ((test) => {
-                for (const fn of functions) {
-                    const result = fn(test);
-                    if (result.success) {
-                        return result;
-                    }
-                }
-                return {
-                    success: false,
-                    error: "Value did not match any of the items",
-                };
-            }) as ParseFn<PropertyUnion<T>>,
-            Type.Union(items.map((i) => i.getType())),
+            Type.Union(items.map((i) => i.type)),
             options
         );
     }

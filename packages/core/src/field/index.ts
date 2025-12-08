@@ -4,4 +4,4 @@ export { PrimaryKey };
 export * from "./relation.js";
 export * from "./field-types.js";
 export * from "./property.js";
-export * from "./type-wrapper.js";
+export * from "../typing";

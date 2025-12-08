@@ -9,13 +9,13 @@ import {
     BaseRelation,
     PrimaryKey,
     type ValidValue,
-    ParseFn,
     Property,
+    TypeTag,
+    Type,
 } from "./field";
 import type { Dict, Keyof } from "./util-types";
 import { getKeys, handleRequest } from "./utils";
 import { InvalidConfigError } from "./error";
-import { VALIDATORS } from "./field/validators.js";
 
 export class Builder<Name extends string, Names extends string> {
     private models: Record<Names, Model<Names, Dict<ValidValue>>>;
@@ -64,26 +64,20 @@ export class CompiledDb<
         this.schemas = {} as CollectionSchema<C>;
         for (const key of this.modelKeys) {
             const model = this.models[key];
-            const schema: Dict<ParseFn<any>> = {};
+            const schema: Dict<TypeTag> = {};
             for (const fieldKey of model.keys()) {
                 const field: object = model.get(fieldKey);
                 if (Property.is(field)) {
-                    schema[fieldKey] = field.parse;
+                    schema[fieldKey] = field.type;
                 } else if (BaseRelation.is(field)) {
                     const { onDelete } = field.getActions();
                     const linked = this.models[field.to as Keyof<C>];
                     const linkedPrimary = linked.getPrimaryKey();
-                    schema[fieldKey] = VALIDATORS[linkedPrimary.type.tag];
+                    schema[fieldKey] = linkedPrimary.type;
                     if (field.isOptional) {
-                        schema[fieldKey] = new Property(
-                            schema[fieldKey],
-                            linkedPrimary.type
-                        ).optional().parse;
+                        schema[fieldKey] = Type.Optional(schema[fieldKey]);
                     } else if (field.isArray) {
-                        schema[fieldKey] = schema[fieldKey] = new Property(
-                            schema[fieldKey],
-                            linkedPrimary.type
-                        ).array().parse;
+                        schema[fieldKey] = Type.Array(schema[fieldKey]);
                     }
 
                     let hasRelation = !!field.getRelatedKey();
@@ -115,7 +109,7 @@ export class CompiledDb<
                             `Relation '${field.name}' of model ${key} does not have an equivalent relation on model '${field.to}'`
                         );
                 } else if (PrimaryKey.is(field)) {
-                    schema[fieldKey] = VALIDATORS[field.type.tag];
+                    schema[fieldKey] = field.type;
                 } else {
                     throw new InvalidConfigError(
                         `Unknown field value detected: ${JSON.stringify(field)}`

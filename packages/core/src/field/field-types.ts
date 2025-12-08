@@ -1,8 +1,8 @@
 import { Dict } from "../util-types.js";
 import PrimaryKey from "./primary-key.js";
-import {  ParseFn, Property } from "./property.js";
+import { ParseFn, Property } from "./property.js";
 import { BaseRelation, OptionalRelation, ArrayRelation } from "./relation.js";
-import { DateTag, NumberTag, StringTag } from "./type-wrapper.js";
+import { DateTag, NumberTag, StringTag } from "../typing";
 
 export type ValidKey = string | number | Date;
 export type StringValidKeyType = "string" | "date" | "number";

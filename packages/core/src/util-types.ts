@@ -51,6 +51,12 @@ export type RemoveNeverValues<T extends object> = {
  */
 export type Dict<T = unknown> = Record<string, T>;
 
+export type PartialRecord<K extends symbol | number | string, V> = {
+    [Q in K]?: V;
+};
+
+export type MaybeGenerator<T> = T | (() => T);
+
 type UndefinedKeys<T extends Dict> = {
     [K in Keyof<T>]: undefined extends T[K] ? K : never;
 }[Keyof<T>];
