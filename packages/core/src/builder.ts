@@ -65,8 +65,7 @@ export class CompiledDb<
         for (const key of this.modelKeys) {
             const model = this.models[key];
             const schema: Dict<TypeTag> = {};
-            for (const fieldKey of model.keys()) {
-                const field: object = model.get(fieldKey);
+            for (const [fieldKey, field] of model.entries()) {
                 if (Property.is(field)) {
                     schema[fieldKey] = field.type;
                 } else if (BaseRelation.is(field)) {

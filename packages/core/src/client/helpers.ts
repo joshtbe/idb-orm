@@ -1,5 +1,5 @@
 import type { Arrayable, Dict, Keyof, Promisable } from "../util-types.js";
-import { getKeys, identity, toArray, unionSets } from "../utils.js";
+import { identity, toArray, unionSets } from "../utils.js";
 import type { DbClient } from "./index.ts";
 import type {
     AddMutation,
@@ -208,9 +208,8 @@ export function getAccessedStores<
 ): Set<ModelNames> {
     const stores: Set<ModelNames> = new Set([name]);
     if (isMutation) {
-        const keys = getKeys(query);
         const model = client.getModel(name);
-        for (const key of keys) {
+        for (const key in query) {
             const relation = model.getRelation<ModelNames>(key);
             const item = toArray(query[key]);
 
@@ -315,7 +314,7 @@ export function getAccessedStores<
         }
     } else {
         const model = client.getModel(name);
-        for (const key of getKeys(query)) {
+        for (const key in query) {
             const relation = model.getRelation<ModelNames>(key);
             if (relation) {
                 switch (typeof query[key]) {

@@ -110,13 +110,13 @@ export default class Model<
     }
 
     keys() {
-        return [...this.fieldKeys];
+        return this.fieldKeys;
     }
 
     parseField<K extends Keyof<F>>(field: K, value: unknown): ParseResult<any> {
         if (Property.is(this.fields[field])) {
             return parseType(this.fields[field].type, value);
-        } 
+        }
         return null as never;
     }
 

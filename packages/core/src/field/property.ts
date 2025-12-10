@@ -48,33 +48,6 @@ export class Property<Value, HasDefault extends boolean> {
         };
     }
 
-    // parse(value: unknown): ParseResult<Value> {
-    //     if (isType(this.type, value)) {
-    //         if (this.type.tag === Tag.custom && this.type.parse) {
-    //             try {
-    //                 return {
-    //                     success: true,
-    //                     data: this.type.parse(value),
-    //                 };
-    //             } catch (error) {
-    //                 return {
-    //                     success: false,
-    //                     error: String(error),
-    //                 };
-    //             }
-    //         }
-    //         return {
-    //             success: true,
-    //             data: value as Value,
-    //         };
-    //     } else {
-    //         return {
-    //             success: false,
-    //             error: `Value is not a valid '${typeToString(this.type)}'`,
-    //         };
-    //     }
-    // }
-
     /**
      * @deprecated This functionality does not work yet
      *

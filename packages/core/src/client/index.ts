@@ -249,7 +249,7 @@ export class DbClient<
             const id = await objectStore.add(initAdd);
             const toAdd: Dict = {};
             const visited = new Set<string>();
-            for (const key of getKeys(item) as string[]) {
+            for (const key in item) {
                 visited.add(key);
                 const element = item[
                     key as Keyof<AddMutation<N, ModelNames, Models[N], Models>>
