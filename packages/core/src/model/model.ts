@@ -7,6 +7,7 @@ import {
     ValidValue,
     ParseResult,
     ValidKey,
+    parseType,
 } from "../field";
 import { Dict, Keyof } from "../util-types.js";
 import { getKeys, unionSets } from "../utils.js";
@@ -114,8 +115,8 @@ export default class Model<
 
     parseField<K extends Keyof<F>>(field: K, value: unknown): ParseResult<any> {
         if (Property.is(this.fields[field])) {
-            return this.fields[field].parse(value);
-        }
+            return parseType(this.fields[field].type, value);
+        } 
         return null as never;
     }
 

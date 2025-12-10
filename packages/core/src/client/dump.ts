@@ -3,7 +3,13 @@ import { ExportFormat } from "./types";
 import { DbClient } from ".";
 import { generateWhereClause, parseWhere } from "./helpers.js";
 import { WhereObject } from "./types/find.js";
-import { BaseRelation, PrimaryKey, Property, ValidValue, Type } from "../field";
+import {
+    BaseRelation,
+    PrimaryKey,
+    Property,
+    ValidValue,
+    serializeType,
+} from "../field";
 import { CollectionObject, Model } from "../model";
 import { Transaction } from "../transaction.js";
 import { AssertionError, ExportError } from "../error.js";
@@ -57,7 +63,7 @@ export async function getStoreData<
                             )}`;
                         }
                     } else if (Property.is(field) || PrimaryKey.is(field)) {
-                        cursor.value[key] = await Type.serialize(
+                        cursor.value[key] = await serializeType(
                             field.type,
                             cursor.value[key]
                         );

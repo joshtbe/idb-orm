@@ -194,10 +194,10 @@ _To be continued..._
     -   [x] get([primaryKey], [include/select])
     -   [x] update([primaryKey], [updateMutation without where])
 -   [x] Error Handling: Instead of needing to type `tx.abort(...)` just use the `throw new ...` syntax and catch the error and automatically abort the transaction. This will require actions to be wrapped in some kind of try-catch block.
--   [ ] Dump database to different formats:
+-   [x] Dump database to different formats:
     -   [x] JSON
-    -   [ ] CSV
--   [ ] Make package to wrap Tanstack query for react application
+    -   [x] CSV
+-   [x] Make package to wrap Tanstack query for react application
 -   [ ] Add extra object syntax to "where" clause (i.e. `in`/`ne`/`gt`/...)
 -   [ ] Allow object types in where clauses
 -   [x] Convert internal string unions to enums
@@ -206,7 +206,7 @@ _To be continued..._
     -   [ ] Yup
     -   [ ] Joi
     -   [ ] schema.js
--   [ ] Migrate to vite instead of rollup
+-   [x] Migrate to vite instead of rollup
 
 ### Roadmap - Maybe
 
