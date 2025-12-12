@@ -21,6 +21,10 @@ export function typeToString(type: TypeTag): string {
             return "boolean";
         case Tag.number:
             return "number";
+        case Tag.float:
+            return "float";
+        case Tag.int:
+            return "integer";
         case Tag.bigint:
             return "bigint";
         case Tag.string:
@@ -80,6 +84,8 @@ export async function serializeType<T extends TypeTag>(
         case Tag.literal:
         case Tag.boolean:
         case Tag.number:
+        case Tag.float:
+        case Tag.int:
         case Tag.string:
             return value;
         case Tag.void:
@@ -201,6 +207,16 @@ export async function deserializeType<T extends TypeTag, R = TagToType<T>>(
         case Tag.boolean:
             if (typeof value !== "boolean") {
                 throw new Error(`'${value}' is not a boolean`);
+            }
+            return value as R;
+        case Tag.int:
+            if (typeof value !== "number" || !Number.isInteger(value)) {
+                throw new Error(`'${value}' is not an integer`);
+            }
+            return value as R;
+        case Tag.float:
+            if (typeof value !== "number" || isNaN(value)) {
+                throw new Error(`'${value}' is not a float`);
             }
             return value as R;
         case Tag.number:
@@ -343,16 +359,6 @@ export function isExactType(t1: TypeTag, t2: TypeTag): boolean {
     if (t1.tag !== t2.tag) return false;
 
     switch (t1.tag) {
-        case Tag.boolean:
-        case Tag.number:
-        case Tag.symbol:
-        case Tag.string:
-        case Tag.bigint:
-        case Tag.unknown:
-        case Tag.date:
-        case Tag.file:
-        case Tag.void:
-            return true;
         case Tag.literal:
             return t1.value === (t2 as LiteralTag).value;
         case Tag.optional:
@@ -363,7 +369,7 @@ export function isExactType(t1: TypeTag, t2: TypeTag): boolean {
         case Tag.union:
             if (t1.options.length !== (t2 as UnionTag).options.length)
                 return false;
-            
+
             for (let i = 0; i < t1.options.length; i++) {
                 if (!isExactType(t1.options[i], (t2 as UnionTag).options[i]))
                     return false;
@@ -395,6 +401,9 @@ export function isExactType(t1: TypeTag, t2: TypeTag): boolean {
         case Tag.custom:
             // Return true if their reference is the same (not perfect)
             return t1 === t2;
+        default:
+            // All the primitive types
+            return true;
     }
 }
 
@@ -407,11 +416,20 @@ export function isSubtype(base: TypeTag, test: TypeTag): boolean {
     switch (base.tag) {
         case Tag.literal:
             return test.tag === Tag.literal && test.value === base.value;
-        case Tag.boolean:
         case Tag.number:
+            return (
+                test.tag === base.tag ||
+                (test.tag === Tag.literal &&
+                    typeof test.value === typeToString(base)) ||
+                test.tag === Tag.float ||
+                test.tag === Tag.int
+            );
+        case Tag.boolean:
         case Tag.symbol:
         case Tag.string:
         case Tag.bigint:
+        case Tag.int:
+        case Tag.float:
             return (
                 test.tag === base.tag ||
                 (test.tag === Tag.literal &&
@@ -491,6 +509,10 @@ export function isType<T extends TypeTag>(
             return typeof value === "symbol";
         case Tag.unknown:
             return true;
+        case Tag.float:
+            return typeof value === "number" && !isNaN(value);
+        case Tag.int:
+            return typeof value === "number" && Number.isInteger(value);
         case Tag.date:
             return value instanceof Date && !isNaN(value.getTime());
         case Tag.tuple:

@@ -7,6 +7,8 @@ import {
     DateTag,
     DefaultTag,
     FileTag,
+    FloatTag,
+    IntTag,
     LiteralTag,
     NumberTag,
     ObjectTag,
@@ -32,6 +34,8 @@ interface TypeCache {
     [Tag.void]: VoidTag;
     [Tag.file]: FileTag;
     [Tag.date]: DateTag;
+    [Tag.int]: IntTag;
+    [Tag.float]: FloatTag;
     [Tag.unknown]: UnknownTag;
 }
 
@@ -64,6 +68,12 @@ export function BigInt() {
 }
 export function Symbol() {
     return getType(Tag.symbol);
+}
+export function Int() {
+    return getType(Tag.int);
+}
+export function Float() {
+    return getType(Tag.float);
 }
 
 export function Void() {

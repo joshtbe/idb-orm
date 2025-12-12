@@ -12,6 +12,8 @@ export const enum Tag {
     bigint,
     file,
     void,
+    float,
+    int,
     unknown,
 
     /* "Complex" values */
@@ -34,6 +36,12 @@ export interface StringTag {
 }
 export interface NumberTag {
     tag: Tag.number;
+}
+export interface IntTag {
+    tag: Tag.int;
+}
+export interface FloatTag {
+    tag: Tag.float;
 }
 export interface DateTag {
     tag: Tag.date;
@@ -111,6 +119,8 @@ export type TypeTag =
     | VoidTag
     | LiteralTag
     | StringTag
+    | IntTag
+    | FloatTag
     | NumberTag
     | DateTag
     | BooleanTag

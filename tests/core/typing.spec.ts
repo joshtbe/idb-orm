@@ -28,6 +28,16 @@ test.describe("Type-wrapper Tests", () => {
             if (!isType(Type.Number(), 400)) return "Value is a number";
             if (isType(Type.Number(), "")) return "Value is not a number";
 
+            if (!isType(Type.Float(), 23.41)) return "Value is a float";
+            if (!isType(Type.Float(), 400)) return "Value is a float";
+            if (isType(Type.Float(), NaN)) return "Value is not a float";
+            if (isType(Type.Float(), NaN)) return "Value is not a float";
+
+            if (!isType(Type.Int(), 12345)) return "Value is an int";
+            if (!isType(Type.Int(), 400.0)) return "Value is an int";
+            if (isType(Type.Int(), NaN)) return "Value is not an int";
+            if (isType(Type.Int(), 34.567)) return "Value is not an int";
+
             if (!isType(Type.String(), "")) return "Value is a string";
             if (isType(Type.String(), 400)) return "Value is not a string";
 
@@ -245,6 +255,25 @@ test.describe("Type-wrapper Tests", () => {
                 return err("number", "literal string", true);
             if (isSubtype(Type.Number(), Type.BigInt()))
                 return err("number", "bigint", true);
+
+            // Float tests
+            if (!isSubtype(Type.Float(), Type.Float()))
+                return err("float", "float");
+            if (!isSubtype(Type.Number(), Type.Float()))
+                return err("number", "float");
+            if (isSubtype(Type.Float(), Type.Number()))
+                return err("float", "number", true);
+            if (isSubtype(Type.String(), Type.Float()))
+                return err("string", "float", true);
+
+            // Integer tests
+            if (!isSubtype(Type.Int(), Type.Int())) return err("int", "int");
+            if (!isSubtype(Type.Number(), Type.Int()))
+                return err("number", "int");
+            if (isSubtype(Type.Int(), Type.Number()))
+                return err("int", "number", true);
+            if (isSubtype(Type.String(), Type.Int()))
+                return err("string", "int", true);
 
             // String tests
             if (!isSubtype(Type.String(), Type.String()))
