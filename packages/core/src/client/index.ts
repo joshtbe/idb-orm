@@ -27,6 +27,7 @@ import { CompiledQuery } from "./compiled-query.js";
 import {
     DocumentNotFoundError,
     InvalidItemError,
+    ObjectStoreNotFoundError,
     OverwriteRelationError,
     UnknownError,
     UpdateError,
@@ -116,7 +117,13 @@ export class DbClient<
     }
 
     public getModel<N extends ModelNames>(name: N) {
-        return this.models.getModel(name);
+        const model = this.models.getModel(name);
+        if (!model)
+            throw new ObjectStoreNotFoundError(
+                `Model with name '${name}' not found`
+            );
+
+        return model;
     }
 
     private getAccessedStores(

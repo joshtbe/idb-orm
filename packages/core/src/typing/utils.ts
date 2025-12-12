@@ -44,6 +44,9 @@ export function typeToString(type: TypeTag): string {
     }
 }
 
+
+// TODO: Add "Serialization" error
+
 /**
  * Serialize's a type into JSON
  * @param type Type
@@ -153,6 +156,8 @@ export async function serializeType<T extends TypeTag>(
             else return JSON.stringify(value);
     }
 }
+
+// TODO: Add "Deserialization" error
 
 /**
  * Convert a value from it's JSON serialized version to it's Javascript representation

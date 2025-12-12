@@ -60,3 +60,12 @@ export function unionSets<T>(set: Set<T>, other: Set<T>) {
     }
     return set;
 }
+
+/**
+ * Attempts to coerce a string into a number, if the number is NaN, returns the string instead
+ * @param str String to coerce
+ */
+export function tryNumberCoerce(str: string): string | number {
+    const toNum = Number(str);
+    return isNaN(toNum) ? str : toNum;
+}

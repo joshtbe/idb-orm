@@ -18,8 +18,10 @@ import { AssertionError, ExportError } from "../error.js";
  * Removes reserved characters from a JSON pointer string
  */
 export function clean(text: unknown): string {
-    if (typeof text !== "string") return `${text}`;
-    return text.replaceAll(/~/g, "~0").replaceAll(/\//g, "~1");
+    if (typeof text !== "string") return String(text);
+    return text.replaceAll(/~|\//g, (match) => {
+        return match === "~" ? "~0" : "~1";
+    });
 }
 
 export async function getStoreData<

@@ -1,6 +1,3 @@
-/**
- * A paper thin wrapper around IDBObjectStore
- */
 import {
     AddError,
     DeleteError,
@@ -15,15 +12,18 @@ import { ValidKey } from "./field";
 import { Transaction } from "./transaction.js";
 import { Dict, Promisable } from "./util-types.js";
 
+/**
+ * A paper thin wrapper around IDBObjectStore
+ */
 export class ObjectStore<T = Dict> {
     constructor(
         private readonly tx: Transaction<IDBTransactionMode, string>,
-        public readonly store: IDBObjectStore
+        public readonly internal: IDBObjectStore
     ) {}
 
     add(item: T) {
         return this.handleRequest(
-            this.store.add(item),
+            this.internal.add(item),
             () => new AddError()
         ) as Promise<ValidKey>;
     }
@@ -35,7 +35,7 @@ export class ObjectStore<T = Dict> {
      */
     get(key: ValidKey): Promise<T | undefined> {
         return this.handleRequest(
-            this.store.get(key),
+            this.internal.get(key),
             () => new RetrievalError()
         );
     }
@@ -45,7 +45,7 @@ export class ObjectStore<T = Dict> {
      */
     async assertGet(key: ValidKey): Promise<T> {
         const item = (await this.handleRequest(
-            this.store.get(key),
+            this.internal.get(key),
             () => new RetrievalError()
         )) as T | undefined;
         if (!item) throw this.tx.abort(new DocumentNotFoundError());
@@ -54,14 +54,14 @@ export class ObjectStore<T = Dict> {
 
     put(item: T) {
         return this.handleRequest(
-            this.store.put(item),
+            this.internal.put(item),
             () => new UpdateError()
         ) as Promise<ValidKey>;
     }
 
     delete(key: ValidKey): Promise<undefined> {
         return this.handleRequest(
-            this.store.delete(key),
+            this.internal.delete(key),
             () => new DeleteError()
         );
     }
@@ -78,7 +78,10 @@ export class ObjectStore<T = Dict> {
         } = {}
     ) {
         const onError = options.onError || (() => new OpenCursorError());
-        const request = this.store.openCursor(options.query, options.direction);
+        const request = this.internal.openCursor(
+            options.query,
+            options.direction
+        );
         await new Promise<void>((res, reject) => {
             request.onsuccess = async (event) => {
                 try {

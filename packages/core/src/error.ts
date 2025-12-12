@@ -19,6 +19,7 @@ export type ErrorType =
     | "CUSTOM"
     | "INVALID_CONFIG"
     | "ASSERTION_FAILED"
+    | "IMPORT_FAILED"
     | "OPEN_CURSOR"
     | "UNKNOWN";
 
@@ -112,3 +113,5 @@ export const OverwriteRelationError = storeErrorFactory(
 );
 
 export const ExportError = storeErrorFactory("EXPORT", "Export failed");
+
+export const ImportError = storeErrorFactory("IMPORT_FAILED", "Import failed");

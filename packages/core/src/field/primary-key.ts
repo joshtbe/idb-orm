@@ -86,4 +86,29 @@ export default class PrimaryKey<
     static is(value: object): value is PrimaryKey<any, any> {
         return (value as any)?.symbol === PRIMARY_KEY_SYMBOL;
     }
+
+    /**
+     * Compares primary key values to see if they are the same
+     * @param key1 First key
+     * @param key2 Second key
+     * @returns true if the keys share the same value AND type, false otherwise
+     */
+    static compareKeyValue(key1: ValidKey, key2: ValidKey): boolean {
+        if (typeof key1 !== typeof key2) return false;
+        switch (typeof key1) {
+            case "string":
+            case "number":
+                return key1 === key2;
+            case "object":
+                return key1.getTime() === (key2 as Date).getTime();
+            default:
+                return false;
+        }
+    }
+
+    static readonly validKeyTag = Type.Union([
+        Type.String(),
+        Type.Number(),
+        Type.Date(),
+    ]);
 }
