@@ -22,7 +22,7 @@ test.describe("Type-wrapper Tests", () => {
         await browser.close();
     });
 
-    test("is()", async () => {
+    test("isType()", async () => {
         const result = await session.evaluate(async ({ pkg }) => {
             const { isType, Type } = pkg.core.Typing;
             if (!isType(Type.Number(), 400)) return "Value is a number";
@@ -61,6 +61,56 @@ test.describe("Type-wrapper Tests", () => {
                 return "Value is not a string array";
             if (isType(Type.Array(Type.Unknown()), 300))
                 return "Value is not an array";
+
+            if (
+                !isType(
+                    Type.Tuple([Type.String(), Type.Number(), Type.String()]),
+                    ["hello", 123, "yolo"]
+                )
+            )
+                return "Ta: Value is a valid tuple";
+
+            if (
+                !isType(
+                    Type.Tuple([
+                        Type.Array(Type.Number()),
+                        Type.Number(),
+                        Type.Boolean(),
+                    ]),
+                    [[1, 2, 3, 4, 5], 400, false]
+                )
+            )
+                return "Tb: Value is a valid tuple";
+
+            if (
+                isType(
+                    Type.Tuple([
+                        Type.Array(Type.Number()),
+                        Type.Number(),
+                        Type.Boolean(),
+                    ]),
+                    [1, 2, 3, 5, 6, 67, 7]
+                )
+            )
+                return "Tc: Value is not a valid tuple";
+
+            if (
+                isType(
+                    Type.Tuple([
+                        Type.Set(Type.Number()),
+                        Type.Set(Type.String()),
+                    ]),
+                    [
+                        new Set([1, 2, 3, 4, 5]),
+                        new Set(["a", "b", "c", "d"]),
+                        3,
+                        4,
+                        5,
+                        6,
+                    ]
+                )
+            )
+                return "Td: Value is not a valid tuple";
 
             if (!isType(Type.Set(Type.Number()), new Set([3, 1, 3, 45])))
                 return "Value is a number set";

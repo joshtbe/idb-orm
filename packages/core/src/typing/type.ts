@@ -16,6 +16,7 @@ import {
     SymbolTag,
     Tag,
     TagToType,
+    TupleTag,
     TypeTag,
     UnionTag,
     UnknownTag,
@@ -133,6 +134,12 @@ export function Object<R extends Record<string, TypeTag>>(
     };
 }
 
+export function Tuple<const V extends TypeTag[]>(types: V): TupleTag<V> {
+    return {
+        tag: Tag.tuple,
+        elements: types,
+    };
+}
 export function Custom<V>(opts: Omit<CustomTag<V>, "tag">): CustomTag<V> {
     return {
         tag: Tag.custom,

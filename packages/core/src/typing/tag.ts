@@ -22,6 +22,7 @@ export const enum Tag {
     optional,
     default,
     object,
+    tuple,
     custom,
 }
 
@@ -80,6 +81,11 @@ export interface UnionTag<V extends TypeTag[] = TypeTag[]> {
     options: V;
 }
 
+export interface TupleTag<V extends TypeTag[] = TypeTag[]> {
+    tag: Tag.tuple;
+    elements: V;
+}
+
 export interface ObjectTag<
     P extends Record<string, TypeTag> = Record<string, TypeTag>
 > {
@@ -117,6 +123,7 @@ export type TypeTag =
     | UnionTag
     | ArrayTag
     | ObjectTag
+    | TupleTag
     | CustomTag
     | DefaultTag;
 
@@ -145,6 +152,10 @@ export type TagToType<
     ? File
     : T extends BigIntTag
     ? bigint
+    : T extends TupleTag<infer TEls>
+    ? {
+          [K in keyof TEls]: TagToType<TEls[K], Dec[Depth]>;
+      }
     : T extends SetTag<infer T>
     ? Set<TagToType<T, Dec[Depth]>>
     : T extends UnionTag<infer TOpts>

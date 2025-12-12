@@ -1,5 +1,14 @@
 import { Dict } from "../util-types.js";
-import { Tag, TagToType, TypeTag } from "./tag";
+import {
+    ArrayTag,
+    LiteralTag,
+    ObjectTag,
+    Tag,
+    TagToType,
+    TupleTag,
+    TypeTag,
+    UnionTag,
+} from "./tag";
 import { ParseResult } from "../field";
 
 export function typeToString(type: TypeTag): string {
@@ -22,6 +31,10 @@ export function typeToString(type: TypeTag): string {
             return "unknown";
         case Tag.date:
             return "Date";
+        case Tag.tuple:
+            return `Tuple<${type.elements
+                .map((o) => typeToString(o))
+                .join(", ")}>`;
         case Tag.array:
             return `Array<${typeToString(type.of)}>`;
         case Tag.set:
@@ -43,7 +56,6 @@ export function typeToString(type: TypeTag): string {
             return "custom";
     }
 }
-
 
 // TODO: Add "Serialization" error
 
@@ -80,6 +92,13 @@ export async function serializeType<T extends TypeTag>(
             return JSON.stringify(value);
         case Tag.date:
             return (value as Date).getTime();
+        case Tag.tuple: {
+            const result: unknown[] = [];
+            for (let i = 0; i < value.length; i++) {
+                result.push(await serializeType(type.elements[i], value[i]));
+            }
+            return result;
+        }
         case Tag.array: {
             const promises: Promise<unknown>[] = [];
             for (const element of value as any) {
@@ -209,6 +228,16 @@ export async function deserializeType<T extends TypeTag, R = TagToType<T>>(
                 throw new Error(`'${value}' is not a date timestamp`);
             }
             return new Date(value) as R;
+        case Tag.tuple: {
+            if (!Array.isArray(value)) {
+                throw new Error(`'${value}' is not an array`);
+            }
+            const result: unknown[] = [];
+            for (let i = 0; i < value.length; i++) {
+                result.push(await deserializeType(type.elements[i], value[i]));
+            }
+            return result as R;
+        }
         case Tag.array: {
             if (!Array.isArray(value)) {
                 throw new Error(`'${value}' is not an array`);
@@ -306,6 +335,70 @@ export async function deserializeType<T extends TypeTag, R = TagToType<T>>(
 }
 
 /**
+ * Checks if the given types are exactly equal
+ * @param t1 First type to check
+ * @param t2 Second type to check
+ */
+export function isExactType(t1: TypeTag, t2: TypeTag): boolean {
+    if (t1.tag !== t2.tag) return false;
+
+    switch (t1.tag) {
+        case Tag.boolean:
+        case Tag.number:
+        case Tag.symbol:
+        case Tag.string:
+        case Tag.bigint:
+        case Tag.unknown:
+        case Tag.date:
+        case Tag.file:
+        case Tag.void:
+            return true;
+        case Tag.literal:
+            return t1.value === (t2 as LiteralTag).value;
+        case Tag.optional:
+        case Tag.default:
+        case Tag.set:
+        case Tag.array:
+            return isExactType(t1.of, (t2 as ArrayTag).of);
+        case Tag.union:
+            if (t1.options.length !== (t2 as UnionTag).options.length)
+                return false;
+            
+            for (let i = 0; i < t1.options.length; i++) {
+                if (!isExactType(t1.options[i], (t2 as UnionTag).options[i]))
+                    return false;
+            }
+            return true;
+        case Tag.tuple: {
+            if (t1.elements.length !== (t2 as TupleTag).elements.length)
+                return false;
+
+            for (let i = 0; i < t1.elements.length; i++) {
+                if (!isExactType(t1.elements[i], (t2 as TupleTag).elements[i]))
+                    return false;
+            }
+            return true;
+        }
+        case Tag.object:
+            if (
+                Object.keys(t1.props).length !==
+                Object.keys((t2 as ObjectTag).props).length
+            )
+                return false;
+
+            for (const key in t1.props) {
+                if (!(key in (t2 as ObjectTag).props)) return false;
+                if (!isExactType(t1.props[key], (t2 as ObjectTag).props[key]))
+                    return false;
+            }
+            return true;
+        case Tag.custom:
+            // Return true if their reference is the same (not perfect)
+            return t1 === t2;
+    }
+}
+
+/**
  * Checks to see if `test` is a valid subtype of `base`
  * @param base Base type tag
  * @param test Testing type tag
@@ -332,7 +425,6 @@ export function isSubtype(base: TypeTag, test: TypeTag): boolean {
         case Tag.file:
         case Tag.void:
             return test.tag === base.tag;
-
         case Tag.optional:
         case Tag.default:
         case Tag.set:
@@ -353,7 +445,15 @@ export function isSubtype(base: TypeTag, test: TypeTag): boolean {
             else {
                 return base.options.some((o) => isSubtype(o, test));
             }
-
+        case Tag.tuple: {
+            // Test type must be a tuple and have the same fields (in the same order), and possibly some extras
+            if (test.tag !== Tag.tuple) return false;
+            for (let i = 0; i < base.elements.length; i++) {
+                if (!isSubtype(base.elements[i], test.elements[i]))
+                    return false;
+            }
+            return true;
+        }
         case Tag.object:
             // Ensure that test has a subset of properties of base
             if (test.tag !== Tag.object) return false;
@@ -393,6 +493,12 @@ export function isType<T extends TypeTag>(
             return true;
         case Tag.date:
             return value instanceof Date && !isNaN(value.getTime());
+        case Tag.tuple:
+            return (
+                Array.isArray(value) &&
+                value.length === type.elements.length &&
+                value.every((v, idx) => isType(type.elements[idx], v))
+            );
         case Tag.array:
             return (
                 Array.isArray(value) && value.every((v) => isType(type.of, v))

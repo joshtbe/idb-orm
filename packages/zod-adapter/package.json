@@ -1,6 +1,6 @@
 {
     "name": "@idb-orm/zod-adapter",
-    "version": "0.0.3",
+    "version": "0.0.4",
     "description": "An adapter for the Zod validation library for @idb-orm",
     "main": "dist/index.js",
     "scripts": {
