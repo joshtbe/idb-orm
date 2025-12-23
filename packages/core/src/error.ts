@@ -21,6 +21,8 @@ export type ErrorType =
     | "ASSERTION_FAILED"
     | "IMPORT_FAILED"
     | "OPEN_CURSOR"
+    | "SERIALIZATION_FAILED"
+    | "DESERIALIZATION_FAILED"
     | "UNKNOWN";
 
 export class StoreError extends Error {
@@ -115,3 +117,7 @@ export const OverwriteRelationError = storeErrorFactory(
 export const ExportError = storeErrorFactory("EXPORT", "Export failed");
 
 export const ImportError = storeErrorFactory("IMPORT_FAILED", "Import failed");
+
+export const SerializationError = storeErrorFactory("SERIALIZATION_FAILED", "Seralization failed");
+export const DeserializationError = storeErrorFactory("DESERIALIZATION_FAILED", "De-seralization failed");
+

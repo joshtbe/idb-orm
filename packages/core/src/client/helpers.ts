@@ -6,7 +6,7 @@ import type {
     MutationAction,
     UpdateMutation,
 } from "./types/mutation.ts";
-import type { QueryInput } from "./types/find.ts";
+import type { QueryInput } from "./types/find";
 import type { Transaction } from "../transaction.js";
 import { InvalidItemError } from "../error.js";
 import { FieldTypes, ValidKey } from "../field/field-types.js";
@@ -324,7 +324,7 @@ export function getAccessedStores<
                             getAccessedStores(
                                 relation.to,
                                 getSearchableQuery(
-                                    query[key] as QueryInput<any, any, any>
+                                    query[key] as QueryInput<string, any, any>
                                 ),
                                 false,
                                 client
@@ -343,6 +343,6 @@ export function getAccessedStores<
     return stores;
 }
 
-export function getSearchableQuery(q: QueryInput<any, any, any>) {
+export function getSearchableQuery(q: QueryInput<string, any, any>) {
     return q.select ? q.select : q.include ? q.include : {};
 }

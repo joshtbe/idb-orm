@@ -11,7 +11,7 @@ import type {
     MutationAction,
     UpdateMutation,
 } from "./mutation.ts";
-import type { FindInput, FindOutput, WhereObject } from "./find.ts";
+import type { FindInput, FindOutput, WhereObject } from "./find.js";
 import type { CompiledQuery } from "../compiled-query.ts";
 import type { DbClient } from "../index.ts";
 import { Transaction } from "../../transaction.js";
@@ -49,14 +49,14 @@ export interface StoreInterface<
         mutations: Add[],
         transaction?: Transaction<"readwrite", Names>
     ): Promise<KeyType[]>;
-    find<T extends FindInput<Names, C[Name], C>>(
+    find<T extends FindInput<Names, Name, C>>(
         query: T,
         transaction?: Transaction<IDBTransactionMode, Names>
-    ): Promise<NonNullable<FindOutput<Names, C[Name], C, T>>[]>;
-    findFirst<T extends FindInput<Names, C[Name], C>>(
+    ): Promise<NonNullable<FindOutput<Names, Name, C, T>>[]>;
+    findFirst<T extends FindInput<Names, Name, C>>(
         query: T,
         transaction?: Transaction<IDBTransactionMode, Names>
-    ): Promise<FindOutput<Names, C[Name], C, T>>;
+    ): Promise<FindOutput<Names, Name, C, T>>;
     update(key: KeyType, data: Update["data"]): Promise<GetStructure<Name, C>>;
     updateFirst(
         item: Update,
@@ -70,7 +70,7 @@ export interface StoreInterface<
     delete(key: KeyType): Promise<boolean>;
     deleteFirst(where?: WhereObject<ExtractFields<C[Name]>>): Promise<boolean>;
     deleteMany(where: WhereObject<ExtractFields<C[Name]>>): Promise<number>;
-    compileQuery<T extends FindInput<Names, C[Name], C>>(
+    compileQuery<T extends FindInput<Names, Name, C>>(
         query: T
     ): CompiledQuery<Names, C, DbClient<string, Names, C>, T>;
     get(key: KeyType): Promise<GetStructure<Name, C> | undefined>;

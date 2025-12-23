@@ -17,4 +17,4 @@ export * from "./client";
 
 export type { FindInput, FindOutput } from "./client/types/find";
 export type * from "./client/types";
-export * as Typing from "./typing";
+export * from "./typing";

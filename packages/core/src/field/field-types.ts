@@ -26,7 +26,7 @@ export const enum FieldTypes {
     PrimaryKey,
     Invalid,
 }
-export type GenFunction<T extends ValidKey> = () => T;
+export type GenFunction<T extends ValidKey> = (...args: unknown[]) => T;
 
 export type FunctionMatch<E> = E extends "string"
     ? string

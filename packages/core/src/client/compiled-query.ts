@@ -6,18 +6,18 @@ import {
     getSearchableQuery,
 } from "./helpers.js";
 import type { DbClient } from "./index.ts";
-import type { FindInput, FindOutput } from "./types/find.ts";
+import type { FindInput, FindOutput } from "./types/find";
 
 export class CompiledQuery<
     Stores extends string,
     Models extends CollectionObject<string>,
     Db extends DbClient<string, Stores, Models>,
-    Input extends FindInput<Stores, Models[Stores], Models> = FindInput<
+    Input extends FindInput<Stores, Stores, Models> = FindInput<
         Stores,
-        Models[Stores],
+        Stores,
         Models
     >,
-    Output = FindOutput<Stores, Models[Stores], Models, Input>
+    Output = FindOutput<Stores, Stores, Models, Input>
 > {
     private readonly accessedStores: Stores[];
     private readonly selectClause: (

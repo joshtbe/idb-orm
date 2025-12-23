@@ -15,7 +15,7 @@ import {
     GetStructure,
     ExportFormat,
 } from "./types";
-import type { FindInput, FindOutput, WhereObject } from "./types/find.ts";
+import type { FindInput, FindOutput, WhereObject } from "./types/find";
 import {
     generateSelector,
     generateWhereClause,
@@ -407,7 +407,7 @@ export class DbClient<
             }
 
             const unused = Array.from(
-                new Set(model.keys()).difference(visited)
+                new Set<string>(model.keys()).difference(visited)
             );
             for (const unusedField of unused) {
                 switch (model.keyType(unusedField)) {
@@ -472,12 +472,12 @@ export class DbClient<
      */
     private async find<
         N extends ModelNames,
-        Q extends FindInput<ModelNames, Models[N], Models> = FindInput<
+        Q extends FindInput<ModelNames, N, Models> = FindInput<
             ModelNames,
-            Models[N],
+            N,
             Models
         >,
-        O = FindOutput<ModelNames, Models[N], Models, Q>
+        O = FindOutput<ModelNames, N, Models, Q>
     >(
         name: N,
         item: Q,

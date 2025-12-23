@@ -180,33 +180,16 @@ const client = await compiledDb.createClient();
 _To be continued..._
 
 ## Roadmap
-
--   [x] "Include" query field
-    -   [x] Enforce that either "include" xor "select" is in the query object
-    -   [x] modify the query object so that on relations it is recursive
--   [x] Make sure non-optional and non-array relations do not have the `SetNull` onDelete action on model compilation
--   [x] Complete update action
--   [x] Redo Mutation type. It should provide structurally no change:
-    -   [x] Split `add` and `update` mutation until completely separate interfaces?
-    -   [x] -Many or -All are only present on `ArrayRelation`'s,
-    -   [x] Cannot use `delete` or `disconnect` on non-nullable (1-1) relations
--   [x] Add additional functions to the storeInterface
-    -   [x] get([primaryKey], [include/select])
-    -   [x] update([primaryKey], [updateMutation without where])
--   [x] Error Handling: Instead of needing to type `tx.abort(...)` just use the `throw new ...` syntax and catch the error and automatically abort the transaction. This will require actions to be wrapped in some kind of try-catch block.
--   [x] Dump database to different formats:
-    -   [x] JSON
-    -   [x] CSV
--   [x] Make package to wrap Tanstack query for react application
+-   [ ] Restore database to different formats
+    -   [ ] JSON
+    -   [ ] CSV
 -   [ ] Add extra object syntax to "where" clause (i.e. `in`/`ne`/`gt`/...)
 -   [ ] Allow object types in where clauses
--   [x] Convert internal string unions to enums
 -   [ ] Make subpackages for adapters for different validation languages
     -   [x] Zod
     -   [ ] Yup
     -   [ ] Joi
     -   [ ] schema.js
--   [x] Migrate to vite instead of rollup
 
 ### Roadmap - Maybe
 

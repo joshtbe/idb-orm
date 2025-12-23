@@ -1,4 +1,4 @@
-import { DbClient } from "../client/index.js";
+import { DbClient } from "../client";
 import {
     BaseRelation,
     Property,
@@ -8,11 +8,18 @@ import {
     ParseResult,
     ValidKey,
     parseType,
+    GetPrimaryKeyType,
+    GenFunction,
 } from "../field";
-import { Dict, Keyof } from "../util-types.js";
+import { Dict, Keyof } from "../util-types";
 import { getKeys, unionSets } from "../utils.js";
 import { StoreError } from "../error.js";
-import { FindPrimaryKey, ModelCache, CollectionObject } from "./model-types.js";
+import {
+    FindPrimaryKey,
+    ModelCache,
+    CollectionObject,
+    RelationlessModelStructure,
+} from "./model-types";
 
 const MODEL_SYMBOL = Symbol.for("model");
 
@@ -63,6 +70,15 @@ export default class Model<
 
     getPrimaryKey() {
         return this.fields[this.primaryKey] as PrimaryKey<boolean, ValidKey>;
+    }
+
+    defineKeyGen(
+        genFn: (
+            model: RelationlessModelStructure<this>
+        ) => GetPrimaryKeyType<F[Primary]>
+    ) {
+        this.getPrimaryKey().generator(genFn as GenFunction<ValidKey>);
+        return this;
     }
 
     getRelation<Models extends string>(

@@ -1,14 +1,14 @@
 import type {
+    Dec,
     Dict,
-    If,
     Keyof,
     MakeRequired,
     NoUndefined,
+    RecursionLimit,
     RemoveNeverValues,
     Simplify,
-} from "../../util-types.js";
+} from "../../util-types";
 import type {
-    ExtractFields,
     ModelStructure,
     RelationlessModelStructure,
     RelationValue,
@@ -34,6 +34,14 @@ export type ProhibitObjects<T> = T extends Date
     ? never
     : T;
 
+type ModelFields<C, K extends keyof C> = C[K] extends Model<
+    any,
+    infer Fields,
+    any
+>
+    ? Fields
+    : never;
+
 export type WhereObject<Fields extends Dict<ValidValue>> = Partial<
     RemoveNeverValues<{
         [K in keyof Fields]: Fields[K] extends Property<infer Output, any>
@@ -47,7 +55,8 @@ export type WhereObject<Fields extends Dict<ValidValue>> = Partial<
 export type SelectObject<
     All extends string,
     Fields extends Dict<ValidValue>,
-    C extends CollectionObject<All>
+    C extends CollectionObject<All>,
+    Depth extends number
 > = {
     [K in keyof Fields]?: Fields[K] extends Property<any, any>
         ? true
@@ -58,93 +67,59 @@ export type SelectObject<
               | true
               | (To extends Keyof<C>
                     ? C[To] extends Model<any, infer SubFields, any>
-                        ? QueryInput<All, SubFields, C>
+                        ? QueryInput<All, SubFields, C, Depth>
                         : never
                     : never)
         : never;
 };
 
+
+
 export interface QueryInput<
     All extends string,
     Fields extends Dict<ValidValue>,
-    C extends CollectionObject<All>
+    C extends CollectionObject<All>,
+    Depth extends number = RecursionLimit
 > {
     where?: WhereObject<Fields>;
-    select?: SelectObject<All, Fields, C>;
-    include?: SelectObject<All, Fields, C>;
+    select?: SelectObject<All, Fields, C, Depth>;
+    include?: SelectObject<All, Fields, C, Depth>;
 }
 
 export type FindInput<
     All extends string,
-    Struct extends object,
-    C extends CollectionObject<All>
-> = Struct extends Model<any, infer Fields, any>
-    ? QueryInput<All, Fields, C>
-    : never;
+    To extends keyof C,
+    C extends CollectionObject<All>,
+    Depth extends number = RecursionLimit
+> = Depth extends 0
+    ? never
+    : QueryInput<All, ModelFields<C, To>, C, Dec<Depth>>;
 
-type SelectOutput<
+type NormalizeQuery<F> = F extends { select: infer S }
+    ? { mode: "select"; value: S }
+    : F extends { include: infer I }
+    ? { mode: "include"; value: I }
+    : { mode: "none"; value: any };
+
+type _SelectOutput<
     All extends string,
     Select extends Dict<Dict | true>,
     Fields extends Dict<ValidValue>,
-    C extends CollectionObject<All>
-> =
-    | {
-          [K in Keyof<Select>]: Fields[K] extends BaseRelation<infer To, any>
-              ? To extends Keyof<C>
-                  ? C[To] extends Model<any, any, any>
-                      ? If<
-                            Select[K] extends true ? true : false,
-                            RelationOutputStructure<
-                                Fields[K],
-                                RelationlessModelStructure<C[To]>
-                            >,
-                            Select[K] extends FindInput<All, C[To], C>
-                                ? RelationOutputStructure<
-                                      Fields[K],
-                                      FindOutput<All, C[To], C, Select[K]>
-                                  >
-                                : never
-                        >
-                      : never
-                  : never
-              : Fields[K] extends PrimaryKey<any, infer Type>
-              ? Type
-              : Fields[K] extends Property<infer Type, any>
-              ? Type
-              : never;
-      };
-
-type IncludeOutput<
-    All extends string,
-    Include extends Dict<Dict | true>,
-    Fields extends Dict<ValidValue>,
-    C extends CollectionObject<All>
-> = Simplify<{
-    [K in Keyof<Fields>]: Fields[K] extends BaseRelation<infer To, any>
-        ? To extends Keyof<C>
-            ? C[To] extends Model<any, any, any>
-                ? K extends Keyof<Include>
-                    ? Include[K] extends true
-                        ? RelationOutputStructure<
-                              Fields[K],
-                              RelationlessModelStructure<C[To]>
-                          >
-                        : Include[K] extends FindInput<All, C[To], C>
-                        ? MakeRequired<
-                              Fields[K] extends Relation<any, any>
-                                  ? true
-                                  : false,
-                              NoUndefined<
-                                  RelationOutputStructure<
-                                      Fields[K],
-                                      NoUndefined<
-                                          FindOutput<All, C[To], C, Include[K]>
-                                      >
-                                  >
-                              >
-                          >
-                        : unknown
-                    : RelationOutputStructure<Fields[K], RelationValue<To, C>>
+    C extends CollectionObject<All>,
+    Depth extends number
+> = {
+    [K in Keyof<Select>]: Fields[K] extends BaseRelation<infer To, any>
+        ? To extends keyof C
+            ? Select[K] extends true
+                ? RelationOutputStructure<
+                      Fields[K],
+                      RelationlessModelStructure<C[To]>
+                  >
+                : Select[K] extends FindInput<All, To, C, Depth>
+                ? RelationOutputStructure<
+                      Fields[K],
+                      FindOutput<All, To, C, Select[K]>
+                  >
                 : never
             : never
         : Fields[K] extends PrimaryKey<any, infer Type>
@@ -152,21 +127,74 @@ type IncludeOutput<
         : Fields[K] extends Property<infer Type, any>
         ? Type
         : never;
-}>;
+};
+
+type _IncludeOutput<
+    All extends string,
+    Include extends Record<Keys, Dict | true>,
+    Fields extends Dict<ValidValue>,
+    C extends CollectionObject<All>,
+    Depth extends number,
+    Keys extends Keyof<Fields> = Keyof<Fields>
+> = {
+    [K in Keys]: Fields[K] extends BaseRelation<infer To, any>
+        ? To extends keyof C
+            ? Include[K] extends true
+                ? RelationOutputStructure<
+                      Fields[K],
+                      RelationlessModelStructure<C[To]>
+                  >
+                : Include[K] extends FindInput<All, To, C, Depth>
+                ? MakeRequired<
+                      Fields[K] extends Relation<any, any> ? true : false,
+                      NoUndefined<
+                          RelationOutputStructure<
+                              Fields[K],
+                              NoUndefined<FindOutput<All, To, C, Include[K]>>
+                          >
+                      >
+                  >
+                : unknown
+            : RelationOutputStructure<Fields[K], RelationValue<To, C>>
+        : Fields[K] extends PrimaryKey<any, infer Type>
+        ? Type
+        : Fields[K] extends Property<infer Type, any>
+        ? Type
+        : never;
+};
+
+type _OutputFromQuery<
+    Q extends NormalizeQuery<any>,
+    Fields extends Dict<ValidValue>,
+    All extends string,
+    C extends CollectionObject<All>,
+    Depth extends number
+> = Q["mode"] extends "none"
+    ? ModelStructure<Fields, C>
+    : Q["mode"] extends "select"
+    ? _SelectOutput<All, Q["value"], Fields, C, Depth>
+    : Q["mode"] extends "include"
+    ? _IncludeOutput<All, Q["value"], Fields, C, Depth>
+    : never;
 
 export type FindOutput<
     All extends string,
-    Struct extends Model<any, any, any>,
+    Name extends keyof C,
     C extends CollectionObject<All>,
-    F extends FindInput<All, Struct, C>
-> = Struct extends Model<any, infer Fields, any>
+    FIn extends FindInput<All, Name, C>,
+    Depth extends number = RecursionLimit
+> = Depth extends 0
+    ? unknown
+    : C[Name] extends Model<any, infer Fields, any>
     ?
           | Simplify<
-                F["select"] extends Dict<true | Dict>
-                    ? SelectOutput<All, F["select"], Fields, C>
-                    : F["include"] extends Dict<true | Dict>
-                    ? IncludeOutput<All, F["include"], Fields, C>
-                    : ModelStructure<ExtractFields<Struct>, C>
+                _OutputFromQuery<
+                    NormalizeQuery<FIn>,
+                    Fields,
+                    All,
+                    C,
+                    Dec<Depth>
+                >
             >
           | undefined
     : never;

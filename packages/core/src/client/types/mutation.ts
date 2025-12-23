@@ -7,7 +7,7 @@ import type {
     If,
     Or,
     Keyof,
-} from "../../util-types.js";
+} from "../../util-types";
 import type {
     BaseRelation,
     Property,
@@ -15,7 +15,7 @@ import type {
     PrimaryKey,
     ArrayRelation,
 } from "../../field";
-import { WhereObject } from "./find.js";
+import { WhereObject } from "./find";
 import {
     Model,
     FindRelationKey,
@@ -56,34 +56,36 @@ type _UpdateRelationMutation<
     OmitKeys extends string,
     IsOptional extends boolean = Extends<Relation, OptionalRelation<any, any>>,
     IsArray extends boolean = Extends<Relation, ArrayRelation<any, any>>,
-    IsNullable extends boolean = Or<IsOptional, IsArray>
+    IsNullable extends boolean = Or<IsOptional, IsArray>,
+    Value = RelationValue<To, C>,
+    Dest extends C[To] = C[To]
 > = MakeOptional<
     IsNullable,
     | MakeArrayable<
           IsArray,
           | {
-                $connect: RelationValue<To, C>;
+                $connect: Value;
             }
           | {
                 $create: Omit<
-                    AddMutation<To, All, C[To], C>,
-                    OmitKeys | FindRelationKey<This, Name, C[To]>
+                    AddMutation<To, All, Dest, C>,
+                    OmitKeys | FindRelationKey<This, Name, Dest>
                 >;
             }
           | {
                 $update: If<
                     IsArray,
-                    UpdateMutation<To, All, C[To], C, OmitKeys | ThisKey>,
-                    Omit<UpdateMutation<To, All, C[To], C>["data"], OmitKeys>
+                    UpdateMutation<To, All, Dest, C, OmitKeys | ThisKey>,
+                    Omit<UpdateMutation<To, All, Dest, C>["data"], OmitKeys>
                 >;
             }
           | If<
                 IsNullable,
                 | {
-                      $delete: If<IsArray, RelationValue<To, C>, true>;
+                      $delete: If<IsArray, Value, true>;
                   }
                 | {
-                      $disconnect: If<IsArray, RelationValue<To, C>, true>;
+                      $disconnect: If<IsArray, Value, true>;
                   },
                 never
             >
@@ -91,31 +93,31 @@ type _UpdateRelationMutation<
     | If<
           IsArray,
           | {
-                $connectMany: RelationValue<To, C>[];
+                $connectMany: Value[];
             }
           | {
                 $createMany: Omit<
-                    AddMutation<To, All, C[To], C>,
-                    OmitKeys | FindRelationKey<This, Name, C[To]>
+                    AddMutation<To, All, Dest, C>,
+                    OmitKeys | FindRelationKey<This, Name, Dest>
                 >[];
             }
           | {
                 $updateMany: UpdateMutation<
                     To,
                     All,
-                    C[To],
+                    Dest,
                     C,
                     OmitKeys | ThisKey
                 >[];
             }
           | {
-                $deleteMany: RelationValue<To, C>[];
+                $deleteMany: Value[];
             }
           | {
                 $deleteAll: true;
             }
           | {
-                $disconnectMany: RelationValue<To, C>[];
+                $disconnectMany: Value[];
             }
           | {
                 $disconnectAll: true;
@@ -165,6 +167,44 @@ export type UpdateMutation<
     >;
 };
 
+type AddMutationRelation<
+    This extends All,
+    All extends string,
+    C extends CollectionObject<All>,
+    To extends All,
+    RelationName extends string,
+    Relation extends BaseRelation<any, any>,
+    IsArray extends boolean = Extends<Relation, ArrayRelation<any, any>>,
+    Value = RelationValue<To, C>
+> = MakeOptional<
+    Or<IsArray, Extends<Relation, OptionalRelation<any, any>>>,
+    | MakeArrayable<
+          IsArray,
+          | {
+                $connect: Value;
+            }
+          | {
+                $create: Omit<
+                    AddMutation<To, All, C[To], C>,
+                    FindRelationKey<This, RelationName, C[To]>
+                >;
+            }
+      >
+    | If<
+          IsArray,
+          | {
+                $connectMany: Value[];
+            }
+          | {
+                $createMany: Omit<
+                    AddMutation<To, All, C[To], C>,
+                    FindRelationKey<This, RelationName, C[To]>
+                >[];
+            },
+          never
+      >
+>;
+
 export type AddMutation<
     This extends All,
     All extends string,
@@ -187,54 +227,13 @@ export type AddMutation<
                           : Type
                       : Fields[K] extends BaseRelation<infer To, infer Name>
                       ? To extends All
-                          ? MakeOptional<
-                                Fields[K] extends OptionalRelation<any, any>
-                                    ? true
-                                    : Fields[K] extends ArrayRelation<any, any>
-                                    ? true
-                                    : false,
-                                | MakeArrayable<
-                                      Fields[K] extends ArrayRelation<any, any>
-                                          ? true
-                                          : false,
-                                      | {
-                                            $connect: RelationValue<To, C>;
-                                        }
-                                      | {
-                                            $create: Omit<
-                                                AddMutation<To, All, C[To], C>,
-                                                FindRelationKey<
-                                                    This,
-                                                    Name,
-                                                    C[To]
-                                                >
-                                            >;
-                                        }
-                                  >
-                                | (Fields[K] extends ArrayRelation<any, any>
-                                      ?
-                                            | {
-                                                  $connectMany: RelationValue<
-                                                      To,
-                                                      C
-                                                  >[];
-                                              }
-                                            | {
-                                                  $createMany: Omit<
-                                                      AddMutation<
-                                                          To,
-                                                          All,
-                                                          C[To],
-                                                          C
-                                                      >,
-                                                      FindRelationKey<
-                                                          This,
-                                                          Name,
-                                                          C[To]
-                                                      >
-                                                  >[];
-                                              }
-                                      : never)
+                          ? AddMutationRelation<
+                                This,
+                                All,
+                                C,
+                                To,
+                                Name,
+                                Fields[K]
                             >
                           : never
                       : never;

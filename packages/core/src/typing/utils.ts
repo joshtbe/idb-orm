@@ -10,6 +10,7 @@ import {
     UnionTag,
 } from "./tag";
 import { ParseResult } from "../field";
+import { DeserializationError, SerializationError } from "../error";
 
 export function typeToString(type: TypeTag): string {
     switch (type.tag) {
@@ -61,8 +62,6 @@ export function typeToString(type: TypeTag): string {
     }
 }
 
-// TODO: Add "Serialization" error
-
 /**
  * Serialize's a type into JSON
  * @param type Type
@@ -73,7 +72,7 @@ export async function serializeType<T extends TypeTag>(
     value: TagToType<T>
 ): Promise<unknown> {
     if (!isType(type, value)) {
-        throw new Error(
+        throw new SerializationError(
             `Value not of the proper type, expected type '${typeToString(
                 type
             )}', received '${JSON.stringify(value)}'`
@@ -130,10 +129,10 @@ export async function serializeType<T extends TypeTag>(
                     // Pass
                 }
             }
-            throw new Error("Value union could not be serialized");
+            throw new SerializationError("Value union could not be serialized");
         case Tag.file: {
             if (!((value as unknown) instanceof File)) {
-                throw new Error("Value is not a valid file");
+                throw new SerializationError("Value is not a valid file");
             }
 
             return {
@@ -157,7 +156,9 @@ export async function serializeType<T extends TypeTag>(
                     curType.tag !== Tag.default &&
                     curType.tag !== Tag.void
                 ) {
-                    throw new Error(`Required property '${propKey}' not found`);
+                    throw new SerializationError(
+                        `Required property '${propKey}' not found`
+                    );
                 }
                 result[propKey] = await serializeType(
                     curType,
@@ -182,8 +183,6 @@ export async function serializeType<T extends TypeTag>(
     }
 }
 
-// TODO: Add "Deserialization" error
-
 /**
  * Convert a value from it's JSON serialized version to it's Javascript representation
  * @param type Type to parse the value as
@@ -199,54 +198,54 @@ export async function deserializeType<T extends TypeTag, R = TagToType<T>>(
             return undefined as R;
         case Tag.literal:
             if (value !== type.value) {
-                throw new Error(
+                throw new DeserializationError(
                     `'${value}' is not equal to literal '${value}'`
                 );
             }
             return value as R;
         case Tag.boolean:
             if (typeof value !== "boolean") {
-                throw new Error(`'${value}' is not a boolean`);
+                throw new DeserializationError(`'${value}' is not a boolean`);
             }
             return value as R;
         case Tag.int:
             if (typeof value !== "number" || !Number.isInteger(value)) {
-                throw new Error(`'${value}' is not an integer`);
+                throw new DeserializationError(`'${value}' is not an integer`);
             }
             return value as R;
         case Tag.float:
             if (typeof value !== "number" || isNaN(value)) {
-                throw new Error(`'${value}' is not a float`);
+                throw new DeserializationError(`'${value}' is not a float`);
             }
             return value as R;
         case Tag.number:
             if (typeof value !== "number" || isNaN(value)) {
-                throw new Error(`'${value}' is not a number`);
+                throw new DeserializationError(`'${value}' is not a number`);
             }
             return value as R;
         case Tag.bigint:
             if (typeof value !== "number" || isNaN(value)) {
-                throw new Error(`'${value}' is not a bigint`);
+                throw new DeserializationError(`'${value}' is not a bigint`);
             }
             return BigInt(value) as R;
         case Tag.string:
             if (typeof value !== "string") {
-                throw new Error(`'${value}' is not a string`);
+                throw new DeserializationError(`'${value}' is not a string`);
             }
             return value as R;
         case Tag.symbol:
             if (typeof value !== "string") {
-                throw new Error(`'${value}' is not a symbol`);
+                throw new DeserializationError(`'${value}' is not a symbol`);
             }
             return Symbol.for(value) as R;
         case Tag.date:
             if (typeof value !== "number" || isNaN(value)) {
-                throw new Error(`'${value}' is not a date timestamp`);
+                throw new DeserializationError(`'${value}' is not a date timestamp`);
             }
             return new Date(value) as R;
         case Tag.tuple: {
             if (!Array.isArray(value)) {
-                throw new Error(`'${value}' is not an array`);
+                throw new DeserializationError(`'${value}' is not an array`);
             }
             const result: unknown[] = [];
             for (let i = 0; i < value.length; i++) {
@@ -256,7 +255,7 @@ export async function deserializeType<T extends TypeTag, R = TagToType<T>>(
         }
         case Tag.array: {
             if (!Array.isArray(value)) {
-                throw new Error(`'${value}' is not an array`);
+                throw new DeserializationError(`'${value}' is not an array`);
             }
             const promises: Promise<unknown>[] = [];
             for (const item of value) {
@@ -266,7 +265,7 @@ export async function deserializeType<T extends TypeTag, R = TagToType<T>>(
         }
         case Tag.set: {
             if (!Array.isArray(value)) {
-                throw new Error(`'${value}' is not an array`);
+                throw new DeserializationError(`'${value}' is not an array`);
             }
             const promises: Promise<unknown>[] = [];
             for (const item of value) {
@@ -289,7 +288,7 @@ export async function deserializeType<T extends TypeTag, R = TagToType<T>>(
                     // Pass
                 }
             }
-            throw new Error("Value did not match the union");
+            throw new DeserializationError("Value did not match the union");
         }
         case Tag.file: {
             if (
@@ -302,7 +301,7 @@ export async function deserializeType<T extends TypeTag, R = TagToType<T>>(
                 typeof value.name !== "string" ||
                 typeof value.type !== "string"
             ) {
-                throw new Error("Value is not a valid file schema");
+                throw new DeserializationError("Value is not a valid file schema");
             }
 
             const byteCharacters = Buffer.from(
@@ -327,17 +326,17 @@ export async function deserializeType<T extends TypeTag, R = TagToType<T>>(
                     return JSON.parse(String(value)) as R;
                 }
             } else {
-                throw new Error("Value is not valid");
+                throw new DeserializationError("Value is not valid");
             }
         case Tag.object: {
             if (!value || typeof value !== "object") {
-                throw new Error("Value is not an object");
+                throw new DeserializationError("Value is not an object");
             }
             const result: Dict = {};
             for (const propKey in type.props) {
                 const curType = type.props[propKey];
                 if (!(propKey in value) && curType.tag !== Tag.optional) {
-                    throw new Error(`Required property '${propKey}' not found`);
+                    throw new DeserializationError(`Required property '${propKey}' not found`);
                 }
                 result[propKey] = await deserializeType(
                     curType,

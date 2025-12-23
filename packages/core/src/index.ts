@@ -11,6 +11,8 @@ export { CompiledQuery } from "./client/compiled-query.js";
 export { Model } from "./model";
 export type { ModelType } from "./model";
 
+export * as Typing from './typing';
+
 // Export all the dev types/functions here
 import * as core from "./core.js";
 export { core };

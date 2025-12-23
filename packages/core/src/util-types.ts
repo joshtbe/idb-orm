@@ -80,3 +80,11 @@ export type SinglularKey<T extends Record<string, any>> = {
 }[keyof T];
 
 export type Ctor<T> = new (...args: any[]) => T;
+
+
+/**
+ * If you go over this limit, refactor you application buddy
+ */
+export type RecursionLimit = 10;
+export type PrevDepth = [never, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+export type Dec<D extends number> = PrevDepth[D] extends number ? PrevDepth[D] : never;
