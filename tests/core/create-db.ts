@@ -124,7 +124,8 @@ export function coreTests(createFn: any, imports: Record<string, string> = {}) {
                     components: ["V"],
                     range: "120 feet",
                 });
-                return await stores.spells.find({ where: { level: 0 } });
+                const x = await stores.spells.find({ where: { level: 0 } });
+                return x;
             });
             expect(result).toBeInstanceOf(Array);
             expect(result.length === 1).toBeTruthy();

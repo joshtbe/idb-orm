@@ -9,36 +9,38 @@ import {
 } from "@tanstack/react-query";
 import React from "react";
 
-type QueryOptions<O> = Omit<
-    UndefinedInitialDataOptions<O>,
-    "queryFn" | "queryKey"
->;
+interface QueryOptions<O>
+    extends Omit<UndefinedInitialDataOptions<O>, "queryFn" | "queryKey"> {}
 
 // TODO: Add support for mutations
 interface ModelQueryInterface<
-    M extends Model<any, any, any>,
+    Name extends Names,
     Names extends string,
     Models extends core.CollectionObject<Names>
 > {
     /**
      * Query instance on a particular primary key. This query will acquire **only** the given document and no related documents.
      */
-    useGet: M extends Model<any, infer Fields, any>
+    useGet: Models[Name] extends Model<any, infer Fields, any>
         ? <O = core.Simplify<core.ModelStructure<Fields, Models>>>(
-              primaryKey: { key: core.PrimaryKeyType<M> } & QueryOptions<O>,
+              primaryKey: {
+                  key: core.PrimaryKeyType<Models[Name]>;
+              } & QueryOptions<O>,
               deps?: React.DependencyList
           ) => DefinedUseQueryResult<O | undefined>
         : never;
     useFind: <
-        I extends core.FindInput<Names, M, Models>,
-        O = core.Simplify<NonNullable<core.FindOutput<Names, M, Models, I>>>[]
+        I extends core.FindInput<Names, Name, Models>,
+        O = core.Simplify<
+            NonNullable<core.FindOutput<Names, Name, Models, I>>
+        >[]
     >(
         options: QueryOptions<O> & { query: I },
         deps?: React.DependencyList
     ) => DefinedUseQueryResult<O | undefined>;
     useFindFirst: <
-        I extends core.FindInput<Names, M, Models>,
-        O = core.Simplify<core.FindOutput<Names, M, Models, I>>
+        I extends core.FindInput<Names, Name, Models>,
+        O = core.Simplify<core.FindOutput<Names, Name, Models, I>>
     >(
         options: QueryOptions<O> & { query: I },
         deps?: React.DependencyList
@@ -163,8 +165,10 @@ class IDBQueryClient<
                         queryKey: [store, "get", options.key, ...deps],
                         queryFn: () =>
                             // I don't feel like sacrificing runtime to fix these type/linter errors
-                            // eslint-disable-next-line
-                            stores[store].get(options.key as any) as any,
+                            /*  eslint-disable */
+                            // @ts-ignore
+                            stores[store].get(options.key) as any,
+                        /*  eslint-enable */
                     });
                 },
             } as IDBQueryInterface<Names, Models>[Names];
@@ -172,7 +176,14 @@ class IDBQueryClient<
 
         return {
             ...result,
-            useClient: () => React.useContext(context),
+            useClient: () => {
+                const ctx = React.useContext(context);
+                if (!ctx)
+                    throw new Error(
+                        "Query Context Not Found. Make sure you wrap your application in the <Provider/> Component."
+                    );
+                return ctx;
+            },
         };
     }
 }
@@ -183,5 +194,5 @@ export type IDBQueryInterface<
 > = {
     useClient(): IDBClientInterface<Names, Models>;
 } & {
-    [K in Names]: ModelQueryInterface<Models[K], Names, Models>;
+    [K in Names]: ModelQueryInterface<K, Names, Models>;
 };

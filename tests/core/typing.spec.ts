@@ -24,7 +24,7 @@ test.describe("Type-wrapper Tests", () => {
 
     test("isType()", async () => {
         const result = await session.evaluate(async ({ pkg }) => {
-            const { isType, Type } = pkg.core.Typing;
+            const { isType, Type } = pkg.core;
             if (!isType(Type.Number(), 400)) return "Value is a number";
             if (isType(Type.Number(), "")) return "Value is not a number";
 
@@ -52,7 +52,7 @@ test.describe("Type-wrapper Tests", () => {
             if (isType(Type.BigInt(), 400)) return "Value is not a bigint";
 
             if (!isType(Type.Date(), new Date())) return "Value is a date";
-            if (isType(Type.Date(), 300)) return "Value is not a bigint";
+            if (isType(Type.Date(), 300)) return "Value is not a date";
 
             if (!isType(Type.Unknown(), new Date())) return "Value is unknown";
             if (!isType(Type.Unknown(), 300)) return "Value is unknown";
@@ -228,7 +228,7 @@ test.describe("Type-wrapper Tests", () => {
 
     test("isSubtype()", async () => {
         const result = await session.evaluate(async ({ pkg }) => {
-            const { isSubtype, Type, typeToString } = pkg.core.Typing;
+            const { isSubtype, Type, typeToString } = pkg.core;
 
             function err(base: string, test: string, not: boolean = false) {
                 return `${test} should${
