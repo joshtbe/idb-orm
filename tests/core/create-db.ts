@@ -89,7 +89,11 @@ export const createDb = async ({ pkg }: Packages) => {
 };
 
 // Core Tests
-export function coreTests(createFn: any, imports: Record<string, string> = {}) {
+export function coreTests(
+    createFn: any,
+    imports: Record<string, string> = {},
+    download: boolean = false
+) {
     test.describe("Multi Stage Test", () => {
         test.describe.configure({ mode: "serial" });
 
@@ -496,80 +500,82 @@ export function coreTests(createFn: any, imports: Record<string, string> = {}) {
             expect(result?.spells).toHaveLength(1);
         });
 
-        test("Dump Database to JSON", async ({}, info) => {
-            const downloadPromise = page.waitForEvent("download");
-            const result = await session.evaluate(async ({ client }) => {
-                const dump = await client.dump("json");
-                const file = dump.toFile();
-                const a = document.createElement("a");
-                a.download = file.name;
-                a.href = window.URL.createObjectURL(file);
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                window.URL.revokeObjectURL(a.href);
-            });
-
-            const download = await downloadPromise;
-            await download.saveAs(download.suggestedFilename());
-        });
-
-        test("Dump Store to JSON", async ({}, info) => {
-            const downloadPromise = page.waitForEvent("download");
-            const result = await session.evaluate(async ({ client }) => {
-                const dump = await client.stores.spells.dump("json", {
-                    level: (l) => l > 1,
+        if (download) {
+            test("Dump Database to JSON", async ({}, info) => {
+                const downloadPromise = page.waitForEvent("download");
+                const result = await session.evaluate(async ({ client }) => {
+                    const dump = await client.dump("json");
+                    const file = dump.toFile();
+                    const a = document.createElement("a");
+                    a.download = file.name;
+                    a.href = window.URL.createObjectURL(file);
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(a.href);
                 });
-                const file = dump.toFile();
-                const a = document.createElement("a");
-                a.download = file.name;
-                a.href = window.URL.createObjectURL(file);
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                window.URL.revokeObjectURL(a.href);
+
+                const download = await downloadPromise;
+                await download.saveAs(download.suggestedFilename());
             });
 
-            const download = await downloadPromise;
-            await download.saveAs(download.suggestedFilename());
-        });
-
-        test("Dump Database to CSV", async ({}, info) => {
-            const downloadPromise = page.waitForEvent("download");
-            const result = await session.evaluate(async ({ client }) => {
-                const dump = await client.dump("csv");
-                const file = dump.toFile();
-                const a = document.createElement("a");
-                a.download = file.name;
-                a.href = window.URL.createObjectURL(file);
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                window.URL.revokeObjectURL(a.href);
-            });
-
-            const download = await downloadPromise;
-            await download.saveAs(download.suggestedFilename());
-        });
-
-        test("Dump Store to CSV", async ({}, info) => {
-            const downloadPromise = page.waitForEvent("download");
-            const result = await session.evaluate(async ({ client }) => {
-                const dump = await client.stores.spells.dump("csv", {
-                    level: (l) => l > 1,
+            test("Dump Store to JSON", async ({}, info) => {
+                const downloadPromise = page.waitForEvent("download");
+                const result = await session.evaluate(async ({ client }) => {
+                    const dump = await client.stores.spells.dump("json", {
+                        level: (l) => l > 1,
+                    });
+                    const file = dump.toFile();
+                    const a = document.createElement("a");
+                    a.download = file.name;
+                    a.href = window.URL.createObjectURL(file);
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(a.href);
                 });
-                const file = dump.toFile();
-                const a = document.createElement("a");
-                a.download = file.name;
-                a.href = window.URL.createObjectURL(file);
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                window.URL.revokeObjectURL(a.href);
+
+                const download = await downloadPromise;
+                await download.saveAs(download.suggestedFilename());
             });
 
-            const download = await downloadPromise;
-            await download.saveAs(download.suggestedFilename());
-        });
+            test("Dump Database to CSV", async ({}, info) => {
+                const downloadPromise = page.waitForEvent("download");
+                const result = await session.evaluate(async ({ client }) => {
+                    const dump = await client.dump("csv");
+                    const file = dump.toFile();
+                    const a = document.createElement("a");
+                    a.download = file.name;
+                    a.href = window.URL.createObjectURL(file);
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(a.href);
+                });
+
+                const download = await downloadPromise;
+                await download.saveAs(download.suggestedFilename());
+            });
+
+            test("Dump Store to CSV", async ({}, info) => {
+                const downloadPromise = page.waitForEvent("download");
+                const result = await session.evaluate(async ({ client }) => {
+                    const dump = await client.stores.spells.dump("csv", {
+                        level: (l) => l > 1,
+                    });
+                    const file = dump.toFile();
+                    const a = document.createElement("a");
+                    a.download = file.name;
+                    a.href = window.URL.createObjectURL(file);
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(a.href);
+                });
+
+                const download = await downloadPromise;
+                await download.saveAs(download.suggestedFilename());
+            });
+        }
     });
 }

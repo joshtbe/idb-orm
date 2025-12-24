@@ -74,7 +74,7 @@ export default class Model<
 
     defineKeyGen(
         genFn: (
-            model: RelationlessModelStructure<this>
+            model: Omit<RelationlessModelStructure<this>, Primary>
         ) => GetPrimaryKeyType<F[Primary]>
     ) {
         this.getPrimaryKey().generator(genFn as GenFunction<ValidKey>);
