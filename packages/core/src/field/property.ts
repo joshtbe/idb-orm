@@ -42,7 +42,10 @@ export class Property<Value, HasDefault extends boolean> {
     protected hasDefault: HasDefault = false as HasDefault;
     protected options: PropertyOptions;
 
-    constructor(public type: TypeTag, options?: PropertyInputOptions) {
+    constructor(
+        public type: TypeTag,
+        options?: PropertyInputOptions,
+    ) {
         this.options = {
             unique: options?.unique ?? false,
         };
@@ -74,33 +77,33 @@ export class Property<Value, HasDefault extends boolean> {
 
     static relation<To extends string, const Name extends string = never>(
         to: To,
-        options?: RelationOptions<Name, ReferenceActions>
+        options?: RelationOptions<Name, ReferenceActions>,
     ) {
         return new Relation<To, Name>(to, options);
     }
 
     static primaryKey<V extends StringValidKeyType = "number">(
-        type: V = "number" as V
+        type: V = "number" as V,
     ): PrimaryKey<false, FunctionMatch<V>> {
         return new PrimaryKey<false, FunctionMatch<V>>(
-            this.nameToType(type) as ValidKeyType
+            this.nameToType(type) as ValidKeyType,
         );
     }
 
     public static nameToType(typeName: string): TypeTag {
         switch (typeName) {
             case "boolean":
-                return Type.Boolean();
+                return Type.boolean();
             case "bigint":
-                return Type.BigInt();
+                return Type.bigint();
             case "number":
-                return Type.Number();
+                return Type.number();
             case "string":
-                return Type.String();
+                return Type.string();
             case "symbol":
-                return Type.Symbol();
+                return Type.symbol();
             default:
-                return Type.Unknown();
+                return Type.unknown();
         }
     }
 
@@ -110,89 +113,89 @@ export class Property<Value, HasDefault extends boolean> {
 
     array(): Property<Value[], false> {
         return new Property<Value[], false>(
-            Type.Array(this.type),
-            this.options
+            Type.array(this.type),
+            this.options,
         );
     }
 
     default(
-        defaultValue: NoUndefined<Value> | (() => NoUndefined<Value>)
+        defaultValue: NoUndefined<Value> | (() => NoUndefined<Value>),
     ): Property<NoUndefined<Value>, true> {
         this.hasDefault = true as HasDefault;
         return new Property(
-            Type.Default(this.type, defaultValue),
-            this.options
+            Type.default(this.type, defaultValue),
+            this.options,
         );
     }
 
     optional(): Property<Value | undefined, false> {
-        return new Property(Type.Optional(this.type), this.options);
+        return new Property(Type.optional(this.type), this.options);
     }
 
     static array<T>(
         item: Property<T, boolean>,
-        options?: PropertyInputOptions
+        options?: PropertyInputOptions,
     ): Property<T[], false> {
-        return new Property(Type.Array(item.type), options);
+        return new Property(Type.array(item.type), options);
     }
 
     static boolean(options?: PropertyInputOptions): Property<boolean, false> {
-        return new Property(Type.Boolean(), options);
+        return new Property(Type.boolean(), options);
     }
 
     static custom<T>(
         fn: ParseFn<T>,
-        options?: CustomPropertyOptions<T>
+        options?: CustomPropertyOptions<T>,
     ): Property<T, false> {
         return new Property(
-            Type.Custom<T>({
+            Type.custom<T>({
                 isType: ((test) => fn(test).success) as (
-                    test: unknown
+                    test: unknown,
                 ) => test is T,
                 serialize: options?.serialize,
                 deserialize: options?.deserialize,
             }),
-            options
+            options,
         );
     }
 
     static date(options?: PropertyInputOptions): Property<Date, false> {
-        return new Property(Type.Date(), options);
+        return new Property(Type.date(), options);
     }
 
     static file(options?: PropertyInputOptions): Property<File, false> {
-        return new Property(Type.File(), options);
+        return new Property(Type.file(), options);
     }
 
     static literal<const V extends Literable>(
         value: V,
-        options?: PropertyInputOptions
+        options?: PropertyInputOptions,
     ): Property<V, false> {
-        return new Property(Type.Literal<V>(value), options);
+        return new Property(Type.literal<V>(value), options);
     }
 
     static number(options?: PropertyInputOptions): Property<number, false> {
-        return new Property(Type.Number(), options);
+        return new Property(Type.number(), options);
     }
 
     static string(options?: PropertyInputOptions): Property<string, false> {
-        return new Property(Type.String(), options);
+        return new Property(Type.string(), options);
     }
 
     static set<T>(
         item: Property<T, boolean>,
-        options?: PropertyInputOptions
+        options?: PropertyInputOptions,
     ): Property<Set<T>, false> {
-        return new Property(Type.Set(item.type), options);
+        return new Property(Type.set(item.type), options);
     }
 
     static union<const T extends readonly Property<any, boolean>[]>(
         items: T,
-        options?: PropertyInputOptions
+        options?: PropertyInputOptions,
     ): Property<PropertyUnion<T>, false> {
         return new Property<PropertyUnion<T>, false>(
-            Type.Union(items.map((i) => i.type)),
-            options
+            Type.union(items.map((i) => i.type)),
+            options,
         );
     }
 

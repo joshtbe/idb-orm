@@ -69,13 +69,13 @@ export function typeToString(type: TypeTag): string {
  */
 export async function serializeType<T extends TypeTag>(
     type: T,
-    value: TagToType<T>
+    value: TagToType<T>,
 ): Promise<unknown> {
     if (!isType(type, value)) {
         throw new SerializationError(
             `Value not of the proper type, expected type '${typeToString(
-                type
-            )}', received '${JSON.stringify(value)}'`
+                type,
+            )}', received '${JSON.stringify(value)}'`,
         );
     }
 
@@ -157,12 +157,12 @@ export async function serializeType<T extends TypeTag>(
                     curType.tag !== Tag.void
                 ) {
                     throw new SerializationError(
-                        `Required property '${propKey}' not found`
+                        `Required property '${propKey}' not found`,
                     );
                 }
                 result[propKey] = await serializeType(
                     curType,
-                    (value as Dict)[propKey]
+                    (value as Dict)[propKey],
                 );
             }
 
@@ -175,11 +175,21 @@ export async function serializeType<T extends TypeTag>(
                     ? typeof type.value === "function"
                         ? (type.value as () => unknown)()
                         : type.value
-                    : value
+                    : value,
             );
         case Tag.custom:
-            if (type.serialize) return await type.serialize(value);
-            else return JSON.stringify(value);
+            if (type.serialize) {
+                switch (typeof type.serialize) {
+                    case "object":
+                        return await serializeType(type.serialize, value);
+                    case "function":
+                        return await type.serialize(value);
+                    default:
+                        throw new SerializationError(
+                            `Unknown Type Serialize argument '${JSON.stringify(type.serialize)}'`,
+                        );
+                }
+            } else return JSON.stringify(value);
     }
 }
 
@@ -191,7 +201,7 @@ export async function serializeType<T extends TypeTag>(
  */
 export async function deserializeType<T extends TypeTag, R = TagToType<T>>(
     type: T,
-    value: unknown
+    value: unknown,
 ): Promise<R> {
     switch (type.tag) {
         case Tag.void:
@@ -199,7 +209,7 @@ export async function deserializeType<T extends TypeTag, R = TagToType<T>>(
         case Tag.literal:
             if (value !== type.value) {
                 throw new DeserializationError(
-                    `'${value}' is not equal to literal '${value}'`
+                    `'${value}' is not equal to literal '${value}'`,
                 );
             }
             return value as R;
@@ -240,7 +250,9 @@ export async function deserializeType<T extends TypeTag, R = TagToType<T>>(
             return Symbol.for(value) as R;
         case Tag.date:
             if (typeof value !== "number" || isNaN(value)) {
-                throw new DeserializationError(`'${value}' is not a date timestamp`);
+                throw new DeserializationError(
+                    `'${value}' is not a date timestamp`,
+                );
             }
             return new Date(value) as R;
         case Tag.tuple: {
@@ -301,12 +313,14 @@ export async function deserializeType<T extends TypeTag, R = TagToType<T>>(
                 typeof value.name !== "string" ||
                 typeof value.type !== "string"
             ) {
-                throw new DeserializationError("Value is not a valid file schema");
+                throw new DeserializationError(
+                    "Value is not a valid file schema",
+                );
             }
 
             const byteCharacters = Buffer.from(
                 value.data.replace(/^data:.+;base64,/, ""),
-                "base64"
+                "base64",
             );
 
             return new File([byteCharacters], value.name, {
@@ -321,7 +335,19 @@ export async function deserializeType<T extends TypeTag, R = TagToType<T>>(
         case Tag.custom:
             if (type.isType(value)) {
                 if (type.deserialize) {
-                    return (await type.deserialize(value)) as R;
+                    switch (typeof type.deserialize) {
+                        case "object":
+                            return await deserializeType(
+                                type.deserialize,
+                                value,
+                            );
+                        case "function":
+                            return (await type.deserialize(value)) as R;
+                        default:
+                            throw new DeserializationError(
+                                `Unknown Type Deserialize argument '${JSON.stringify(type.deserialize)}'`,
+                            );
+                    }
                 } else {
                     return JSON.parse(String(value)) as R;
                 }
@@ -336,11 +362,13 @@ export async function deserializeType<T extends TypeTag, R = TagToType<T>>(
             for (const propKey in type.props) {
                 const curType = type.props[propKey];
                 if (!(propKey in value) && curType.tag !== Tag.optional) {
-                    throw new DeserializationError(`Required property '${propKey}' not found`);
+                    throw new DeserializationError(
+                        `Required property '${propKey}' not found`,
+                    );
                 }
                 result[propKey] = await deserializeType(
                     curType,
-                    (value as Dict)[propKey]
+                    (value as Dict)[propKey],
                 );
             }
 
@@ -489,7 +517,7 @@ export function isSubtype(base: TypeTag, test: TypeTag): boolean {
 
 export function isType<T extends TypeTag>(
     type: T,
-    value: unknown
+    value: unknown,
 ): value is TagToType<T> {
     switch (type.tag) {
         case Tag.void:
@@ -541,7 +569,7 @@ export function isType<T extends TypeTag>(
                 return false;
             }
             return Object.keys(type.props).every((key) =>
-                isType(type.props[key], (value as Dict)[key])
+                isType(type.props[key], (value as Dict)[key]),
             );
         case Tag.custom:
             return type.isType(value);
@@ -550,7 +578,7 @@ export function isType<T extends TypeTag>(
 
 export function parseType<T extends TypeTag>(
     type: T,
-    value: unknown
+    value: unknown,
 ): ParseResult<TagToType<T>> {
     type Ret = TagToType<T>;
     if (isType(type, value)) {

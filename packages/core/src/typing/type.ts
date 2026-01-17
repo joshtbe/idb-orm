@@ -39,120 +39,120 @@ interface TypeCache {
     [Tag.unknown]: UnknownTag;
 }
 
-const cache: TypeCache = {} as TypeCache;
+export class Type {
+    private static readonly cache: TypeCache = {} as TypeCache;
 
-/**
- * Gets a type from the primitive type cache, creating it if it doesn't exist
- * @param tag Primitive tag to acquire a type for
- * @returns Proper typetag
- */
-export function getType<K extends keyof TypeCache>(tag: K): TypeCache[K] {
-    const v = cache[tag];
-    if (!v) {
-        return (cache[tag] = { tag } as TypeCache[K]);
+    /**
+     * Gets a type from the primitive type cache, creating it if it doesn't exist
+     * @param tag Primitive tag to acquire a type for
+     * @returns Proper typetag
+     */
+    static getType<K extends keyof TypeCache>(tag: K): TypeCache[K] {
+        const v = this.cache[tag];
+        if (!v) {
+            return (this.cache[tag] = { tag } as TypeCache[K]);
+        }
+        return v;
     }
-    return v;
-}
 
-export function String() {
-    return getType(Tag.string);
-}
-export function Number() {
-    return getType(Tag.number);
-}
-export function Boolean() {
-    return getType(Tag.boolean);
-}
-export function BigInt() {
-    return getType(Tag.bigint);
-}
-export function Symbol() {
-    return getType(Tag.symbol);
-}
-export function Int() {
-    return getType(Tag.int);
-}
-export function Float() {
-    return getType(Tag.float);
-}
+    static string() {
+        return this.getType(Tag.string);
+    }
+    static number() {
+        return this.getType(Tag.number);
+    }
+    static boolean() {
+        return this.getType(Tag.boolean);
+    }
+    static bigint() {
+        return this.getType(Tag.bigint);
+    }
+    static symbol() {
+        return this.getType(Tag.symbol);
+    }
+    static int() {
+        return this.getType(Tag.int);
+    }
+    static float() {
+        return this.getType(Tag.float);
+    }
 
-export function Void() {
-    return getType(Tag.void);
-}
-export function File() {
-    return getType(Tag.file);
-}
-export function Date() {
-    return getType(Tag.date);
-}
-export function Unknown() {
-    return getType(Tag.unknown);
-}
+    static void() {
+        return this.getType(Tag.void);
+    }
+    static file() {
+        return this.getType(Tag.file);
+    }
+    static date() {
+        return this.getType(Tag.date);
+    }
+    static unknown() {
+        return this.getType(Tag.unknown);
+    }
 
-export function Literal<const V extends Literable>(value: V): LiteralTag<V> {
-    return {
-        tag: Tag.literal,
-        value,
-    };
-}
+    static literal<const V extends Literable>(value: V): LiteralTag<V> {
+        return {
+            tag: Tag.literal,
+            value,
+        };
+    }
 
-export function Array<V extends TypeTag>(element: V): ArrayTag<V> {
-    return {
-        tag: Tag.array,
-        of: element,
-    };
-}
+    static array<V extends TypeTag>(element: V): ArrayTag<V> {
+        return {
+            tag: Tag.array,
+            of: element,
+        };
+    }
 
-export function Default<V extends TypeTag>(
-    of: V,
-    value: TagToType<V>
-): DefaultTag<V> {
-    return {
-        tag: Tag.default,
-        of,
-        value: value,
-    };
-}
+    static default<V extends TypeTag>(
+        of: V,
+        value: TagToType<V>,
+    ): DefaultTag<V> {
+        return {
+            tag: Tag.default,
+            of,
+            value: value,
+        };
+    }
 
-export function Set<V extends TypeTag>(element: V): SetTag<V> {
-    return {
-        tag: Tag.set,
-        of: element,
-    };
-}
+    static set<V extends TypeTag>(element: V): SetTag<V> {
+        return {
+            tag: Tag.set,
+            of: element,
+        };
+    }
 
-export function Union<const V extends TypeTag[]>(types: V): UnionTag<V> {
-    return {
-        tag: Tag.union,
-        options: types,
-    };
-}
+    static union<const V extends TypeTag[]>(types: V): UnionTag<V> {
+        return {
+            tag: Tag.union,
+            options: types,
+        };
+    }
 
-export function Optional<V extends TypeTag>(type: V): OptionalTag<V> {
-    return {
-        tag: Tag.optional,
-        of: type,
-    };
-}
+    static optional<V extends TypeTag>(type: V): OptionalTag<V> {
+        return {
+            tag: Tag.optional,
+            of: type,
+        };
+    }
 
-export function Object<R extends Record<string, TypeTag>>(
-    props: R
-): ObjectTag<R> {
-    return {
-        tag: Tag.object,
-        props,
-    };
-}
+    static object<R extends Record<string, TypeTag>>(props: R): ObjectTag<R> {
+        return {
+            tag: Tag.object,
+            props,
+        };
+    }
 
-export function Tuple<const V extends TypeTag[]>(types: V): TupleTag<V> {
-    return {
-        tag: Tag.tuple,
-        elements: types,
-    };
-}
-export function Custom<V>(opts: Omit<CustomTag<V>, "tag">): CustomTag<V> {
-    return {
-        tag: Tag.custom,
-        ...opts,
-    };
+    static tuple<const V extends TypeTag[]>(types: V): TupleTag<V> {
+        return {
+            tag: Tag.tuple,
+            elements: types,
+        };
+    }
+    static custom<V>(opts: Omit<CustomTag<V>, "tag">): CustomTag<V> {
+        return {
+            tag: Tag.custom,
+            ...opts,
+        };
+    }
 }

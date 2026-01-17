@@ -69,7 +69,7 @@ export type PartialOnUndefined<T extends Dict> = Required<T> & Optional<T>;
 /**
  * Types that can be resolved to specific boolean values
  */
-export type BooleanLike = boolean | undefined | null | 0;
+export type BooleanLike = boolean | undefined | null | 0 | "";
 
 export type Literable = string | number | bigint | boolean | null | undefined;
 

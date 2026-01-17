@@ -19,22 +19,25 @@ import { InvalidConfigError } from "./error";
 
 export class Builder<Name extends string, Names extends string> {
     private models: Record<Names, Model<Names, Dict<ValidValue>>>;
-    constructor(public readonly name: Name, public readonly names: Names[]) {
+    constructor(
+        public readonly name: Name,
+        public readonly names: Names[],
+    ) {
         this.models = {} as any;
     }
 
     defineModel<N extends Names, T extends Dict<ValidValue<Names>>>(
-        model: Model<N, T, FindPrimaryKey<T>>
+        model: Model<N, T, FindPrimaryKey<T>>,
     ): Model<N, T, FindPrimaryKey<T>>;
 
     defineModel<N extends Names, T extends Dict<ValidValue<Names>>>(
         name: N,
-        values: T
+        values: T,
     ): Model<N, T, FindPrimaryKey<T>>;
 
     defineModel<N extends Names, T extends Dict<ValidValue<Names>>>(
         nameOrModel: N | Model<N, T, FindPrimaryKey<T>>,
-        values?: T
+        values?: T,
     ): Model<N, T, FindPrimaryKey<T>> {
         if (typeof nameOrModel === "object" && Model.is<N, T>(nameOrModel)) {
             this.models[nameOrModel.name] = nameOrModel as any;
@@ -55,11 +58,14 @@ export class Builder<Name extends string, Names extends string> {
 export class CompiledDb<
     Name extends string,
     Names extends string,
-    C extends CollectionObject<Names>
+    C extends CollectionObject<Names>,
 > {
     public readonly schemas: CollectionSchema<C>;
     private readonly modelKeys: Names[];
-    constructor(public readonly name: Name, private readonly models: C) {
+    constructor(
+        public readonly name: Name,
+        private readonly models: C,
+    ) {
         this.modelKeys = getKeys<Record<Names, unknown>>(this.models);
         this.schemas = {} as CollectionSchema<C>;
         for (const key of this.modelKeys) {
@@ -74,9 +80,9 @@ export class CompiledDb<
                     const linkedPrimary = linked.getPrimaryKey();
                     schema[fieldKey] = linkedPrimary.type;
                     if (field.isOptional) {
-                        schema[fieldKey] = Type.Optional(schema[fieldKey]);
+                        schema[fieldKey] = Type.optional(schema[fieldKey]);
                     } else if (field.isArray) {
-                        schema[fieldKey] = Type.Array(schema[fieldKey]);
+                        schema[fieldKey] = Type.array(schema[fieldKey]);
                     }
 
                     let hasRelation = !!field.getRelatedKey();
@@ -95,7 +101,7 @@ export class CompiledDb<
                                     !element.isNullable()
                                 ) {
                                     throw new InvalidConfigError(
-                                        `Key '${otherKey}' on model '${linked.name}': Non-optional relation cannot have the 'SetNull' action`
+                                        `Key '${otherKey}' on model '${linked.name}': Non-optional relation cannot have the 'SetNull' action`,
                                     );
                                 }
                                 break;
@@ -105,13 +111,13 @@ export class CompiledDb<
 
                     if (!hasRelation)
                         throw new InvalidConfigError(
-                            `Relation '${field.name}' of model ${key} does not have an equivalent relation on model '${field.to}'`
+                            `Relation '${field.name}' of model ${key} does not have an equivalent relation on model '${field.to}'`,
                         );
                 } else if (PrimaryKey.is(field)) {
                     schema[fieldKey] = field.type;
                 } else {
                     throw new InvalidConfigError(
-                        `Unknown field value detected: ${JSON.stringify(field)}`
+                        `Unknown field value detected: ${JSON.stringify(field)}`,
                     );
                 }
             }

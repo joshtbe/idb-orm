@@ -6,7 +6,7 @@ import { Tag, Type } from "../typing";
 const PRIMARY_KEY_SYMBOL = Symbol.for("primaryKey");
 export default class PrimaryKey<
     AutoGenerate extends boolean,
-    KeyType extends ValidKey
+    KeyType extends ValidKey,
 > {
     readonly symbol = PRIMARY_KEY_SYMBOL;
     private genFn?: GenFunction<KeyType>;
@@ -19,11 +19,11 @@ export default class PrimaryKey<
 
     constructor(
         type?: ValidKeyType | void,
-        generator?: GenFunction<KeyType> | void
+        generator?: GenFunction<KeyType> | void,
     ) {
         if (!type) {
             this.autoGenerate = false as AutoGenerate;
-            this.type = Type.Number();
+            this.type = Type.number();
         } else {
             if (type.tag > Tag.date) {
                 throw new InvalidConfigError("Invalid Primary Key Type");
@@ -55,7 +55,7 @@ export default class PrimaryKey<
             return this as PrimaryKey<true, number>;
         }
         throw new InvalidConfigError(
-            "Primary key must be a number to use autoIncrement()"
+            "Primary key must be a number to use autoIncrement()",
         );
     }
 
@@ -63,11 +63,11 @@ export default class PrimaryKey<
         if (!window.isSecureContext) {
             throw new Error("Window is not in a secure context");
         }
-        return new PrimaryKey<true, string>(Type.String(), uuid);
+        return new PrimaryKey<true, string>(Type.string(), uuid);
     }
 
     date() {
-        return new PrimaryKey<true, Date>(Type.Date(), getDate);
+        return new PrimaryKey<true, Date>(Type.date(), getDate);
     }
 
     genKey(...args: unknown[]) {
@@ -105,9 +105,9 @@ export default class PrimaryKey<
         }
     }
 
-    static readonly validKeyTag = Type.Union([
-        Type.String(),
-        Type.Number(),
-        Type.Date(),
+    static readonly validKeyTag = Type.union([
+        Type.string(),
+        Type.number(),
+        Type.date(),
     ]);
 }

@@ -91,7 +91,7 @@ export const createDb = async ({ pkg }: Packages) => {
 export function coreTests(
     createFn: any,
     imports: Record<string, string> = {},
-    download: boolean = false
+    download: boolean = false,
 ) {
     test.describe("Multi Stage Test", () => {
         test.describe.configure({ mode: "serial" });
@@ -179,7 +179,7 @@ export function coreTests(
             for (const item of result.subclasses) {
                 if (typeof item !== "object") {
                     throw new Error(
-                        "Item is not an object, it is a " + typeof item
+                        "Item is not an object, it is a " + typeof item,
                     );
                 }
             }
@@ -261,7 +261,7 @@ export function coreTests(
             for (const item of result.subclasses) {
                 if (typeof item !== "object") {
                     throw new Error(
-                        "Item is not an object, it is a " + typeof item
+                        "Item is not an object, it is a " + typeof item,
                     );
                 }
             }
@@ -297,7 +297,7 @@ export function coreTests(
                 (item) =>
                     typeof item === "object" &&
                     Object.keys(item || {}).length === 5,
-                "Value is not a valid spell object"
+                "Value is not a valid spell object",
             );
         });
 
@@ -317,7 +317,7 @@ export function coreTests(
             });
             if (result instanceof Error) {
                 expect(result.message).toContain(
-                    "(INVALID_ITEM) Key 'name' has the following validation error:"
+                    "(INVALID_ITEM) Key 'name' has the following validation error:",
                 );
             } else {
                 throw new Error("result is not an error");
@@ -340,7 +340,7 @@ export function coreTests(
             });
             if (result instanceof Error) {
                 expect(result.message).toBe(
-                    "(NOT_FOUND) Document with Primary Key '0' could not be found in model 'classes'"
+                    "(NOT_FOUND) Document with Primary Key '0' could not be found in model 'classes'",
                 );
             } else {
                 throw new Error("result is not an error");
@@ -373,7 +373,7 @@ export function coreTests(
             });
             if (result instanceof Error) {
                 expect(result.message).toContain(
-                    "(INVALID_ITEM) Key 'description' has the following validation error:"
+                    "(INVALID_ITEM) Key 'description' has the following validation error:",
                 );
             } else {
                 throw new Error("result is not an error");
@@ -409,7 +409,7 @@ export function coreTests(
             });
             if (result instanceof Error) {
                 expect(result.message).toContain(
-                    "(NOT_FOUND) Document with Primary Key '0' could not be found in model 'spellLists'"
+                    "(NOT_FOUND) Document with Primary Key '0' could not be found in model 'spellLists'",
                 );
             } else {
                 throw new Error("result is not an error");
@@ -504,7 +504,7 @@ export function coreTests(
                 const downloadPromise = page.waitForEvent("download");
                 const result = await session.evaluate(async ({ client }) => {
                     const dump = await client.dump("json");
-                    const file = dump.toFile();
+                    const file = dump.tofile();
                     const a = document.createElement("a");
                     a.download = file.name;
                     a.href = window.URL.createObjectURL(file);
@@ -524,7 +524,7 @@ export function coreTests(
                     const dump = await client.stores.spells.dump("json", {
                         level: (l) => l > 1,
                     });
-                    const file = dump.toFile();
+                    const file = dump.tofile();
                     const a = document.createElement("a");
                     a.download = file.name;
                     a.href = window.URL.createObjectURL(file);
@@ -542,7 +542,7 @@ export function coreTests(
                 const downloadPromise = page.waitForEvent("download");
                 const result = await session.evaluate(async ({ client }) => {
                     const dump = await client.dump("csv");
-                    const file = dump.toFile();
+                    const file = dump.tofile();
                     const a = document.createElement("a");
                     a.download = file.name;
                     a.href = window.URL.createObjectURL(file);
@@ -562,7 +562,7 @@ export function coreTests(
                     const dump = await client.stores.spells.dump("csv", {
                         level: (l) => l > 1,
                     });
-                    const file = dump.toFile();
+                    const file = dump.tofile();
                     const a = document.createElement("a");
                     a.download = file.name;
                     a.href = window.URL.createObjectURL(file);

@@ -8,17 +8,14 @@ import {
     ParseResult,
     ValidKey,
     parseType,
-    GetPrimaryKeyType,
-    GenFunction,
 } from "../field";
-import { Dict, Keyof, Simplify } from "../util-types";
+import { Dict, Keyof } from "../util-types";
 import { getKeys, unionSets } from "../utils.js";
 import { StoreError } from "../error.js";
 import {
     FindPrimaryKey,
     ModelCache,
     CollectionObject,
-    RelationlessModelStructure,
 } from "./model-types";
 
 const MODEL_SYMBOL = Symbol.for("model");
@@ -70,28 +67,6 @@ export default class Model<
 
     getPrimaryKey() {
         return this.fields[this.primaryKey] as PrimaryKey<boolean, ValidKey>;
-    }
-
-    /**
-     * Define a new primary key generator for this model. This will replace the current key generator with the new one. The output types must still be the same.
-     *
-     * The advantage of defining the key generator here is that you will gain access to the pre-inserted document for key creation based on the document content.
-     * @param genFn Generator function that returns the primary string value. Takes as its first argument the document before it is inserted.
-     * @returns A priamry key value
-     */
-    defineKeyGen(
-        genFn: (
-            model: Simplify<Omit<RelationlessModelStructure<this>, Primary>>
-        ) => GetPrimaryKeyType<F[Primary]>
-    ) {
-        type Result = {
-            [K in Keyof<F>]: F[K] extends PrimaryKey<any, infer Type>
-                ? PrimaryKey<true, Type>
-                : F[K];
-        };
-
-        this.getPrimaryKey().generator(genFn as GenFunction<ValidKey>);
-        return this as unknown as Model<Name, Result, FindPrimaryKey<Result>>;
     }
 
     getRelation<Models extends string>(

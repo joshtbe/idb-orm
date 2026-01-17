@@ -111,8 +111,8 @@ export interface CustomTag<V = any, PR = any> {
     tag: Tag.custom;
     isType: (test: unknown) => boolean;
     parse?: (test: unknown) => PR;
-    serialize?: (value: V) => Promisable<unknown>;
-    deserialize?: (value: unknown) => Promisable<V>;
+    serialize?: ((value: V) => Promisable<unknown>) | TypeTag;
+    deserialize?: ((value: unknown) => Promisable<V>) | TypeTag;
 }
 
 type Dec = [0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];

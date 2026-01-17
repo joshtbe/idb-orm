@@ -10,7 +10,7 @@ type Keyof<T> = Extract<keyof T, string>;
  */
 export async function populatePage<P extends Record<string, any>>(
     page: Page,
-    vars: Record<keyof P, string | EvalFn<P, any>>
+    vars: Record<keyof P, string | EvalFn<P, any>>,
 ) {
     await page.goto("http://localhost:4173/");
     const manager = new ContextSession<P>(page, vars);
@@ -24,7 +24,7 @@ function getFn(fn: Function) {
 
 export type EvalFn<
     Types extends Record<string, any>,
-    This extends keyof Types
+    This extends keyof Types,
 > = (args: Omit<Types, This>) => Promise<any>;
 
 export class ContextSession<Types extends Record<string, any>> {
@@ -32,7 +32,7 @@ export class ContextSession<Types extends Record<string, any>> {
         private page: Page,
         private variables: {
             [K in keyof Types]: string | EvalFn<Types, K>;
-        }
+        },
     ) {}
 
     async populate() {
@@ -64,10 +64,10 @@ export class ContextSession<Types extends Record<string, any>> {
     }
 
     async evaluate<Result>(
-        fn: (args: Types) => Promise<Result>
+        fn: (args: Types) => Promise<Result>,
     ): Promise<Result> {
         return await this.page.evaluate(
-            `(async () => await (${fn.toString()})(window.vars))();`
+            `(async () => await (${fn.toString()})(window.vars))();`,
         );
     }
 }
@@ -75,14 +75,18 @@ export class ContextSession<Types extends Record<string, any>> {
 export function expectEach(
     value: unknown,
     fn: (item: unknown) => boolean,
-    message?: string
+    message?: string,
 ) {
     if (!Array.isArray(value)) {
         throw new Error("Value is not an array");
     } else {
         for (const element of value) {
             if (!fn(element)) {
-                throw new Error(message ? `${JSON.stringify(element)}: ${message}` : "Element expectation failed");
+                throw new Error(
+                    message
+                        ? `${JSON.stringify(element)}: ${message}`
+                        : "Element expectation failed",
+                );
             }
         }
     }

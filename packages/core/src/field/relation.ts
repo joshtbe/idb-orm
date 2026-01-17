@@ -36,7 +36,7 @@ export class BaseRelation<To extends string, Name extends string = never> {
          * If the relation is an array or not
          */
         public readonly isArray: boolean = false,
-        onDelete?: OptionalActions
+        onDelete?: OptionalActions,
     ) {
         this.relatedKey = "";
         this.actions = {
@@ -67,7 +67,7 @@ export class BaseRelation<To extends string, Name extends string = never> {
         return this.relatedKey;
     }
 
-    toString() {
+    tostring() {
         return `${
             this.isArray ? "Array" : this.isOptional ? "Optional" : "Standard"
         } relation from this model to model '${this.to}' on key '${
@@ -90,11 +90,11 @@ export class BaseRelation<To extends string, Name extends string = never> {
 
 export class Relation<
     To extends string,
-    const Name extends string
+    const Name extends string,
 > extends BaseRelation<To, Name> {
     private static readonly R_SYMBOL = Symbol.for("relation");
     readonly symbol = Relation.R_SYMBOL;
-    private declare readonly _brand: "relation";
+    declare private readonly _brand: "relation";
 
     constructor(to: To, options: RelationOptions<Name, ReferenceActions> = {}) {
         super(to, options.name, false, false, options.onDelete);
@@ -134,11 +134,11 @@ export class Relation<
 
 export class ArrayRelation<
     To extends string,
-    Name extends string
+    Name extends string,
 > extends BaseRelation<To, Name> {
     private static readonly A_SYMBOL = Symbol.for("arrayRelation");
     readonly symbol = ArrayRelation.A_SYMBOL;
-    private declare readonly _brand: "ArrayRelation";
+    declare private readonly _brand: "ArrayRelation";
 
     constructor(to: To, name?: Name, action: OptionalActions = "None") {
         super(to, name, false, true, action);
@@ -150,11 +150,11 @@ export class ArrayRelation<
 }
 export class OptionalRelation<
     To extends string,
-    Name extends string
+    Name extends string,
 > extends BaseRelation<To, Name> {
     private static readonly O_SYMBOL = Symbol.for("optionalRelation");
     readonly symbol = OptionalRelation.O_SYMBOL;
-    private declare readonly _brand: "optionalRelation";
+    declare private readonly _brand: "optionalRelation";
 
     constructor(to: To, name?: Name, action: OptionalActions = "None") {
         super(to, name, true, false, action);

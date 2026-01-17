@@ -34,7 +34,7 @@ function dirty(text: string): string {
 const REF_REGEX = /^\/([^/]+)\/(.+)$/;
 
 function extractReference<T extends string = string>(
-    ref: string
+    ref: string,
 ): { store: T; key: string } {
     if (typeof ref !== "string")
         throw new ImportError(`Expected reference string, received: '${ref}'`);
@@ -77,7 +77,7 @@ type GenerateKeyMapParams<N extends string> =
  * @returns A mapping from stores to primary keys in the given file of that store
  */
 function _generateKeyMap<Names extends string>(
-    options: GenerateKeyMapParams<Names>
+    options: GenerateKeyMapParams<Names>,
 ) {
     if (typeof options.data !== "object") {
         throw new ImportError("Expected an object type for the initial data");
@@ -97,7 +97,7 @@ function _generateKeyMap<Names extends string>(
 
         if (typeof data !== "object") {
             throw new ImportError(
-                `Expected an object of documents on key '${store}'`
+                `Expected an object of documents on key '${store}'`,
             );
         }
 
@@ -119,13 +119,13 @@ async function verifyRelation<Names extends string>(
     fieldKey: string,
     primaryKey: ValidKey,
     primaryKeys: Map<Names, Set<ValidKey>>,
-    tx: Transaction<"readwrite", Names>
+    tx: Transaction<"readwrite", Names>,
 ): Promise<ValidKey> {
     const ref = extractReference<Names>(refString);
     const refModel = db.getModel(ref.store);
     const keyValue = await deserializeType(
         refModel.getPrimaryKey().type,
-        tryNumberCoerce(ref.key)
+        tryNumberCoerce(ref.key),
     );
 
     if (primaryKeys.get(ref.store)?.has(keyValue)) {
@@ -144,7 +144,7 @@ async function verifyRelation<Names extends string>(
 
     if (!getResult) {
         throw new DocumentNotFoundError(
-            `${path}.${fieldKey}: Related document with key '${ref.key}' in store '${ref.store}' does not exist`
+            `${path}.${fieldKey}: Related document with key '${ref.key}' in store '${ref.store}' does not exist`,
         );
     }
     const relatedKey = field.getRelatedKey();
@@ -156,10 +156,10 @@ async function verifyRelation<Names extends string>(
     } else if (relatedRelation.isArray) {
         if (
             !Array.isArray(relatedField) ||
-            !isType(Type.Array(PrimaryKey.validKeyTag), relatedField)
+            !isType(Type.array(PrimaryKey.validKeyTag), relatedField)
         )
             throw new InvalidItemError(
-                `${refModel.name}.${ref.key}.${relatedKey}: Value should be an array of valid keys.`
+                `${refModel.name}.${ref.key}.${relatedKey}: Value should be an array of valid keys.`,
             );
         if (!validKeyIncludes(relatedField, primaryKey)) {
             relatedField.push(primaryKey);
@@ -167,14 +167,14 @@ async function verifyRelation<Names extends string>(
     } else {
         if (!isType(PrimaryKey.validKeyTag, relatedField)) {
             throw new InvalidItemError(
-                `${refModel.name}.${ref.key}.${relatedKey}: Value should be a string | number | Date.`
+                `${refModel.name}.${ref.key}.${relatedKey}: Value should be a string | number | Date.`,
             );
         }
 
         // If the singular relation is defined (which it is if we're here) ensure that it is pointing to this document
         if (!PrimaryKey.compareKeyValue(relatedField, primaryKey)) {
             throw new OverwriteRelationError(
-                `${path}.${fieldKey}: Related document with key '${ref.key}' in store '${ref.store}' already has an existing relation with a different document.`
+                `${path}.${fieldKey}: Related document with key '${ref.key}' in store '${ref.store}' already has an existing relation with a different document.`,
             );
         }
     }
@@ -192,13 +192,13 @@ async function verifyRelation<Names extends string>(
  */
 export async function pushStoreData<
     Current extends Names,
-    Names extends string
+    Names extends string,
 >(
     db: DbClient<string, Names, CollectionObject<Names>>,
     store: Current,
     data: Dict,
     primaryKeys: Map<Names, Set<ValidKey>>,
-    tx?: Transaction<"readwrite", Names>
+    tx?: Transaction<"readwrite", Names>,
 ) {
     tx = Transaction.create(db.getDb(), [store], "readwrite", tx);
     const model = db.getModel(store);
@@ -206,7 +206,7 @@ export async function pushStoreData<
     // Type checks
     if (typeof data !== "object") {
         throw new ImportError(
-            `Data object of store '${store}' is not an object`
+            `Data object of store '${store}' is not an object`,
         );
     }
 
@@ -218,7 +218,7 @@ export async function pushStoreData<
         const document = data[key] as Dict;
         if (typeof document !== "object")
             throw new ImportError(
-                `Document with key '${key}' on store '${store}' was not an object`
+                `Document with key '${key}' on store '${store}' was not an object`,
             );
 
         const resultDoc: Dict = {};
@@ -226,7 +226,7 @@ export async function pushStoreData<
         // Deserialize the primary key first (for use determining relations)
         const primaryKey = (resultDoc[model.primaryKey] = await deserializeType(
             model.getPrimaryKey().type,
-            document[model.primaryKey]
+            document[model.primaryKey],
         ));
 
         // Loop through the model's keys and parse the document
@@ -234,7 +234,7 @@ export async function pushStoreData<
             if (Property.is(field)) {
                 resultDoc[fieldkey] = await deserializeType(
                     field.type,
-                    document[fieldkey]
+                    document[fieldkey],
                 );
                 continue;
             } else if (PrimaryKey.is(field)) {
@@ -249,7 +249,7 @@ export async function pushStoreData<
                 const relations = document[fieldkey] as string[];
                 if (!Array.isArray(relations)) {
                     throw new ImportError(
-                        `Document with key '${key}' on store '${store}': Field '${fieldkey}' should be an array of references`
+                        `Document with key '${key}' on store '${store}': Field '${fieldkey}' should be an array of references`,
                     );
                 }
 
@@ -264,8 +264,8 @@ export async function pushStoreData<
                             fieldkey,
                             primaryKey,
                             primaryKeys,
-                            tx
-                        )
+                            tx,
+                        ),
                     );
                 }
 
@@ -281,7 +281,7 @@ export async function pushStoreData<
                     fieldkey,
                     primaryKey,
                     primaryKeys,
-                    tx
+                    tx,
                 );
             }
         }
