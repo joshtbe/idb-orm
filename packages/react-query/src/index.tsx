@@ -13,6 +13,7 @@ interface QueryOptions<O>
     extends Omit<UndefinedInitialDataOptions<O>, "queryFn" | "queryKey"> {}
 
 // TODO: Add support for mutations
+// TODO: Add custom endpoints
 interface ModelQueryInterface<
     Name extends Names,
     Names extends string,

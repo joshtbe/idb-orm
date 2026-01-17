@@ -243,6 +243,7 @@ export class DbClient<
                           : relation.id,
                   }
                 : {};
+
             const initAdd: Dict = primaryKey.isAutoIncremented()
                 ? {
                       ...relationAdd,

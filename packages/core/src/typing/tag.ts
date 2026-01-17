@@ -1,4 +1,4 @@
-import {MaybeGenerator, Promisable } from "../util-types";
+import { MaybeGenerator, Promisable } from "../util-types";
 
 export const enum Tag {
     /* Valid primary keys */
@@ -115,8 +115,7 @@ export interface CustomTag<V = any, PR = any> {
     deserialize?: (value: unknown) => Promisable<V>;
 }
 
-
-type Dec = [0,0,1,2,3,4,5,6,7,8,9,10];
+type Dec = [0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
 export type TypeTag =
     | VoidTag
@@ -140,7 +139,6 @@ export type TypeTag =
     | CustomTag
     | DefaultTag;
 
-
 export type TagToType<
     T extends TypeTag,
     Depth extends number = 5
@@ -148,7 +146,7 @@ export type TagToType<
     ? any
     : T extends StringTag
     ? string
-    : T extends NumberTag
+    : T extends NumberTag | IntTag | FloatTag
     ? number
     : T extends BooleanTag
     ? boolean

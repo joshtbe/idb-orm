@@ -183,6 +183,7 @@ _To be continued..._
 -   [ ] Restore database to different formats
     -   [ ] JSON
     -   [ ] CSV
+-   [ ] Change array relations to internally use sets
 -   [ ] Add extra object syntax to "where" clause (i.e. `in`/`ne`/`gt`/...)
 -   [ ] Allow object types in where clauses
 -   [ ] Make subpackages for adapters for different validation languages

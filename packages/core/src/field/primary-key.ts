@@ -70,16 +70,15 @@ export default class PrimaryKey<
         return new PrimaryKey<true, Date>(Type.Date(), getDate);
     }
 
-    genKey() {
-        if (this.genFn) return this.genFn();
+    genKey(...args: unknown[]) {
+        if (this.genFn) return this.genFn(...args);
         throw new Error("Generator function not defined");
     }
 
     /**
      * If the internal objectStore "autoIncrement" utility is being used
-     * @returns
      */
-    isAutoIncremented() {
+    isAutoIncremented(): boolean {
         return this.autoGenerate && !this.genFn;
     }
 
