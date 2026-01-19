@@ -7,17 +7,29 @@ import {
     UndefinedInitialDataOptions,
     QueryClientConfig,
 } from "@tanstack/react-query";
-import React from "react";
+import React, {
+    Context,
+    createContext,
+    PropsWithChildren,
+    ReactNode,
+    useContext,
+    useEffect,
+    useState,
+} from "react";
+import { ClientProviderProps } from "@idb-orm/react";
 
-interface QueryOptions<O>
-    extends Omit<UndefinedInitialDataOptions<O>, "queryFn" | "queryKey"> {}
+export interface QueryOptions<O> extends Omit<
+    UndefinedInitialDataOptions<O>,
+    "queryFn" | "queryKey"
+> {}
 
+// TODO: Use Object.assign to assign query functions to OG client object.
 // TODO: Add support for mutations
 // TODO: Add custom endpoints
-interface ModelQueryInterface<
+export interface ModelQueryInterface<
     Name extends Names,
     Names extends string,
-    Models extends core.CollectionObject<Names>
+    Models extends core.CollectionObject<Names>,
 > {
     /**
      * Query instance on a particular primary key. This query will acquire **only** the given document and no related documents.
@@ -27,35 +39,35 @@ interface ModelQueryInterface<
               primaryKey: {
                   key: core.PrimaryKeyType<Models[Name]>;
               } & QueryOptions<O>,
-              deps?: React.DependencyList
+              deps?: React.DependencyList,
           ) => DefinedUseQueryResult<O | undefined>
         : never;
     useFind: <
         I extends core.FindInput<Names, Name, Models>,
         O = core.Simplify<
             NonNullable<core.FindOutput<Names, Name, Models, I>>
-        >[]
+        >[],
     >(
         options: QueryOptions<O> & { query: I },
-        deps?: React.DependencyList
+        deps?: React.DependencyList,
     ) => DefinedUseQueryResult<O | undefined>;
     useFindFirst: <
         I extends core.FindInput<Names, Name, Models>,
-        O = core.Simplify<core.FindOutput<Names, Name, Models, I>>
+        O = core.Simplify<core.FindOutput<Names, Name, Models, I>>,
     >(
         options: QueryOptions<O> & { query: I },
-        deps?: React.DependencyList
+        deps?: React.DependencyList,
     ) => DefinedUseQueryResult<O | undefined>;
 }
 
-interface ModelQueryClient {
+export interface ModelQueryClient {
     // TODO: Include more member functions
     invalidate(): Promise<void>;
 }
 
 type IDBClientInterface<
     Names extends string,
-    _Models extends core.CollectionObject<Names>
+    _Models extends core.CollectionObject<Names>,
 > = core.Simplify<
     {
         [K in Names]: {
@@ -66,94 +78,175 @@ type IDBClientInterface<
     } & ModelQueryClient
 >;
 
-export function createIDBQueryClient<
-    Names extends string,
-    Models extends core.CollectionObject<Names>
->(client: core.DbClient<string, Names, Models>, config?: QueryClientConfig) {
-    type C = IDBClientInterface<Names, Models>;
-    const idbClient = new IDBQueryClient(client, config);
-    const context = React.createContext<C>({} as C);
+export interface UseQueryClientReturn<
+    Name extends string,
+    ModelNames extends string,
+    Models extends core.CollectionObject<ModelNames>,
+> {
+    client: core.DbClient<Name, ModelNames, Models>;
+    queryClient: IDBQueryClient<ModelNames, Models>;
+    stores: IDBClientInterface<ModelNames, Models>;
+}
+
+export interface QueryClientProviderFactoryReturn<
+    Name extends string,
+    ModelNames extends string,
+    Models extends core.CollectionObject<ModelNames>,
+> {
+    Context: Context<UseQueryClientReturn<Name, ModelNames, Models> | null>;
+    useDbClient: () => core.DbClient<Name, ModelNames, Models>;
+    useQueryClient: () => IDBQueryClient<ModelNames, Models>;
+    useQueryInterface: () => IDBClientInterface<ModelNames, Models>;
+    useIDBQuery: () => UseQueryClientReturn<Name, ModelNames, Models>;
+    DbClientProvider: (
+        props: PropsWithChildren<ClientProviderProps>,
+    ) => ReactNode;
+}
+
+const ctxMissingMsg =
+    "Query Client Context not found. Please ensure this component is wrapped in a <DbClientProvider /> component.";
+
+export function queryClientProviderFactory<
+    Name extends string,
+    ModelNames extends string,
+    Models extends core.CollectionObject<ModelNames>,
+>(
+    db: core.CompiledDb<Name, ModelNames, Models>,
+    config?: QueryClientConfig,
+): QueryClientProviderFactoryReturn<Name, ModelNames, Models> {
+    const Context = createContext<UseQueryClientReturn<
+        Name,
+        ModelNames,
+        Models
+    > | null>(null);
+    type I = IDBClientInterface<ModelNames, Models>;
 
     return {
-        queryClient: idbClient,
-        context,
-        Provider: ({
-            client,
-            children,
-        }: React.PropsWithChildren<{
-            client: IDBQueryClient<Names, Models>;
-        }>) => {
-            const clientInterfaces = React.useMemo<C>(() => {
-                function makeModelQueryClient(
-                    path: readonly string[]
-                ): ModelQueryClient {
-                    return {
-                        invalidate: () =>
-                            client.invalidateQueries({
-                                queryKey: path,
-                            }),
-                    };
-                }
+        Context,
+        useDbClient: () => {
+            const ctx = useContext(Context);
+            if (!ctx) {
+                throw new Error(ctxMissingMsg);
+            }
+            return ctx.client;
+        },
+        useQueryClient: () => {
+            const ctx = useContext(Context);
+            if (!ctx) {
+                throw new Error(ctxMissingMsg);
+            }
+            return ctx.queryClient;
+        },
+        useQueryInterface: () => {
+            const ctx = useContext(Context);
+            if (!ctx) {
+                throw new Error(ctxMissingMsg);
+            }
+            return ctx.stores;
+        },
+        useIDBQuery: () => {
+            const ctx = useContext(Context);
+            if (!ctx) {
+                throw new Error(ctxMissingMsg);
+            }
+            return ctx;
+        },
+        DbClientProvider: ({ fallback, children, version }): ReactNode => {
+            const [providerValues, setProviderValues] =
+                useState<UseQueryClientReturn<Name, ModelNames, Models> | null>(
+                    null,
+                );
 
-                const result: C = makeModelQueryClient([]) as C;
-                const stores = client.db.getStoreNames();
+            useEffect(() => {
+                db.createClientAsync(version)
+                    .then((cli) => {
+                        const qClient = new IDBQueryClient(cli, config);
 
-                for (const name of stores) {
-                    if (name === "invalidate") {
-                        console.warn(
-                            "Model name 'invalidate' causes the invalidate() function of useClient() to not work. Please fix by renaming the model."
+                        function makeModelQueryClient(
+                            path: readonly string[],
+                        ): ModelQueryClient {
+                            return {
+                                invalidate: () =>
+                                    qClient.invalidateQueries({
+                                        queryKey: path,
+                                    }),
+                            };
+                        }
+
+                        const interfaces = makeModelQueryClient([]) as I;
+                        const stores = qClient.db.getStoreNames();
+
+                        for (const name of stores) {
+                            if (name === "invalidate") {
+                                console.warn(
+                                    "Model name 'invalidate' causes the invalidate() function of useClient() to not work. Please fix by renaming the model.",
+                                );
+                            }
+                            interfaces[name] = {
+                                ...makeModelQueryClient([name]),
+                                get: makeModelQueryClient([name, "get"]),
+                                find: makeModelQueryClient([name, "find"]),
+                                findFirst: makeModelQueryClient([
+                                    name,
+                                    "findFirst",
+                                ]),
+                            } as I[ModelNames];
+                        }
+
+                        setProviderValues({
+                            client: cli,
+                            queryClient: qClient,
+                            stores: interfaces,
+                        });
+                    })
+                    .catch((err) => {
+                        throw new Error(
+                            `@idb-orm Query Client Creation Failed: ${err}`,
                         );
-                    }
-                    result[name] = {
-                        ...makeModelQueryClient([name]),
-                        get: makeModelQueryClient([name, "get"]),
-                        find: makeModelQueryClient([name, "find"]),
-                        findFirst: makeModelQueryClient([name, "findFirst"]),
-                    } as C[Names];
-                }
+                    });
+                return;
+            }, [version]);
 
-                return result;
-            }, [client]);
+            if (!providerValues) return fallback as ReactNode;
 
             return (
-                <QueryClientProvider client={client}>
-                    <context.Provider value={clientInterfaces}>
+                <QueryClientProvider client={providerValues.queryClient}>
+                    <Context.Provider value={providerValues}>
                         {children}
-                    </context.Provider>
+                    </Context.Provider>
                 </QueryClientProvider>
             );
         },
-        stores: idbClient.createInterface(context),
     };
 }
 
-class IDBQueryClient<
+export class IDBQueryClient<
     Names extends string,
-    Models extends core.CollectionObject<Names>
+    Models extends core.CollectionObject<Names>,
 > extends QueryClient {
     constructor(
         public readonly db: core.DbClient<string, Names, Models>,
-        config?: QueryClientConfig
+        config?: QueryClientConfig,
     ) {
         super(config);
     }
 
     createInterface(
-        context: React.Context<IDBClientInterface<Names, Models>>
+        context: React.Context<IDBClientInterface<Names, Models>>,
     ): IDBQueryInterface<Names, Models> {
         const result = {} as IDBQueryInterface<Names, Models>;
         const storeNames = this.db.getStoreNames();
         const stores = this.db.stores;
         for (const store of storeNames) {
             result[store] = {
-                useFind(options, deps = []) {
+                useFind: (options, deps = []) => {
                     return useQuery({
                         ...(options as {}),
                         queryKey: [store, "find", options.query, ...deps],
                         queryFn: () => stores[store].find(options.query),
                     });
                 },
-                useFindFirst(options, deps = []) {
+                useFindFirst: (options, deps = []) => {
                     return useQuery({
                         ...(options as {}),
                         queryKey: [store, "findFirst", options.query, ...deps],
@@ -181,7 +274,7 @@ class IDBQueryClient<
                 const ctx = React.useContext(context);
                 if (!ctx)
                     throw new Error(
-                        "Query Context Not Found. Make sure you wrap your application in the <Provider/> Component."
+                        "Query Context Not Found. Make sure you wrap your application in the <Provider/> Component.",
                     );
                 return ctx;
             },
@@ -191,7 +284,7 @@ class IDBQueryClient<
 
 export type IDBQueryInterface<
     Names extends string,
-    Models extends core.CollectionObject<Names>
+    Models extends core.CollectionObject<Names>,
 > = {
     useClient(): IDBClientInterface<Names, Models>;
 } & {

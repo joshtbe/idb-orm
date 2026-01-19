@@ -14,6 +14,11 @@ export default defineConfig(
             "@typescript-eslint/no-unsafe-assignment": "off",
             "@typescript-eslint/no-unsafe-member-access": "off",
             "@typescript-eslint/restrict-template-expressions": "off",
+            "@typescript-eslint/no-unsafe-function-type": "off",
+            "@typescript-eslint/no-unsafe-call": "off",
+            "@typescript-eslint/no-unsafe-assignment": "off",
+            "@typescript-eslint/no-unsafe-member-access": "off",
+            "@typescript-eslint/no-unsafe-argument": "off",
             "@typescript-eslint/no-empty-object-type": "off",
             "@typescript-eslint/switch-exhaustiveness-check": [
                 "error",
@@ -53,5 +58,5 @@ export default defineConfig(
             "**/*.config.*",
             "**/tests/*",
         ],
-    }
+    },
 );
