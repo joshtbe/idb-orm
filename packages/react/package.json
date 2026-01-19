@@ -1,0 +1,46 @@
+{
+    "name": "@idb-orm/react",
+    "version": "0.0.0",
+    "description": "An adapter for the React framework for @idb-orm",
+    "main": "dist/index.js",
+    "scripts": {
+        "build": "vite build",
+        "build-test": "vite --config vite.config-test.ts build"
+    },
+    "keywords": [
+        "typescript",
+        "react",
+        "adapter",
+        "idb-orm"
+    ],
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.es.js",
+            "require": "./dist/index.cjs.js"
+        }
+    },
+    "author": "jtb",
+    "license": "ISC",
+    "peerDependencies": {
+        "@idb-orm/core": "^1.0.7",
+        "react": "^19.2.0"
+    },
+    "devDependencies": {
+        "@eslint/js": "^9.38.0",
+        "@rollup/plugin-alias": "^6.0.0",
+        "@rollup/plugin-node-resolve": "^16.0.3",
+        "@rollup/plugin-terser": "^0.4.4",
+        "@rollup/plugin-typescript": "^12.1.4",
+        "@types/node": "^24.9.1",
+        "@types/react": "^19.2.7",
+        "eslint": "^9.38.0",
+        "rollup": "^4.52.4",
+        "serve": "^14.2.5",
+        "tslib": "^2.8.1",
+        "typescript": "^5.9.3",
+        "typescript-eslint": "^8.46.2",
+        "vite": "^7.2.4",
+        "vite-plugin-dts": "^4.5.4"
+    }
+}
