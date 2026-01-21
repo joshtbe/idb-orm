@@ -11,7 +11,7 @@ import {
 } from "../field";
 import { Dict, Keyof } from "../util-types";
 import { getKeys, unionSets } from "../utils.js";
-import { InvalidItemError, StoreError } from "../error.js";
+import { AssertionError, InvalidItemError, StoreError } from "../error.js";
 import { FindPrimaryKey, ModelCache, CollectionObject } from "./model-types";
 import { Transaction } from "../transaction.js";
 
@@ -125,22 +125,21 @@ export default class Model<
     }
 
     /**
-     * Get the value for the next autoIncrement counter
-     * 
+     * Loads the value for the autoIncrement counter
+     *
      * Calling this is only valid if the primary key of this model has the "autoIncrement" property
      * @param client Database client object
      * @param tx Optional transaction to attach
-     * @returns Primary key for the next document 
      */
-    async getIncrementCounter<
+    async loadIncrementCounter<
         ModelNames extends string,
         Models extends CollectionObject<ModelNames>,
     >(
         client: DbClient<string, ModelNames, Models>,
         tx?: Transaction<IDBTransactionMode, ModelNames>,
-    ): Promise<number> {
+    ): Promise<void> {
         if (this.cache.autoIncrement) {
-            return ++this.cache.autoIncrement;
+            return;
         }
 
         tx = Transaction.create(
@@ -169,7 +168,30 @@ export default class Model<
             });
 
         this.cache.autoIncrement = max + 1;
-        return this.cache.autoIncrement;
+        return;
+    }
+
+    /**
+     * Get the value for the next autoIncrement counter
+     *
+     * Calling this is only valid if the primary key of this model has the "autoIncrement" property.
+     * @returns Primary key for the next document
+     */
+    getIncrementCounter(): number {
+        if (!this.cache.autoIncrement) {
+            throw new AssertionError(
+                "AutoIncrement property not found in the cache.",
+            );
+        }
+        return ++this.cache.autoIncrement;
+    }
+
+    genPrimaryKey(): ValidKey {
+        const primaryKey = this.getPrimaryKey();
+        if (primaryKey.isAutoIncremented()) {
+            return this.getIncrementCounter();
+        }
+        return primaryKey.genKey();
     }
 
     getDeletedStores<

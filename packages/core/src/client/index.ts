@@ -236,32 +236,18 @@ export class DbClient<
             // Quickly create the item just to get the id
             const objectStore = tx.getStore(name);
             const model = this.getModel(name);
-            const primaryKey = model.getPrimaryKey();
-            const relationAdd = relation
-                ? {
-                      [relation.key]: model.getRelation(relation.key)?.isArray
-                          ? [relation.id]
-                          : relation.id,
-                  }
-                : {};
-
-            // FIXME: Use autoIncremented from the model class instead of by adding it
-            const initAdd: Dict = primaryKey.isAutoIncremented()
-                ? {
-                      ...relationAdd,
-                  }
-                : {
-                      ...relationAdd,
-                      [model.primaryKey]:
-                          item[model.primaryKey as keyof T] ??
-                          primaryKey.genKey(),
-                  };
-            // const id: ValidKey = primaryKey.isAutoIncremented()
-            //     ? await model.getIncrementCounter(this, tx)
-            //     : ((item[model.primaryKey as keyof T] ??
-            //           primaryKey.genKey()) as ValidKey);
-            const id = await objectStore.add(initAdd);
+            await model.loadIncrementCounter(this, tx);
             const toAdd: Dict = {};
+            if (relation) {
+                toAdd[relation.key] = model.getRelation(relation.key)?.isArray
+                    ? [relation.id]
+                    : relation.id;
+            }
+
+            const id: ValidKey =
+                (item[model.primaryKey as keyof T] as ValidKey) ??
+                model.genPrimaryKey();
+            toAdd[model.primaryKey] = id;
             const visited = new Set<string>();
             for (const key in item) {
                 visited.add(key);
@@ -435,7 +421,7 @@ export class DbClient<
                     }
                     case FieldTypes.Relation: {
                         const field = model.getRelation(unusedField)!;
-                        const established = relationAdd[unusedField];
+                        const established = toAdd[unusedField];
                         if (field.isArray) {
                             toAdd[unusedField] = established ?? [];
                         } else if (field.isOptional) {

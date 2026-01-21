@@ -140,9 +140,8 @@ export class CompiledDb<
                 const model = this.models[key];
                 if (!db.objectStoreNames.contains(model.name))
                     db.createObjectStore(model.name, {
-                        autoIncrement: model
-                            .getPrimaryKey()
-                            .isAutoIncremented(),
+                        // We are using our implementation of autoIncrement instead
+                        autoIncrement: false,
                         keyPath: model.primaryKey,
                     });
             }

@@ -1,7 +1,7 @@
 import { InvalidConfigError } from "../error.js";
 import { getDate, uuid } from "../utils.js";
 import { GenFunction, ValidKey, ValidKeyType } from "./field-types.js";
-import { Tag, Type } from "../typing";
+import { isType, Tag, Type } from "../typing";
 
 const PRIMARY_KEY_SYMBOL = Symbol.for("primaryKey");
 export default class PrimaryKey<
@@ -76,7 +76,7 @@ export default class PrimaryKey<
     }
 
     /**
-     * If the internal objectStore "autoIncrement" utility is being used
+     * If the objectStore "autoIncrement" utility is being used
      */
     isAutoIncremented(): boolean {
         return this.autoGenerate && !this.genFn;
@@ -84,6 +84,10 @@ export default class PrimaryKey<
 
     static is(value: object): value is PrimaryKey<any, any> {
         return (value as any)?.symbol === PRIMARY_KEY_SYMBOL;
+    }
+
+    static isValidKey(value: unknown): value is ValidKey {
+        return isType(this.validKeyTag, value);
     }
 
     /**
