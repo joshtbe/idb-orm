@@ -11,19 +11,16 @@ import {
 } from "../field";
 import { Dict, Keyof } from "../util-types";
 import { getKeys, unionSets } from "../utils.js";
-import { StoreError } from "../error.js";
-import {
-    FindPrimaryKey,
-    ModelCache,
-    CollectionObject,
-} from "./model-types";
+import { InvalidItemError, StoreError } from "../error.js";
+import { FindPrimaryKey, ModelCache, CollectionObject } from "./model-types";
+import { Transaction } from "../transaction.js";
 
 const MODEL_SYMBOL = Symbol.for("model");
 
 export default class Model<
     Name extends string,
     F extends Record<string, ValidValue>,
-    Primary extends FindPrimaryKey<F> = FindPrimaryKey<F>
+    Primary extends FindPrimaryKey<F> = FindPrimaryKey<F>,
 > {
     readonly symbol = MODEL_SYMBOL;
 
@@ -37,7 +34,10 @@ export default class Model<
     private readonly relationLinks = new Set<string>();
     private cache: ModelCache = {};
     public readonly primaryKey: Primary;
-    constructor(public readonly name: Name, private readonly fields: F) {
+    constructor(
+        public readonly name: Name,
+        private readonly fields: F,
+    ) {
         this.fieldKeys = getKeys(fields);
 
         // Generate a set of all models this one is linked to
@@ -51,12 +51,12 @@ export default class Model<
         }
 
         const primaryKey = this.fieldKeys.find((k) =>
-            PrimaryKey.is(this.fields[k])
+            PrimaryKey.is(this.fields[k]),
         );
         if (!primaryKey)
             throw new StoreError(
                 "INVALID_CONFIG",
-                `Model ${this.name} has no primary key`
+                `Model ${this.name} has no primary key`,
             );
         this.primaryKey = primaryKey as Primary;
     }
@@ -70,7 +70,7 @@ export default class Model<
     }
 
     getRelation<Models extends string>(
-        key: string
+        key: string,
     ): BaseRelation<Models, string> | undefined {
         const item = this.fields[key];
         if (!item || !BaseRelation.is(item)) return undefined;
@@ -124,9 +124,57 @@ export default class Model<
         return null as never;
     }
 
+    /**
+     * Get the value for the next autoIncrement counter
+     * 
+     * Calling this is only valid if the primary key of this model has the "autoIncrement" property
+     * @param client Database client object
+     * @param tx Optional transaction to attach
+     * @returns Primary key for the next document 
+     */
+    async getIncrementCounter<
+        ModelNames extends string,
+        Models extends CollectionObject<ModelNames>,
+    >(
+        client: DbClient<string, ModelNames, Models>,
+        tx?: Transaction<IDBTransactionMode, ModelNames>,
+    ): Promise<number> {
+        if (this.cache.autoIncrement) {
+            return ++this.cache.autoIncrement;
+        }
+
+        tx = Transaction.create(
+            client.getDb(),
+            [this.name as unknown as ModelNames],
+            "readonly",
+            tx,
+        );
+
+        let max = 0;
+        await tx
+            .getStore(this.name as unknown as ModelNames)
+            .openCursor((cursor) => {
+                const id = cursor.key as number;
+                if (typeof id !== "number") {
+                    throw new InvalidItemError(
+                        `Document with primary key ${JSON.stringify(cursor.key)} is invalid, expected a number.`,
+                    );
+                }
+                if (id > max) {
+                    max = id;
+                }
+
+                cursor.continue();
+                return true;
+            });
+
+        this.cache.autoIncrement = max + 1;
+        return this.cache.autoIncrement;
+    }
+
     getDeletedStores<
         ModelNames extends string,
-        Models extends CollectionObject<ModelNames>
+        Models extends CollectionObject<ModelNames>,
     >(client: DbClient<string, ModelNames, Models>): Set<ModelNames> {
         if (this.cache.delete) return this.cache.delete as Set<ModelNames>;
 
@@ -158,7 +206,7 @@ export default class Model<
     static is<
         Name extends string,
         Fields extends Dict<ValidValue>,
-        Primary extends FindPrimaryKey<Fields> = FindPrimaryKey<Fields>
+        Primary extends FindPrimaryKey<Fields> = FindPrimaryKey<Fields>,
     >(value: object): value is Model<Name, Fields, Primary> {
         return (value as any)?.symbol === MODEL_SYMBOL;
     }

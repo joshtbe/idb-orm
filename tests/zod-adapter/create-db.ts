@@ -26,7 +26,7 @@ export const createZodDb: any = async ({ pkg, a, z }: SessionArguments) => {
             id: Field.primaryKey().autoIncrement(),
             name: stringSchema,
             class: Field.relation("classes", { name: "class2subclass" }),
-        })
+        }),
     );
 
     const classStore = builder.defineModel(
@@ -40,7 +40,7 @@ export const createZodDb: any = async ({ pkg, a, z }: SessionArguments) => {
             subclasses: Field.relation("subclass", {
                 name: "class2subclass",
             }).array(),
-        })
+        }),
     );
 
     const spellListStore = builder.defineModel(
@@ -54,7 +54,7 @@ export const createZodDb: any = async ({ pkg, a, z }: SessionArguments) => {
             spells: Field.relation("spells", {
                 name: "spells2spellLists",
             }).array(),
-        })
+        }),
     );
 
     const spellStore = builder.defineModel(
@@ -67,7 +67,7 @@ export const createZodDb: any = async ({ pkg, a, z }: SessionArguments) => {
             lists: Field.relation("spellLists", {
                 name: "spells2spellLists",
             }).array(),
-        })
+        }),
     );
 
     const db = builder.compile({
@@ -77,7 +77,6 @@ export const createZodDb: any = async ({ pkg, a, z }: SessionArguments) => {
         subclass: subclassStore,
     });
 
-    const client = await db.createClient();
-
+    const client = await db.createClientAsync();
     return client;
 };

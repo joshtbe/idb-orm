@@ -81,7 +81,7 @@ export const createDb = async ({ pkg }: Packages) => {
         subclass,
     });
 
-    const client = await db.createClient();
+    const client = await db.createClientAsync();
 
     // @ts-ignore
     return client;
@@ -504,7 +504,7 @@ export function coreTests(
                 const downloadPromise = page.waitForEvent("download");
                 const result = await session.evaluate(async ({ client }) => {
                     const dump = await client.dump("json");
-                    const file = dump.tofile();
+                    const file = dump.toFile();
                     const a = document.createElement("a");
                     a.download = file.name;
                     a.href = window.URL.createObjectURL(file);
@@ -524,7 +524,7 @@ export function coreTests(
                     const dump = await client.stores.spells.dump("json", {
                         level: (l) => l > 1,
                     });
-                    const file = dump.tofile();
+                    const file = dump.toFile();
                     const a = document.createElement("a");
                     a.download = file.name;
                     a.href = window.URL.createObjectURL(file);
@@ -542,7 +542,7 @@ export function coreTests(
                 const downloadPromise = page.waitForEvent("download");
                 const result = await session.evaluate(async ({ client }) => {
                     const dump = await client.dump("csv");
-                    const file = dump.tofile();
+                    const file = dump.toFile();
                     const a = document.createElement("a");
                     a.download = file.name;
                     a.href = window.URL.createObjectURL(file);
@@ -562,7 +562,7 @@ export function coreTests(
                     const dump = await client.stores.spells.dump("csv", {
                         level: (l) => l > 1,
                     });
-                    const file = dump.tofile();
+                    const file = dump.toFile();
                     const a = document.createElement("a");
                     a.download = file.name;
                     a.href = window.URL.createObjectURL(file);

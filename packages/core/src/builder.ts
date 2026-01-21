@@ -129,7 +129,7 @@ export class CompiledDb<
         return this.models[name];
     }
 
-    async createClient(version: number = 1) {
+    async createClientAsync(version: number = 1) {
         const openRequest = window.indexedDB.open(this.name, version);
 
         openRequest.onupgradeneeded = (event) => {
@@ -152,7 +152,38 @@ export class CompiledDb<
         return new DbClient(db, this);
     }
 
+    createClient(
+        version: number = 1,
+    ):
+        | { loading: true; result?: never }
+        | { loading: false; result: DbClient<Name, Names, C> } {
+        const openRequest = window.indexedDB.open(this.name, version);
+        const obj = { loading: true, result: null as never };
+
+        openRequest.onupgradeneeded = (event) => {
+            const db = (event.target as unknown as { result: IDBDatabase })
+                .result;
+
+            for (const key of this.modelKeys) {
+                const model = this.models[key];
+                if (!db.objectStoreNames.contains(model.name))
+                    db.createObjectStore(model.name, {
+                        autoIncrement: model
+                            .getPrimaryKey()
+                            .isAutoIncremented(),
+                        keyPath: model.primaryKey,
+                    });
+            }
+        };
+
+        openRequest.onsuccess = () => {
+            obj.loading = false;
+            obj.result = new DbClient(openRequest.result, this) as never;
+        };
+        return obj;
+    }
+
     keys() {
-        return [...this.modelKeys];
+        return Array.from(this.modelKeys);
     }
 }

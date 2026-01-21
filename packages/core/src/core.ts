@@ -14,6 +14,7 @@ export type {
 } from "./model";
 export * from "./field";
 export * from "./client";
+export * from "./builder";
 
 export type { FindInput, FindOutput } from "./client/types/find";
 export type * from "./client/types";

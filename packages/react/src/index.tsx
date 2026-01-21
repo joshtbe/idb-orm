@@ -9,15 +9,7 @@ import {
 } from "react";
 import { core } from "@idb-orm/core";
 
-export interface ClientProviderProps<
-    Name extends string,
-    ModelNames extends string,
-    Models extends core.CollectionObject<ModelNames>,
-> {
-    /**
-     * `CompiledDb` object
-     */
-    db: core.CompiledDb<Name, ModelNames, Models>;
+export interface ClientProviderProps {
     /**
      * React node to render while the client is being built
      * @default undefined
@@ -38,7 +30,7 @@ export interface ClientProviderFactoryReturn<
     Context: Context<core.DbClient<Name, ModelNames, Models> | null>;
     useDbClient: () => core.DbClient<Name, ModelNames, Models>;
     DbClientProvider: (
-        props: PropsWithChildren<ClientProviderProps<Name, ModelNames, Models>>,
+        props: PropsWithChildren<ClientProviderProps>,
     ) => ReactNode;
 }
 

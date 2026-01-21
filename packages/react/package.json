@@ -1,6 +1,6 @@
 {
     "name": "@idb-orm/react",
-    "version": "0.0.0",
+    "version": "0.0.1",
     "description": "An adapter for the React framework for @idb-orm",
     "main": "dist/index.js",
     "scripts": {

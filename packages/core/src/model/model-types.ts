@@ -20,20 +20,18 @@ export type FindPrimaryKey<F extends Record<string, ValidValue>> = Extract<
     string
 >;
 
-export type PrimaryKeyType<M extends Model<any, any, any>> = M extends Model<
-    any,
-    infer F,
-    any
->
-    ? {
-          [K in keyof F]: F[K] extends PrimaryKey<any, infer Type>
-              ? Type
-              : never;
-      }[keyof F]
-    : never;
+export type PrimaryKeyType<M extends Model<any, any, any>> =
+    M extends Model<any, infer F, any>
+        ? {
+              [K in keyof F]: F[K] extends PrimaryKey<any, infer Type>
+                  ? Type
+                  : never;
+          }[keyof F]
+        : never;
 
 export interface ModelCache {
     delete?: Set<string>;
+    autoIncrement?: number;
 }
 
 /**
@@ -48,50 +46,44 @@ export type RelationValue<Name extends string, C> = Name extends keyof C
 /**
  * Gets the primitive type of the relation field
  */
-export type GetRelationField<F, C> = F extends Relation<infer To, any>
-    ? RelationValue<To, C>
-    : F extends OptionalRelation<infer To, any>
-    ? RelationValue<To, C> | null
-    : F extends ArrayRelation<infer To, any>
-    ? RelationValue<To, C>[]
-    : never;
+export type GetRelationField<F, C> =
+    F extends Relation<infer To, any>
+        ? RelationValue<To, C>
+        : F extends OptionalRelation<infer To, any>
+          ? RelationValue<To, C> | null
+          : F extends ArrayRelation<infer To, any>
+            ? RelationValue<To, C>[]
+            : never;
 
 export type ModelStructure<F extends Dict<ValidValue>, C> = {
     [K in keyof F]: F[K] extends Property<infer Output, any>
         ? Output
         : F[K] extends PrimaryKey<any, infer Type>
-        ? Type
-        : GetRelationField<F[K], C>;
+          ? Type
+          : GetRelationField<F[K], C>;
 };
 
 export type ModelType<
     M extends Model<any, any, any>,
-    C extends CompiledDb<any, any, any>
-> = M extends Model<any, infer Fields, any>
-    ? C extends CompiledDb<any, any, infer Collection>
-        ? ModelStructure<Fields, Collection>
-        : never
-    : never;
+    C extends CompiledDb<any, any, any>,
+> =
+    M extends Model<any, infer Fields, any>
+        ? C extends CompiledDb<any, any, infer Collection>
+            ? ModelStructure<Fields, Collection>
+            : never
+        : never;
 
-export type ExtractFields<M extends Model<any, any, any>> = M extends Model<
-    any,
-    infer Fields,
-    any
->
-    ? Fields
-    : never;
+export type ExtractFields<M extends Model<any, any, any>> =
+    M extends Model<any, infer Fields, any> ? Fields : never;
 
-export type AllRelationKeys<M extends Model<any, any, any>> = M extends Model<
-    any,
-    infer Fields,
-    any
->
-    ? {
-          [K in Keyof<Fields>]: Fields[K] extends BaseRelation<any, any>
-              ? K
-              : never;
-      }[Keyof<Fields>]
-    : never;
+export type AllRelationKeys<M extends Model<any, any, any>> =
+    M extends Model<any, infer Fields, any>
+        ? {
+              [K in Keyof<Fields>]: Fields[K] extends BaseRelation<any, any>
+                  ? K
+                  : never;
+          }[Keyof<Fields>]
+        : never;
 
 export type RelationlessModelStructure<M extends Model<any, any, any>> =
     M extends Model<any, infer Fields, any>
@@ -100,10 +92,10 @@ export type RelationlessModelStructure<M extends Model<any, any, any>> =
                   [K in Keyof<Fields>]: Fields[K] extends BaseRelation<any, any>
                       ? unknown
                       : Fields[K] extends Property<infer Type, any>
-                      ? Type
-                      : Fields[K] extends PrimaryKey<any, infer Type>
-                      ? Type
-                      : never;
+                        ? Type
+                        : Fields[K] extends PrimaryKey<any, infer Type>
+                          ? Type
+                          : never;
               },
               AllRelationKeys<M>
           >
@@ -113,33 +105,32 @@ export type TypeTagWrap<T extends Dict> = {
     [K in keyof T]: TypeTag;
 };
 
-export type CollectionSchema<C> = C extends Record<
-    infer Keys,
-    Model<any, any, any>
->
-    ? {
-          [K in Keys]: C[K] extends Model<any, infer Fields, any>
-              ? TypeTagWrap<ModelStructure<Fields, C>>
-              : never;
-      }
-    : never;
+export type CollectionSchema<C> =
+    C extends Record<infer Keys, Model<any, any, any>>
+        ? {
+              [K in Keys]: C[K] extends Model<any, infer Fields, any>
+                  ? TypeTagWrap<ModelStructure<Fields, C>>
+                  : never;
+          }
+        : never;
 
 export type FindRelationKey<
     From extends string,
     RelationName extends string,
-    M extends Model<any, any, any>
-> = M extends Model<any, infer Fields, any>
-    ? {
-          [K in Keyof<Fields>]: Fields[K] extends BaseRelation<
-              From,
-              infer CurName
-          >
-              ? CurName extends RelationName
-                  ? K
-                  : never
-              : never;
-      }[Keyof<Fields>]
-    : never;
+    M extends Model<any, any, any>,
+> =
+    M extends Model<any, infer Fields, any>
+        ? {
+              [K in Keyof<Fields>]: Fields[K] extends BaseRelation<
+                  From,
+                  infer CurName
+              >
+                  ? CurName extends RelationName
+                      ? K
+                      : never
+                  : never;
+          }[Keyof<Fields>]
+        : never;
 
 export type CollectionObject<Names extends string> = {
     [K in Names]: Model<K, any>;

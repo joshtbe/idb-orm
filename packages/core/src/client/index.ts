@@ -40,14 +40,15 @@ import { Dump, DumpOptions, getDatabaseData, getStoreData } from "./dump";
 export class DbClient<
     Name extends string,
     ModelNames extends string,
-    Models extends CollectionObject<ModelNames>
+    Models extends CollectionObject<ModelNames>,
 > {
     public readonly name: Name;
     public readonly version: number;
     public readonly stores: InterfaceMap<ModelNames, Models>;
+
     constructor(
-        private readonly db: IDBDatabase,
-        private readonly models: CompiledDb<Name, ModelNames, Models>
+        private db: IDBDatabase,
+        private readonly models: CompiledDb<Name, ModelNames, Models>,
     ) {
         this.name = this.db.name as Name;
         this.version = this.db.version;
@@ -71,7 +72,7 @@ export class DbClient<
 
     createTransaction<
         Mode extends IDBTransactionMode,
-        Names extends ModelNames
+        Names extends ModelNames,
     >(mode: Mode, stores: Arrayable<Names>, options?: TransactionOptions) {
         return new Transaction(this.db, stores, mode, options);
     }
@@ -83,7 +84,7 @@ export class DbClient<
     async dump<const Format extends ExportFormat>(
         format: Format,
         stores?: ModelNames[],
-        options?: DumpOptions
+        options?: DumpOptions,
     ): Promise<Dump<Format>> {
         const data = await getDatabaseData(this, stores);
         switch (format) {
@@ -97,7 +98,7 @@ export class DbClient<
                         CollectionObject<string>
                     >,
                     stores || this.getStoreNames(),
-                    data
+                    data,
                 ) as Dump<Format>;
         }
     }
@@ -120,7 +121,7 @@ export class DbClient<
         const model = this.models.getModel(name);
         if (!model)
             throw new ObjectStoreNotFoundError(
-                `Model with name '${name}' not found`
+                `Model with name '${name}' not found`,
             );
 
         return model;
@@ -130,7 +131,7 @@ export class DbClient<
         name: ModelNames,
         item: Dict,
         isMutation: boolean,
-        tx?: Transaction<IDBTransactionMode, ModelNames>
+        tx?: Transaction<IDBTransactionMode, ModelNames>,
     ): ModelNames[] {
         if (tx) {
             return tx.storeNames;
@@ -139,7 +140,7 @@ export class DbClient<
     }
 
     private createInterface<N extends ModelNames>(
-        modelName: N
+        modelName: N,
     ): StoreInterface<N, ModelNames, Models> {
         return {
             add: async (mutation, tx) =>
@@ -150,12 +151,12 @@ export class DbClient<
                     for (const mut of mutations) {
                         unionSets(
                             stores,
-                            getAccessedStores(modelName, mut, true, this)
+                            getAccessedStores(modelName, mut, true, this),
                         );
                     }
                     tx = this.createTransaction(
                         "readwrite",
-                        Array.from(stores)
+                        Array.from(stores),
                     );
                 }
                 type T = PrimaryKeyType<Models[N]>;
@@ -204,7 +205,7 @@ export class DbClient<
                     // eslint-disable-next-line
                     this as any,
                     modelName,
-                    where as undefined
+                    where as undefined,
                 );
                 switch (format) {
                     case "json":
@@ -212,7 +213,7 @@ export class DbClient<
                     case "csv":
                         return Dump.toCsvStore(
                             this.getModel(modelName),
-                            data
+                            data,
                         ) as Result;
                 }
             },
@@ -222,7 +223,7 @@ export class DbClient<
     private async add<N extends ModelNames>(
         name: N,
         item: AddMutation<N, ModelNames, Models[N], Models>,
-        _state: MutationState<ModelNames> = {}
+        _state: MutationState<ModelNames> = {},
     ) {
         // Local type declaration for ease of use
         type T = typeof item;
@@ -244,6 +245,7 @@ export class DbClient<
                   }
                 : {};
 
+            // FIXME: Use autoIncremented from the model class instead of by adding it
             const initAdd: Dict = primaryKey.isAutoIncremented()
                 ? {
                       ...relationAdd,
@@ -254,6 +256,10 @@ export class DbClient<
                           item[model.primaryKey as keyof T] ??
                           primaryKey.genKey(),
                   };
+            // const id: ValidKey = primaryKey.isAutoIncremented()
+            //     ? await model.getIncrementCounter(this, tx)
+            //     : ((item[model.primaryKey as keyof T] ??
+            //           primaryKey.genKey()) as ValidKey);
             const id = await objectStore.add(initAdd);
             const toAdd: Dict = {};
             const visited = new Set<string>();
@@ -265,7 +271,7 @@ export class DbClient<
                 switch (model.keyType(key)) {
                     case FieldTypes.Invalid:
                         throw new InvalidItemError(
-                            `Key '${key}' does ont exist on model '${name}'`
+                            `Key '${key}' does ont exist on model '${name}'`,
                         );
 
                     case FieldTypes.Property: {
@@ -273,7 +279,7 @@ export class DbClient<
                         if (!parseResult) throw new UnknownError();
                         if (!parseResult.success) {
                             throw new InvalidItemError(
-                                `Key '${key}' has the following validation error: ${parseResult.error}`
+                                `Key '${key}' has the following validation error: ${parseResult.error}`,
                             );
                         }
                         toAdd[key] = parseResult.data;
@@ -311,7 +317,7 @@ export class DbClient<
                         const otherModel = this.getModel(relation.to);
                         const otherRelation =
                             otherModel.getRelation<ModelNames>(
-                                relation.getRelatedKey()
+                                relation.getRelatedKey(),
                             );
 
                         // Set of all connection keys
@@ -321,7 +327,7 @@ export class DbClient<
                             const firstKey = getKeys(item)[0];
                             if (!firstKey)
                                 throw new InvalidItemError(
-                                    `Key '${key}' cannot be an empty connection object`
+                                    `Key '${key}' cannot be an empty connection object`,
                                 );
 
                             switch (firstKey) {
@@ -334,26 +340,26 @@ export class DbClient<
                                     // Disallow duplicate connections
                                     if (usedKeys.has(connectId)) {
                                         throw new InvalidItemError(
-                                            `Primary key '${connectId}' was already used for a connection`
+                                            `Primary key '${connectId}' was already used for a connection`,
                                         );
                                     }
                                     usedKeys.add(connectId);
 
                                     if (!otherRelation)
                                         throw new InvalidItemError(
-                                            `Could not find corresponding relation '${relation.name}'`
+                                            `Could not find corresponding relation '${relation.name}'`,
                                         );
 
                                     await this.connectDocument(
                                         relation,
                                         id,
                                         connectId,
-                                        tx
+                                        tx,
                                     );
 
                                     if (relation.isArray) {
                                         (toAdd[key] as ValidKey[]).push(
-                                            connectId
+                                            connectId,
                                         );
                                     } else {
                                         toAdd[key] = connectId;
@@ -376,7 +382,7 @@ export class DbClient<
                                                 id,
                                                 key: relation.getRelatedKey(),
                                             },
-                                        }
+                                        },
                                     );
                                     if (relation.isArray) {
                                         (toAdd[key] as ValidKey[]).push(newId);
@@ -392,7 +398,7 @@ export class DbClient<
                                     break;
                                 default:
                                     throw new InvalidItemError(
-                                        `Connection Object on key '${key}' has an unknown key '${firstKey}'`
+                                        `Connection Object on key '${key}' has an unknown key '${firstKey}'`,
                                     );
                             }
                             // If it's not a relation array stop after the first key
@@ -408,20 +414,20 @@ export class DbClient<
             }
 
             const unused = Array.from(
-                new Set<string>(model.keys()).difference(visited)
+                new Set<string>(model.keys()).difference(visited),
             );
             for (const unusedField of unused) {
                 switch (model.keyType(unusedField)) {
                     case FieldTypes.Property: {
                         const parseResult = model.parseField(
                             unusedField,
-                            undefined
+                            undefined,
                         );
                         if (!parseResult)
                             throw new UnknownError("A parsing error occurred");
                         if (!parseResult.success)
                             throw new InvalidItemError(
-                                `Key '${unusedField}' is missing`
+                                `Key '${unusedField}' is missing`,
                             );
 
                         toAdd[unusedField] = parseResult.data;
@@ -436,7 +442,7 @@ export class DbClient<
                             toAdd[unusedField] = established ?? null;
                         } else if (!established)
                             throw new InvalidItemError(
-                                `Required relation '${unusedField}' is not defined`
+                                `Required relation '${unusedField}' is not defined`,
                             );
                         else {
                             toAdd[unusedField] = established;
@@ -478,19 +484,19 @@ export class DbClient<
             N,
             Models
         >,
-        O = FindOutput<ModelNames, N, Models, Q>
+        O = FindOutput<ModelNames, N, Models, Q>,
     >(
         name: N,
         item: Q,
         stopOnFirst: boolean,
-        _state: QueryState<ModelNames> = {}
+        _state: QueryState<ModelNames> = {},
     ): Promise<O[]> {
         let { tx } = _state;
         const accessed = this.getAccessedStores(
             name,
             getSearchableQuery(item),
             false,
-            tx
+            tx,
         );
         tx = Transaction.create(this.db, accessed, "readonly", tx);
         const result: O[] = [];
@@ -501,7 +507,7 @@ export class DbClient<
                 name,
                 this,
                 item,
-                tx
+                tx,
             );
 
             await initStore.openCursor(async (cursor) => {
@@ -525,12 +531,12 @@ export class DbClient<
 
     private async update<
         N extends ModelNames,
-        U extends UpdateMutation<N, ModelNames, Models[N], Models>
+        U extends UpdateMutation<N, ModelNames, Models[N], Models>,
     >(
         name: N,
         item: U,
         stopOnFirst: boolean,
-        _state: MutationState<ModelNames> = {}
+        _state: MutationState<ModelNames> = {},
     ): Promise<GetStructure<N, Models>[]> {
         type T = U["data"];
         const { singleton } = _state;
@@ -539,13 +545,13 @@ export class DbClient<
             name,
             updateData,
             true,
-            _state.tx
+            _state.tx,
         );
         const tx = Transaction.create(
             this.db,
             accessed,
             "readwrite",
-            _state.tx
+            _state.tx,
         );
 
         return await tx.wrap(async (tx) => {
@@ -568,7 +574,7 @@ export class DbClient<
                         const element = toArray(
                             updateData[key] as Arrayable<
                                 Record<MutationAction, unknown[]>
-                            >
+                            >,
                         );
                         if (!element) continue;
 
@@ -586,7 +592,7 @@ export class DbClient<
                                         const singletonName =
                                             elementKey.substring(
                                                 0,
-                                                elementKey.length - 4
+                                                elementKey.length - 4,
                                             ) as MutationAction;
                                         for (const item of elementItem[
                                             elementKey
@@ -618,19 +624,19 @@ export class DbClient<
                     }
                     case FieldTypes.PrimaryKey:
                         throw new UpdateError(
-                            "Primary key field cannot be updated"
+                            "Primary key field cannot be updated",
                         );
 
                     case FieldTypes.Invalid:
                     default:
                         throw new UnknownError(
-                            `Unknown key '${key as string}'`
+                            `Unknown key '${key as string}'`,
                         );
                 }
             }
             const results: GetStructure<N, Models>[] = [];
             const updateDocument = async (
-                value: any
+                value: any,
             ): Promise<GetStructure<N, Models>> => {
                 const thisId: ValidKey = value[model.primaryKey as keyof T];
                 for (const { key, ...obj } of keyObjs) {
@@ -648,7 +654,7 @@ export class DbClient<
                                             relation,
                                             thisId,
                                             value[key] as ValidKey,
-                                            tx
+                                            tx,
                                         ).catch(tx.onRejection);
                                     }
 
@@ -656,7 +662,7 @@ export class DbClient<
                                         relation,
                                         thisId,
                                         payload as ValidKey,
-                                        tx
+                                        tx,
                                     ).catch(tx.onRejection);
                                     if (relation.isArray) {
                                         (value[key] as unknown[]).push(payload);
@@ -681,7 +687,7 @@ export class DbClient<
                                                 id: thisId,
                                                 key: relation.getRelatedKey(),
                                             },
-                                        }
+                                        },
                                     );
                                     if (relation.isArray) {
                                         (value[key] as ValidKey[]).push(newId);
@@ -693,7 +699,7 @@ export class DbClient<
                                 case "$delete":
                                     if (!relation.isNullable()) {
                                         throw new InvalidItemError(
-                                            "Item cannot be deleted, relation is required"
+                                            "Item cannot be deleted, relation is required",
                                         );
                                     }
                                     // payload is the id of the other object
@@ -703,7 +709,7 @@ export class DbClient<
                                             ? value[key].filter(
                                                   (v) =>
                                                       v !==
-                                                      (payload as ValidKey)
+                                                      (payload as ValidKey),
                                               )
                                             : null;
                                     await deleteItems(
@@ -716,7 +722,7 @@ export class DbClient<
                                             singleton: {
                                                 id: payload as ValidKey,
                                             },
-                                        }
+                                        },
                                     );
 
                                     break;
@@ -725,7 +731,7 @@ export class DbClient<
 
                                     if (!relation.isNullable()) {
                                         throw new InvalidItemError(
-                                            "Item cannot be disconnected, relation is required"
+                                            "Item cannot be disconnected, relation is required",
                                         );
                                     } else if (
                                         !value[key] ||
@@ -735,7 +741,7 @@ export class DbClient<
                                     }
 
                                     const otherRelation = this.getModel(
-                                        relation.to
+                                        relation.to,
                                     ).getRelation(relation.getRelatedKey())!;
 
                                     await this.disconnectDocument(
@@ -744,14 +750,14 @@ export class DbClient<
                                         (otherRelation.isArray
                                             ? payload
                                             : value[key]) as ValidKey,
-                                        tx
+                                        tx,
                                     ).catch(tx.onRejection);
 
                                     value[key] =
                                         relation.isArray &&
                                         Array.isArray(value[key])
                                             ? value[key].filter(
-                                                  (v) => v !== payload
+                                                  (v) => v !== payload,
                                               )
                                             : null;
                                     break;
@@ -770,7 +776,7 @@ export class DbClient<
                                                 Models
                                             >,
                                             false,
-                                            { tx }
+                                            { tx },
                                         );
                                     } else if (value[key] != null) {
                                         // Otherwise, make the sure the relation is actually there
@@ -788,7 +794,7 @@ export class DbClient<
                                                 singleton: {
                                                     id: thisId,
                                                 },
-                                            }
+                                            },
                                         );
                                     }
 
@@ -802,17 +808,17 @@ export class DbClient<
                                         Array.isArray(value[key])
                                     ) {
                                         const otherModel = this.getModel(
-                                            relation.to
+                                            relation.to,
                                         );
                                         const idSet = new Set(
-                                            value[key] as ValidKey[]
+                                            value[key] as ValidKey[],
                                         );
                                         await deleteItems(
                                             relation.to,
                                             this,
                                             {
                                                 [otherModel.primaryKey]: (
-                                                    value: ValidKey
+                                                    value: ValidKey,
                                                 ) => idSet.has(value),
                                             } as WhereObject<
                                                 ExtractFields<
@@ -820,7 +826,7 @@ export class DbClient<
                                                 >
                                             >,
                                             false,
-                                            { tx }
+                                            { tx },
                                         );
                                         value[key] = [];
                                     }
@@ -839,7 +845,7 @@ export class DbClient<
                                                 relation,
                                                 thisId,
                                                 item,
-                                                tx
+                                                tx,
                                             );
                                         }
                                         value[key] = [];
@@ -860,11 +866,11 @@ export class DbClient<
                 const getResult = await store.get(singleton.id);
                 if (!getResult) {
                     throw new DocumentNotFoundError(
-                        `${model.name} with priamry key '${singleton.id}' not found`
+                        `${model.name} with priamry key '${singleton.id}' not found`,
                     );
                 }
                 const updateResult = await updateDocument(getResult).catch(
-                    tx.onRejection
+                    tx.onRejection,
                 );
                 await store.put(updateResult);
                 return [updateResult];
@@ -874,10 +880,10 @@ export class DbClient<
                     const value = cursor.value;
                     if (parseWhere(where, value)) {
                         const newValue = await updateDocument(value).catch(
-                            tx.onRejection
+                            tx.onRejection,
                         );
                         await handleRequest(
-                            cursor.update(newValue) as IDBRequest<ValidKey>
+                            cursor.update(newValue) as IDBRequest<ValidKey>,
                         )
                             .then(() => results.push(newValue))
                             .catch(tx.onRejection);
@@ -908,7 +914,7 @@ export class DbClient<
         relation: BaseRelation<ModelNames, string>,
         thisId: ValidKey,
         documentId: ValidKey,
-        tx: Transaction<"readwrite", ModelNames>
+        tx: Transaction<"readwrite", ModelNames>,
     ) {
         const store = tx.getStore(relation.to);
         const current = (await store.get(documentId)) as Dict<
@@ -916,12 +922,12 @@ export class DbClient<
         >;
         if (!current) {
             throw new DocumentNotFoundError(
-                `Document with Primary Key '${documentId}' could not be found in model '${relation.to}'`
+                `Document with Primary Key '${documentId}' could not be found in model '${relation.to}'`,
             );
         }
         const relatedKey = relation.getRelatedKey();
         const otherRelation = this.getModel(relation.to).getRelation(
-            relatedKey
+            relatedKey,
         )!;
 
         const value = current[relatedKey];
@@ -952,7 +958,7 @@ export class DbClient<
         relation: BaseRelation<ModelNames, string>,
         thisId: ValidKey,
         documentId: ValidKey,
-        tx: Transaction<"readwrite", ModelNames>
+        tx: Transaction<"readwrite", ModelNames>,
     ) {
         const store = tx.getStore(relation.to);
         const current = (await store.get(documentId)) as Dict<
@@ -960,17 +966,17 @@ export class DbClient<
         >;
         if (!current) {
             throw new DocumentNotFoundError(
-                `Document with Primary Key '${documentId}' could not be found in model '${relation.to}'`
+                `Document with Primary Key '${documentId}' could not be found in model '${relation.to}'`,
             );
         }
 
         const otherRelation = this.getModel(relation.to).getRelation(
-            relation.getRelatedKey()
+            relation.getRelatedKey(),
         )!;
 
         if (otherRelation.isArray) {
             (current[relation.getRelatedKey()] as unknown[]).filter(
-                (u) => u !== thisId
+                (u) => u !== thisId,
             );
         } else if (otherRelation.isOptional) {
             current[relation.getRelatedKey()] = null;

@@ -86,8 +86,6 @@ function getTypeTag(schema: z.ZodType): core.TypeTag {
     }
 }
 
-// TODO: Make all zod objects custom property types. In order to preserve their behavior
-
 function zodToProperty<S extends z.ZodType>(
     schema: S,
 ): core.Property<z.output<S>, ZodHasDefault<S>> {

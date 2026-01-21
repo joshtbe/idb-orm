@@ -1,6 +1,6 @@
 {
     "name": "@idb-orm/react-query",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "description": "An adapter for the Tanstack React-Query library for @idb-orm",
     "main": "dist/index.js",
     "scripts": {
