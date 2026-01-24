@@ -11,7 +11,12 @@ import {
 } from "../field";
 import { Dict, Keyof } from "../util-types";
 import { getKeys, unionSets } from "../utils.js";
-import { AssertionError, InvalidItemError, StoreError } from "../error.js";
+import {
+    AssertionError,
+    InvalidConfigError,
+    InvalidItemError,
+    StoreError,
+} from "../error.js";
 import { FindPrimaryKey, ModelCache, CollectionObject } from "./model-types";
 import { Transaction } from "../transaction.js";
 
@@ -73,7 +78,7 @@ export default class Model<
         key: string,
     ): BaseRelation<Models, string> | undefined {
         const item = this.fields[key];
-        if (!item || !BaseRelation.is(item)) return undefined;
+        if (!key || !item || !BaseRelation.is(item)) return undefined;
         return item as BaseRelation<Models, string>;
     }
 
@@ -84,11 +89,6 @@ export default class Model<
         else if (BaseRelation.is(f)) return FieldTypes.Relation;
         else if (PrimaryKey.is(f)) return FieldTypes.PrimaryKey;
         else return FieldTypes.Invalid;
-    }
-
-    links<Names extends string = string>() {
-        // Shallow-copy the set so it can't be modified accidentally
-        return this.relationLinks.keys() as SetIterator<Names>;
     }
 
     /**
@@ -120,8 +120,11 @@ export default class Model<
     parseField<K extends Keyof<F>>(field: K, value: unknown): ParseResult<any> {
         if (Property.is(this.fields[field])) {
             return parseType(this.fields[field].type, value);
+        } else {
+            throw new InvalidConfigError(
+                `Key '${field}' on model '${this.name}' is not a property but is being used as a static property.`,
+            );
         }
-        return null as never;
     }
 
     /**
@@ -213,7 +216,7 @@ export default class Model<
             } else {
                 visited.add(item);
                 // Add to the queue
-                for (const link of curModel.links<ModelNames>()) {
+                for (const link of curModel.relationLinks as Set<ModelNames>) {
                     if (!visited.has(link)) {
                         queue.push(link);
                     }

@@ -12,7 +12,7 @@ export function handleRequest<T>(
         };
         req.onerror = () => {
             if (tx) {
-                throw tx.abort(new UnknownError());
+                throw tx.abort(new UnknownError("An Error Occurred duing the Request"));
             }
         };
     });

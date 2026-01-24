@@ -20,6 +20,7 @@ export const createDb = async ({ pkg }: Packages) => {
         "spellLists",
         "spells",
         "subclass",
+        "components",
     ]);
 
     const t = builder.defineModel("classes", {
@@ -68,10 +69,19 @@ export const createDb = async ({ pkg }: Packages) => {
             Field.literal("S"),
             Field.literal("M"),
         ]).array(),
+        cs: Field.relation("components", {
+            name: "components2spells",
+            bidirectional: false,
+        }).array(),
         level: Field.number().default(0),
         lists: Field.relation("spellLists", {
             name: "spells2spellLists",
         }).array(),
+    });
+
+    const componentStore = builder.defineModel("components", {
+        id: Field.primaryKey().autoIncrement(),
+        name: Field.string(),
     });
 
     const db = builder.compile({
@@ -79,7 +89,9 @@ export const createDb = async ({ pkg }: Packages) => {
         spellLists: spellListStore,
         spells: spellStore,
         subclass,
+        components: componentStore,
     });
+    type SpellStore = core.ModelType<typeof spellStore, typeof db>;
 
     const client = await db.createClientAsync();
 
@@ -267,6 +279,7 @@ export function coreTests(
             }
         });
 
+        // FIXME: Include relations in deep find includes/select that are not the selected relation. (key  'cs' should be present in the output)
         test("Deep Find Include", async () => {
             const result = await session.evaluate(async ({ client }) => {
                 return await client.stores.subclass.findFirst({
@@ -296,7 +309,7 @@ export function coreTests(
                 result?.class?.spellList?.spells,
                 (item) =>
                     typeof item === "object" &&
-                    Object.keys(item || {}).length === 5,
+                    Object.keys(item || {}).length === 6,
                 "Value is not a valid spell object",
             );
         });

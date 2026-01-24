@@ -12,11 +12,11 @@ import { ValidKey } from "../field";
 function generateDocumentDelete<
     ModelNames extends string,
     Name extends ModelNames,
-    Models extends CollectionObject<ModelNames>
+    Models extends CollectionObject<ModelNames>,
 >(
     model: Models[Name],
     client: DbClient<string, ModelNames, Models>,
-    tx: Transaction<"readwrite", ModelNames>
+    tx: Transaction<"readwrite", ModelNames>,
 ) {
     return async (item: Dict): Promise<boolean> => {
         if (!item) return false;
@@ -36,7 +36,7 @@ function generateDocumentDelete<
                         const deleteFn = generateDocumentDelete(
                             relatedModel,
                             client,
-                            tx
+                            tx,
                         );
                         const store = tx.getStore(relation.to);
                         await store
@@ -45,7 +45,7 @@ function generateDocumentDelete<
                                     idSet.has(
                                         cursor.value[
                                             relatedModel.primaryKey
-                                        ] as ValidKey
+                                        ] as ValidKey,
                                     )
                                 ) {
                                     await deleteFn(cursor.value as Dict);
@@ -65,7 +65,7 @@ function generateDocumentDelete<
                             {
                                 tx,
                                 singleton: { id: fieldItem as ValidKey },
-                            }
+                            },
                         );
                     }
                     break;
@@ -73,8 +73,8 @@ function generateDocumentDelete<
 
                 // Set the corresponding relation to null (only works if it's optional or array)
                 case "SetNull": {
-                    // If it's an optional relation that's null, do nothing
-                    if (!fieldItem) break;
+                    // If it's an optional relation that's null, do nothing, or if it's a one-dimensional relation
+                    if (!fieldItem || !relation.isBidirectional) break;
 
                     const deletedItems = toArray(fieldItem as ValidKey);
                     const relatedStore = tx.getStore(relation.to);
@@ -85,11 +85,11 @@ function generateDocumentDelete<
                         throw new InvalidConfigError(
                             `Relation '${
                                 relation.name
-                            }' has an invalid relation key '${relation.getRelatedKey()}'`
+                            }' has an invalid relation key '${relation.getRelatedKey()}'`,
                         );
                     else if (!relatedRelation.isNullable()) {
                         throw new InvalidConfigError(
-                            `Key '${relatedKey}' on model '${relatedKey}': Non-optional relation cannot have the 'SetNull' action`
+                            `Key '${relatedKey}' on model '${relation.to}': Non-optional relation cannot have the 'SetNull' action`,
                         );
                     }
 
@@ -123,7 +123,7 @@ function generateDocumentDelete<
                         fieldItem
                     ) {
                         throw new DeleteError(
-                            `Key '${relationKey}' on model '${model.name}' deletion is restricted while there is an active relation`
+                            `Key '${relationKey}' on model '${model.name}' deletion is restricted while there is an active relation`,
                         );
                     }
                     break;
@@ -150,13 +150,13 @@ function generateDocumentDelete<
 export async function deleteItems<
     ModelNames extends string,
     Name extends ModelNames,
-    Models extends CollectionObject<ModelNames>
+    Models extends CollectionObject<ModelNames>,
 >(
     name: Name,
     client: DbClient<string, ModelNames, Models>,
     where?: WhereObject<ExtractFields<Models[Name]>>,
     stopOnFirst: boolean = false,
-    _state: MutationState<ModelNames> = {}
+    _state: MutationState<ModelNames> = {},
 ): Promise<number> {
     const { singleton, finalStep = true } = _state;
     const model = client.getModel(name);
@@ -168,7 +168,7 @@ export async function deleteItems<
         client.getDb(),
         accessed,
         "readwrite",
-        _state.tx
+        _state.tx,
     );
 
     return await tx.wrap(async (tx) => {
@@ -192,7 +192,7 @@ export async function deleteItems<
                     (await deleteSubItems(value))
                 ) {
                     promise = handleRequest(cursor.delete()).catch(
-                        tx.onRejection
+                        tx.onRejection,
                     );
                 }
                 if (stopOnFirst && deleted > 0) {

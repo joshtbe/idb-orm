@@ -14,17 +14,6 @@ export type ZodTranslation<
           : never;
 };
 
-function parseAdapter<T>(schema: z.ZodType<T>): core.ParseFn<T> {
-    return ((value: unknown) => {
-        const result = schema.safeParse(value);
-        return {
-            success: result.success,
-            data: result.data,
-            error: result?.error ? z.prettifyError(result.error) : undefined,
-        };
-    }) as core.ParseFn<T>;
-}
-
 const Type = core.Type;
 
 function getTypeTag(schema: z.ZodType): core.TypeTag {

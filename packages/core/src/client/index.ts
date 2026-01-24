@@ -227,10 +227,14 @@ export class DbClient<
     ) {
         // Local type declaration for ease of use
         type T = typeof item;
-        let { tx } = _state;
         const { relation } = _state;
-        const accessed = this.getAccessedStores(name, item, true, tx);
-        tx = Transaction.create(this.db, accessed, "readwrite", tx);
+        const accessed = this.getAccessedStores(name, item, true, _state.tx);
+        const tx = Transaction.create(
+            this.db,
+            accessed,
+            "readwrite",
+            _state.tx,
+        );
 
         return await tx.wrap(async (tx) => {
             // Quickly create the item just to get the id
@@ -248,7 +252,7 @@ export class DbClient<
                 (item[model.primaryKey as keyof T] as ValidKey) ??
                 model.genPrimaryKey();
             toAdd[model.primaryKey] = id;
-            const visited = new Set<string>();
+            const visited = new Set<string>([model.primaryKey]);
             for (const key in item) {
                 visited.add(key);
                 const element = item[
@@ -262,7 +266,6 @@ export class DbClient<
 
                     case FieldTypes.Property: {
                         const parseResult = model.parseField(key, element);
-                        if (!parseResult) throw new UnknownError();
                         if (!parseResult.success) {
                             throw new InvalidItemError(
                                 `Key '${key}' has the following validation error: ${parseResult.error}`,
@@ -299,13 +302,6 @@ export class DbClient<
                             }
                         }
 
-                        // Get the model object of the model the relation is pointing to
-                        const otherModel = this.getModel(relation.to);
-                        const otherRelation =
-                            otherModel.getRelation<ModelNames>(
-                                relation.getRelatedKey(),
-                            );
-
                         // Set of all connection keys
                         const usedKeys = new Set<ValidKey>();
 
@@ -330,11 +326,6 @@ export class DbClient<
                                         );
                                     }
                                     usedKeys.add(connectId);
-
-                                    if (!otherRelation)
-                                        throw new InvalidItemError(
-                                            `Could not find corresponding relation '${relation.name}'`,
-                                        );
 
                                     await this.connectDocument(
                                         relation,
@@ -364,10 +355,12 @@ export class DbClient<
                                         >,
                                         {
                                             tx,
-                                            relation: {
-                                                id,
-                                                key: relation.getRelatedKey(),
-                                            },
+                                            relation: relation.isBidirectional
+                                                ? {
+                                                      id,
+                                                      key: relation.getRelatedKey(),
+                                                  }
+                                                : undefined,
                                         },
                                     );
                                     if (relation.isArray) {
@@ -399,9 +392,7 @@ export class DbClient<
                 }
             }
 
-            const unused = Array.from(
-                new Set<string>(model.keys()).difference(visited),
-            );
+            const unused = new Set(model.keys()).difference(visited);
             for (const unusedField of unused) {
                 switch (model.keyType(unusedField)) {
                     case FieldTypes.Property: {
@@ -409,8 +400,6 @@ export class DbClient<
                             unusedField,
                             undefined,
                         );
-                        if (!parseResult)
-                            throw new UnknownError("A parsing error occurred");
                         if (!parseResult.success)
                             throw new InvalidItemError(
                                 `Key '${unusedField}' is missing`,
@@ -421,17 +410,14 @@ export class DbClient<
                     }
                     case FieldTypes.Relation: {
                         const field = model.getRelation(unusedField)!;
-                        const established = toAdd[unusedField];
                         if (field.isArray) {
-                            toAdd[unusedField] = established ?? [];
+                            toAdd[unusedField] ??= [];
                         } else if (field.isOptional) {
-                            toAdd[unusedField] = established ?? null;
-                        } else if (!established)
+                            toAdd[unusedField] ??= null;
+                        } else if (!toAdd[unusedField]) {
                             throw new InvalidItemError(
-                                `Required relation '${unusedField}' is not defined`,
+                                `Required relation '${unusedField}' on new document of model '${model.name}' is not defined`,
                             );
-                        else {
-                            toAdd[unusedField] = established;
                         }
 
                         break;
@@ -444,10 +430,7 @@ export class DbClient<
                 }
             }
 
-            return (await objectStore.put({
-                [model.primaryKey]: id,
-                ...toAdd,
-            })) as PrimaryKeyType<Models[N]>;
+            return (await objectStore.put(toAdd)) as PrimaryKeyType<Models[N]>;
         });
     }
 
@@ -669,10 +652,12 @@ export class DbClient<
                                         >,
                                         {
                                             tx,
-                                            relation: {
-                                                id: thisId,
-                                                key: relation.getRelatedKey(),
-                                            },
+                                            relation: relation.isBidirectional
+                                                ? {
+                                                      id: thisId,
+                                                      key: relation.getRelatedKey(),
+                                                  }
+                                                : undefined,
                                         },
                                     );
                                     if (relation.isArray) {
@@ -726,18 +711,22 @@ export class DbClient<
                                         break;
                                     }
 
-                                    const otherRelation = this.getModel(
-                                        relation.to,
-                                    ).getRelation(relation.getRelatedKey())!;
+                                    if (relation.isBidirectional) {
+                                        const otherRelation = this.getModel(
+                                            relation.to,
+                                        ).getRelation(
+                                            relation.getRelatedKey(),
+                                        )!;
 
-                                    await this.disconnectDocument(
-                                        relation,
-                                        thisId,
-                                        (otherRelation.isArray
-                                            ? payload
-                                            : value[key]) as ValidKey,
-                                        tx,
-                                    ).catch(tx.onRejection);
+                                        await this.disconnectDocument(
+                                            relation,
+                                            thisId,
+                                            (otherRelation.isArray
+                                                ? payload
+                                                : value[key]) as ValidKey,
+                                            tx,
+                                        ).catch(tx.onRejection);
+                                    }
 
                                     value[key] =
                                         relation.isArray &&
@@ -902,6 +891,9 @@ export class DbClient<
         documentId: ValidKey,
         tx: Transaction<"readwrite", ModelNames>,
     ) {
+        // This is a unidirectional relationship, nothing needs to be connected.
+        if (!relation.isBidirectional) return documentId;
+
         const store = tx.getStore(relation.to);
         const current = (await store.get(documentId)) as Dict<
             Arrayable<unknown>
@@ -946,6 +938,9 @@ export class DbClient<
         documentId: ValidKey,
         tx: Transaction<"readwrite", ModelNames>,
     ) {
+        // Relation is unidirectional no disconnect logic is necessary
+        if (!relation.isBidirectional) return documentId;
+
         const store = tx.getStore(relation.to);
         const current = (await store.get(documentId)) as Dict<
             Arrayable<unknown>

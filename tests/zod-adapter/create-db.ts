@@ -17,6 +17,7 @@ export const createZodDb: any = async ({ pkg, a, z }: SessionArguments) => {
         "spellLists",
         "spells",
         "subclass",
+        "components",
     ]);
 
     const stringSchema = z.string();
@@ -64,17 +65,27 @@ export const createZodDb: any = async ({ pkg, a, z }: SessionArguments) => {
             range: stringSchema,
             components: z.enum(["V", "S", "M"]).array(),
             level: z.number().nonnegative().default(0),
+            cs: Field.relation("components", {
+                name: "components2spells",
+                bidirectional: false,
+            }).array(),
             lists: Field.relation("spellLists", {
                 name: "spells2spellLists",
             }).array(),
         }),
     );
 
+    const componentStore = builder.defineModel("components", {
+        id: Field.primaryKey().autoIncrement(),
+        name: Field.string(),
+    });
+
     const db = builder.compile({
         classes: classStore,
         spellLists: spellListStore,
         spells: spellStore,
         subclass: subclassStore,
+        components: componentStore,
     });
 
     const client = await db.createClientAsync();

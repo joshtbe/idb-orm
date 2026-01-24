@@ -85,7 +85,9 @@ export class CompiledDb<
                         schema[fieldKey] = Type.array(schema[fieldKey]);
                     }
 
-                    let hasRelation = !!field.getRelatedKey();
+                    let hasRelation =
+                        !field.isBidirectional || !!field.getRelatedKey();
+                    // Check to make sure the other relation exists (if bidirectional)
                     if (!hasRelation) {
                         for (const [otherKey, element] of linked.relations()) {
                             if (
@@ -101,7 +103,7 @@ export class CompiledDb<
                                     !element.isNullable()
                                 ) {
                                     throw new InvalidConfigError(
-                                        `Key '${otherKey}' on model '${linked.name}': Non-optional relation cannot have the 'SetNull' action`,
+                                        `Key '${fieldKey}' on model '${model.name}': Non-optional relation cannot have the 'SetNull' action`,
                                     );
                                 }
                                 break;
@@ -109,10 +111,11 @@ export class CompiledDb<
                         }
                     }
 
-                    if (!hasRelation)
+                    if (!hasRelation) {
                         throw new InvalidConfigError(
                             `Relation '${field.name}' of model ${key} does not have an equivalent relation on model '${field.to}'`,
                         );
+                    }
                 } else if (PrimaryKey.is(field)) {
                     schema[fieldKey] = field.type;
                 } else {

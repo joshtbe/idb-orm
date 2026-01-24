@@ -4,10 +4,10 @@
 
 A simple object relational mapper for the [IndexedDB API](https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API). IndexedDB (IDB) is a NoSQL database built into modern web browsers. This package wraps around that API and turns it into a pseudo-relational database. This allows features like:
 
--   Defining relations between documents
--   Querying on these relations (and the relations of the related document)
--   Performing actions when the corresponding item of the relation changes
--   Updating items based on nested relation querying
+- Defining relations between documents
+- Querying on these relations (and the relations of the related document)
+- Performing actions when the corresponding item of the relation changes
+- Updating items based on nested relation querying
 
 ## Installation
 
@@ -31,9 +31,9 @@ const builder = new Builder("test_db", ["users", "posts", "comments"]);
 
 Before you can define a model, you need to understand the different components of one. A model definition is made up of three different components.
 
--   One primary key definition
--   Zero or more Property definitions
--   Zero or more Relation definitions
+- One primary key definition
+- Zero or more Property definitions
+- Zero or more Relation definitions
 
 Each component is slightly different in how it is instantiated and used when defining a model.
 
@@ -63,7 +63,7 @@ P.primaryKey().uuid();
 
 // Or, define your own generator
 P.primaryKey("string").generator(
-    () => `${new Date()}-${Math.round(Math.random() * 10000)}`
+    () => `${new Date()}-${Math.round(Math.random() * 10000)}`,
 );
 ```
 
@@ -73,36 +73,35 @@ P.primaryKey("string").generator(
 
 This is the basic building block for a model. It lets you define static fields of the document. They are used for validating model input and providing the proper typescript interface for later queries/mutations.
 
--   `P.string()`: Defines a string field
--   `P.number()`: Defines a number field
--   `P.boolean()`: Defines a boolean field
--   `P.date()`: Defines a date field
--   `P.literal([value])`: Defines a literal type. Meaning that the field will always consist of `[value]`
--   `P.array([Property])`: Defines an array field where the array's elements are defined by `[Property]`
--   `P.set([Property])`: Defines a set field where the set's elements are defined by `[Property]`
--   `P.union([Property1, Property2, ...])`: Defines a union type where any value that matches the given `[PropertyX]` will satisfy the validation.
--   `P.custom<T>((test: unknown) => boolean)`: Defines a field for a custom type that is validated by a function passed in as the first argument.
+- `P.string()`: Defines a string field
+- `P.number()`: Defines a number field
+- `P.boolean()`: Defines a boolean field
+- `P.date()`: Defines a date field
+- `P.literal([value])`: Defines a literal type. Meaning that the field will always consist of `[value]`
+- `P.array([Property])`: Defines an array field where the array's elements are defined by `[Property]`
+- `P.set([Property])`: Defines a set field where the set's elements are defined by `[Property]`
+- `P.union([Property1, Property2, ...])`: Defines a union type where any value that matches the given `[PropertyX]` will satisfy the validation.
+- `P.custom<T>((test: unknown) => boolean)`: Defines a field for a custom type that is validated by a function passed in as the first argument.
 
     For this type of field, if you plan on dumping your database to other formats, it's also recommended you populate the second `options` argument with these functions:
-
-    -   `serialize: (value: T) -> unknown`: Serializes the type to JSON.
-    -   `deserialize: (value: unknown) -> T`: De-serializes the type to JSON.
+    - `serialize: (value: T) -> unknown`: Serializes the type to JSON.
+    - `deserialize: (value: unknown) -> T`: De-serializes the type to JSON.
 
     If these functions are omitted it will use `JSON.stringify()` and `JSON.parse()` respectfully.
 
 Additionally, there are methods of the `Property` class that allows you to attach identifiers to these properties:
 
--   `.array()`: Makes the field an array of the preceeding property.
--   `.optional()`: Makes a field optional. It can now be omitted when a document is being created. The value in the resulting document will be undefined. This is functionally equivalent to doing `P.union([..., P.literal(undefined)])`, but with less overhead.
--   `.default([value])`: Same behavior as optional, but instead of being undefined the value will be filled in with the given default value.
+- `.array()`: Makes the field an array of the preceeding property.
+- `.optional()`: Makes a field optional. It can now be omitted when a document is being created. The value in the resulting document will be undefined. This is functionally equivalent to doing `P.union([..., P.literal(undefined)])`, but with less overhead.
+- `.default([value])`: Same behavior as optional, but instead of being undefined the value will be filled in with the given default value.
 
 ### Relation Definition
 
 Relation definitions are how you define relations between models/stores. Relations can be between different stores or the same store. There are three types of relation definitions:
 
--   `P.relation([modelName], options?)`: The default, describing a relation from the current model to a `[modelName]` document.
--   `P.relation([modelName], options?).optional()`: Describes a relation from the current model to a `[modelName]` document, where it's possible that the value on this not defined (null).
--   `P.relation([modelName], options?).array()`: Describes a relation from the current model to several different documents in model `[modelName]`.
+- `P.relation([modelName], options?)`: The default, describing a relation from the current model to a `[modelName]` document.
+- `P.relation([modelName], options?).optional()`: Describes a relation from the current model to a `[modelName]` document, where it's possible that the value on this not defined (null).
+- `P.relation([modelName], options?).array()`: Describes a relation from the current model to several different documents in model `[modelName]`.
 
 ```ts
 interface RelationOptions {
@@ -115,10 +114,10 @@ All relations must be bidirectional, so for every relation on some model X to mo
 
 Additionally, you can attach actions to be performed when a document is deleted:
 
--   `SetNull`: Only usable when the relation this one is pointing to is optional or an array. In which case it sets the corresponding field to null or removes the element respectively.
--   `None`: Performs no action when a delete occurs.
--   `Restrict`: This item essentially cannot be deleted. Attempted to delete it will throw an error.
--   `Cascade`: Deleting this document will try to delete the pointed to document(s).
+- `SetNull`: Only usable when the relation this one is pointing to is optional or an array. In which case it sets the corresponding field to null or removes the element respectively.
+- `None`: Performs no action when a delete occurs.
+- `Restrict`: This item essentially cannot be deleted. Attempted to delete it will throw an error.
+- `Cascade`: Deleting this document will try to delete the pointed to document(s).
 
 ## Putting it all together
 
@@ -180,19 +179,20 @@ const client = await compiledDb.createClient();
 _To be continued..._
 
 ## Roadmap
--   [ ] Restore database to different formats
-    -   [ ] JSON
-    -   [ ] CSV
--   [ ] Add extra object syntax to "where" clause (i.e. `in`/`ne`/`gt`/...)
--   [ ] Allow object types in where clauses
--   [ ] Make subpackages for adapters for different validation languages
-    -   [x] Zod
-    -   [ ] Yup
-    -   [ ] Joi
-    -   [ ] schema.js
+
+- [ ] Unidirectional relations
+- [ ] Discriminated union models: Be able to differentiate subtypes of a model by a discriminator key
+- [ ] Restore database to different formats
+    - [ ] JSON
+    - [ ] CSV
+- [ ] Add extra object syntax to "where" clause (i.e. `in`/`ne`/`gt`/...)
+- [ ] Allow object types in where clauses
+- [ ] Make subpackages for adapters for different validation languages
+    - [x] Zod
+    - [ ] Yup
+    - [ ] Joi
+    - [ ] schema.js
 
 ### Roadmap - Maybe
 
--   [ ] Optimize batch `add` editing with cursor functionality
--   [ ] Discriminated union models: Be able to differentiate subtypes of a model by a discriminator key
-
+- [ ] Optimize batch `add` editing with cursor functionality

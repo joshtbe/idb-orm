@@ -38,7 +38,7 @@ export class Transaction<
         if (error instanceof StoreError) {
             throw this.abort(error);
         } else {
-            throw this.abort(new UnknownError(String(error)));
+            throw this.abort(new UnknownError(JSON.stringify(error)));
         }
     };
 

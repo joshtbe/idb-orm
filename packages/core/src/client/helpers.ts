@@ -55,7 +55,7 @@ export function generateWhereClause(where?: Dict): WhereClauseElement[] {
  */
 export function parseWhere(
     whereArray: WhereClauseElement[],
-    obj: unknown
+    obj: unknown,
 ): boolean {
     if (!obj || typeof obj !== "object") return false;
     for (const item of whereArray) {
@@ -78,15 +78,15 @@ export function generateSelector<
         ModelNames,
         any,
         Models
-    >
+    >,
 >(
     name: ModelNames,
     client: Db,
     query: Q = {} as Q,
-    initTx?: Transaction<IDBTransactionMode, ModelNames>
+    initTx?: Transaction<IDBTransactionMode, ModelNames>,
 ): (
     item: Dict,
-    tx: Transaction<IDBTransactionMode, ModelNames>
+    tx: Transaction<IDBTransactionMode, ModelNames>,
 ) => Promisable<Dict | undefined> {
     type Tx = Transaction<IDBTransactionMode, ModelNames>;
     const model = client.getModel(name);
@@ -120,10 +120,9 @@ export function generateSelector<
                                   relation.to,
                                   client as any,
                                   item[key],
-                                  initTx
+                                  initTx,
                               )
                             : identity;
-                    const relationKey = relation.getRelatedKey();
                     if (relation.isArray) {
                         const fn = async (ids: ValidKey[], tx: Tx) => {
                             const result: Dict[] = [];
@@ -131,10 +130,12 @@ export function generateSelector<
                             for (const id of ids) {
                                 const res = await subSelectFn(
                                     await store.assertGet(id),
-                                    tx
+                                    tx,
                                 );
                                 if (res) {
-                                    delete res[relationKey];
+                                    if (relation.isBidirectional) {
+                                        delete res[relation.getRelatedKey()];
+                                    }
                                     result.push(res);
                                 }
                             }
@@ -144,14 +145,14 @@ export function generateSelector<
                             key: key as Keyof<I>,
                             getValue: fn as (
                                 value: Arrayable<ValidKey>,
-                                tx: Tx
+                                tx: Tx,
                             ) => Promise<unknown>,
                         });
                     } else {
                         const fn = async (id: ValidKey, tx: Tx) => {
                             return await subSelectFn(
                                 await tx.getStore(relation.to).assertGet(id),
-                                tx
+                                tx,
                             );
                         };
 
@@ -159,7 +160,7 @@ export function generateSelector<
                             key: key as Keyof<I>,
                             getValue: fn as (
                                 value: Arrayable<ValidKey>,
-                                tx: Tx
+                                tx: Tx,
                             ) => Promise<unknown>,
                         });
                     }
@@ -199,12 +200,12 @@ export function generateSelector<
 
 export function getAccessedStores<
     ModelNames extends string,
-    Models extends CollectionObject<ModelNames>
+    Models extends CollectionObject<ModelNames>,
 >(
     name: ModelNames,
     query: Dict,
     isMutation: boolean,
-    client: DbClient<string, ModelNames, Models>
+    client: DbClient<string, ModelNames, Models>,
 ): Set<ModelNames> {
     const stores: Set<ModelNames> = new Set([name]);
     if (isMutation) {
@@ -233,7 +234,7 @@ export function getAccessedStores<
                             case "$deleteAll":
                                 unionSets(
                                     stores,
-                                    model.getDeletedStores(client)
+                                    model.getDeletedStores(client),
                                 );
                                 break;
                             case "$create":
@@ -243,8 +244,8 @@ export function getAccessedStores<
                                         relation.to,
                                         subItem[conKey] as Dict,
                                         isMutation,
-                                        client
-                                    )
+                                        client,
+                                    ),
                                 );
                                 break;
                             case "$createMany": {
@@ -262,9 +263,9 @@ export function getAccessedStores<
                                             relation.to,
                                             value,
                                             isMutation,
-                                            client
-                                        )
-                                    )
+                                            client,
+                                        ),
+                                    ),
                                 );
                                 break;
                             }
@@ -282,8 +283,8 @@ export function getAccessedStores<
                                             >
                                         ).data,
                                         isMutation,
-                                        client
-                                    )
+                                        client,
+                                    ),
                                 );
                                 break;
                             case "$updateMany": {
@@ -301,9 +302,9 @@ export function getAccessedStores<
                                             relation.to,
                                             value.data,
                                             isMutation,
-                                            client
-                                        )
-                                    )
+                                            client,
+                                        ),
+                                    ),
                                 );
                                 break;
                             }
@@ -324,11 +325,11 @@ export function getAccessedStores<
                             getAccessedStores(
                                 relation.to,
                                 getSearchableQuery(
-                                    query[key] as QueryInput<string, any, any>
+                                    query[key] as QueryInput<string, any, any>,
                                 ),
                                 false,
-                                client
-                            )
+                                client,
+                            ),
                         );
                         break;
                     case "boolean":

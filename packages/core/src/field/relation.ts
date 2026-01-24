@@ -19,28 +19,35 @@ export class BaseRelation<To extends string, Name extends string = never> {
      */
     private relatedKey: string;
 
+    /**
+     * An optional label to give to the relation. This helps distinguish it from others
+     */
+    public readonly name: Name;
+
+    /**
+     * If the relation is an array or not
+     */
+    readonly isArray: boolean;
+    /**
+     * If the relation is optional or not
+     */
+    readonly isOptional: boolean;
+    readonly isBidirectional: boolean;
+
     constructor(
         /**
          * The name of the model this relation is pointing to
          */
         public readonly to: To,
-        /**
-         * An optional label to give to the relation. This helps distinguish it from others
-         */
-        public readonly name: Name = "" as never,
-        /**
-         * If the relation is optional or not
-         */
-        public readonly isOptional: boolean = false,
-        /**
-         * If the relation is an array or not
-         */
-        public readonly isArray: boolean = false,
-        onDelete?: OptionalActions,
+        protected readonly options: RelationOptions<Name, OptionalActions> = {},
     ) {
         this.relatedKey = "";
+        this.name = options.name ?? ("" as never);
+        this.isArray = options.array ?? false;
+        this.isOptional = options.optional ?? false;
+        this.isBidirectional = options.bidirectional ?? true;
         this.actions = {
-            onDelete: onDelete || "Restrict",
+            onDelete: options.onDelete ?? "Restrict",
         };
     }
 
@@ -97,7 +104,7 @@ export class Relation<
     declare private readonly _brand: "relation";
 
     constructor(to: To, options: RelationOptions<Name, ReferenceActions> = {}) {
-        super(to, options.name, false, false, options.onDelete);
+        super(to, options);
     }
 
     /**
@@ -105,10 +112,18 @@ export class Relation<
      *
      * **Note: Calling this function will reset any relation actions to the default**
      */
-    array({
-        onDelete,
-    }: Omit<RelationOptions<Name, OptionalActions>, "name"> = {}) {
-        return new ArrayRelation(this.to, this.name, onDelete);
+    array(
+        options: Omit<
+            RelationOptions<Name, OptionalActions>,
+            "name" | "array"
+        > = {},
+    ) {
+        return new ArrayRelation(this.to, {
+            ...this.options,
+            ...options,
+            name: this.name,
+            array: true,
+        });
     }
 
     /**
@@ -116,10 +131,18 @@ export class Relation<
      *
      * **Note: Calling this function will reset any relation actions to the default**
      */
-    optional({
-        onDelete,
-    }: Omit<RelationOptions<Name, OptionalActions>, "name"> = {}) {
-        return new OptionalRelation(this.to, this.name, onDelete);
+    optional(
+        options: Omit<
+            RelationOptions<Name, OptionalActions>,
+            "name" | "optional"
+        > = {},
+    ) {
+        return new OptionalRelation(this.to, {
+            ...this.options,
+            ...options,
+            optional: true,
+            name: this.name,
+        });
     }
 
     onDelete(action: ReferenceActions) {
@@ -140,8 +163,8 @@ export class ArrayRelation<
     readonly symbol = ArrayRelation.A_SYMBOL;
     declare private readonly _brand: "ArrayRelation";
 
-    constructor(to: To, name?: Name, action: OptionalActions = "None") {
-        super(to, name, false, true, action);
+    constructor(to: To, options: RelationOptions<Name, OptionalActions> = {}) {
+        super(to, { onDelete: "None", ...options });
     }
 
     static is(value: object): value is ArrayRelation<any, any> {
@@ -156,8 +179,11 @@ export class OptionalRelation<
     readonly symbol = OptionalRelation.O_SYMBOL;
     declare private readonly _brand: "optionalRelation";
 
-    constructor(to: To, name?: Name, action: OptionalActions = "None") {
-        super(to, name, true, false, action);
+    constructor(to: To, options: RelationOptions<Name, OptionalActions> = {}) {
+        super(to, {
+            onDelete: "None",
+            ...options,
+        });
     }
 
     static is(value: object): value is OptionalRelation<any, any> {

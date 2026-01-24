@@ -99,7 +99,7 @@ export class ObjectStore<T = Dict> {
                         this.tx.abort(
                             error instanceof StoreError
                                 ? error
-                                : new UnknownError(String(error))
+                                : new UnknownError(JSON.stringify(error))
                         )
                     );
                 }
