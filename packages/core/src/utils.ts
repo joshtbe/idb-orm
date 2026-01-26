@@ -4,7 +4,7 @@ import { UnknownError } from "./error.js";
 
 export function handleRequest<T>(
     req: IDBRequest<T>,
-    tx?: Transaction<any, any>
+    tx?: Transaction<any, any>,
 ) {
     return new Promise<T>((res) => {
         req.onsuccess = () => {
@@ -12,7 +12,9 @@ export function handleRequest<T>(
         };
         req.onerror = () => {
             if (tx) {
-                throw tx.abort(new UnknownError("An Error Occurred duing the Request"));
+                throw tx.abort(
+                    new UnknownError("An Error Occurred duing the Request"),
+                );
             }
         };
     });
@@ -20,13 +22,6 @@ export function handleRequest<T>(
 
 export function getKeys<T extends object>(obj: T): Keyof<T>[] {
     return Object.keys(obj) as Keyof<T>[];
-}
-
-export function addToSet<T>(set: Set<T>, items: T[]) {
-    for (const item of items) {
-        set.add(item);
-    }
-    return set;
 }
 
 export function toArray<T>(value: Arrayable<T>): T[] {
@@ -59,6 +54,18 @@ export function unionSets<T>(set: Set<T>, other: Set<T>) {
         set.add(key);
     }
     return set;
+}
+
+/**
+ * Performs Set Difference over the two sets
+ * @returns A new set containing the elements of set1 not in set2
+ */
+export function setDifference<T>(set1: Iterable<T>, set2: Iterable<T>): Set<T> {
+    const result = new Set(set1);
+    for (const item of set2) {
+        result.delete(item);
+    }
+    return result;
 }
 
 /**

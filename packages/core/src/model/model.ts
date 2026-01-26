@@ -186,7 +186,7 @@ export default class Model<
                 "AutoIncrement property not found in the cache.",
             );
         }
-        return ++this.cache.autoIncrement;
+        return this.cache.autoIncrement++;
     }
 
     genPrimaryKey(): ValidKey {

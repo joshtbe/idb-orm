@@ -8,13 +8,13 @@ export const enum Tag {
 
     /* Primitive/unknown values */
     boolean,
-    symbol,
     bigint,
     file,
-    void,
     float,
     int,
     unknown,
+    undefined,
+    null,
 
     /* "Complex" values */
     literal,
@@ -25,11 +25,15 @@ export const enum Tag {
     default,
     object,
     tuple,
+    class,
     custom,
 }
 
-export interface VoidTag {
-    tag: Tag.void;
+export interface UndefinedTag {
+    tag: Tag.undefined;
+}
+export interface NullTag {
+    tag: Tag.null;
 }
 export interface StringTag {
     tag: Tag.string;
@@ -49,9 +53,6 @@ export interface DateTag {
 export interface BooleanTag {
     tag: Tag.boolean;
 }
-export interface SymbolTag {
-    tag: Tag.symbol;
-}
 export interface BigIntTag {
     tag: Tag.bigint;
 }
@@ -63,7 +64,6 @@ export interface UnknownTag {
 export interface FileTag {
     tag: Tag.file;
 }
-
 export interface LiteralTag<V = unknown> {
     tag: Tag.literal;
     value: V;
@@ -95,7 +95,7 @@ export interface TupleTag<V extends TypeTag[] = TypeTag[]> {
 }
 
 export interface ObjectTag<
-    P extends Record<string, TypeTag> = Record<string, TypeTag>
+    P extends Record<string, TypeTag> = Record<string, TypeTag>,
 > {
     tag: Tag.object;
     props: P;
@@ -118,7 +118,6 @@ export interface CustomTag<V = any, PR = any> {
 type Dec = [0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
 export type TypeTag =
-    | VoidTag
     | LiteralTag
     | StringTag
     | IntTag
@@ -126,7 +125,6 @@ export type TypeTag =
     | NumberTag
     | DateTag
     | BooleanTag
-    | SymbolTag
     | UnknownTag
     | FileTag
     | BigIntTag
@@ -137,47 +135,47 @@ export type TypeTag =
     | ObjectTag
     | TupleTag
     | CustomTag
+    | NullTag
+    | UndefinedTag
     | DefaultTag;
+
+interface SimpleTagMap {
+    [Tag.null]: null;
+    [Tag.number]: number;
+    [Tag.boolean]: boolean;
+    [Tag.bigint]: bigint;
+    [Tag.float]: number;
+    [Tag.int]: number;
+    [Tag.string]: string;
+    [Tag.undefined]: undefined;
+    [Tag.unknown]: unknown;
+    [Tag.date]: Date;
+    [Tag.file]: File;
+}
 
 export type TagToType<
     T extends TypeTag,
-    Depth extends number = 5
+    Depth extends number = 5,
 > = Depth extends 0
     ? any
-    : T extends StringTag
-    ? string
-    : T extends NumberTag | IntTag | FloatTag
-    ? number
-    : T extends BooleanTag
-    ? boolean
-    : T extends LiteralTag<infer V>
-    ? V
-    : T extends DateTag
-    ? Date
-    : T extends SymbolTag
-    ? symbol
-    : T extends UnknownTag
-    ? unknown
-    : T extends FileTag
-    ? File
-    : T extends BigIntTag
-    ? bigint
-    : T extends TupleTag<infer TEls>
-    ? {
-          [K in keyof TEls]: TagToType<TEls[K], Dec[Depth]>;
-      }
-    : T extends SetTag<infer T>
-    ? Set<TagToType<T, Dec[Depth]>>
-    : T extends UnionTag<infer TOpts>
-    ? TagToType<TOpts[number], Dec[Depth]>
-    : T extends ArrayTag<infer T>
-    ? TagToType<T, Dec[Depth]>[]
-    : T extends ObjectTag<infer P>
-    ? {
-          [K in keyof P]: TagToType<P[K], Dec[Depth]>;
-      }
-    : T extends DefaultTag<infer T> | OptionalTag<infer T>
-    ? TagToType<T, Dec[Depth]> | undefined
-    : T extends CustomTag<infer V>
-    ? V
-    : never;
+    : T["tag"] extends keyof SimpleTagMap
+      ? SimpleTagMap[T["tag"]]
+      : T extends TupleTag<infer TEls>
+        ? {
+              [K in keyof TEls]: TagToType<TEls[K], Dec[Depth]>;
+          }
+        : T extends SetTag<infer T>
+          ? Set<TagToType<T, Dec[Depth]>>
+          : T extends UnionTag<infer TOpts>
+            ? TagToType<TOpts[number], Dec[Depth]>
+            : T extends ArrayTag<infer T>
+              ? TagToType<T, Dec[Depth]>[]
+              : T extends ObjectTag<infer P>
+                ? {
+                      [K in keyof P]: TagToType<P[K], Dec[Depth]>;
+                  }
+                : T extends DefaultTag<infer T> | OptionalTag<infer T>
+                  ? TagToType<T, Dec[Depth]> | undefined
+                  : T extends CustomTag<infer V>
+                    ? V
+                    : never;

@@ -1,7 +1,13 @@
 import type { CompiledDb } from "../builder";
 import type { Arrayable, Dict, Keyof } from "../util-types";
 import type { CollectionObject, ExtractFields, PrimaryKeyType } from "../model";
-import { getKeys, handleRequest, toArray, unionSets } from "../utils";
+import {
+    getKeys,
+    handleRequest,
+    setDifference,
+    toArray,
+    unionSets,
+} from "../utils";
 import { Transaction, type TransactionOptions } from "../transaction";
 import {
     type InterfaceMap,
@@ -22,8 +28,8 @@ import {
     getAccessedStores,
     getSearchableQuery,
     parseWhere,
-} from "./helpers.js";
-import { CompiledQuery } from "./compiled-query.js";
+} from "./helpers";
+import { CompiledQuery } from "./compiled-query";
 import {
     DocumentNotFoundError,
     InvalidItemError,
@@ -31,10 +37,10 @@ import {
     OverwriteRelationError,
     UnknownError,
     UpdateError,
-} from "../error.js";
+} from "../error";
 import { deleteItems } from "./delete.js";
 import { MutationAction } from "./types/mutation.js";
-import { BaseRelation, ValidKey, FieldTypes } from "../field";
+import { BaseRelation, ValidKey, FieldTypes, PrimaryKey } from "../field";
 import { Dump, DumpOptions, getDatabaseData, getStoreData } from "./dump";
 
 export class DbClient<
@@ -392,7 +398,8 @@ export class DbClient<
                 }
             }
 
-            const unused = new Set(model.keys()).difference(visited);
+            // Loop through the un-instantiated fields of the document to make sure the document is still valid
+            const unused = setDifference(model.keys(), visited);
             for (const unusedField of unused) {
                 switch (model.keyType(unusedField)) {
                     case FieldTypes.Property: {
@@ -908,9 +915,9 @@ export class DbClient<
             relatedKey,
         )!;
 
-        const value = current[relatedKey];
+        const value = current[relatedKey] as Arrayable<ValidKey>;
         if (otherRelation.isArray && Array.isArray(value)) {
-            if (!value.includes(thisId)) value.push(thisId);
+            if (!PrimaryKey.inKeyList(value, thisId)) value.push(thisId);
         } else {
             if (value) {
                 throw new OverwriteRelationError();

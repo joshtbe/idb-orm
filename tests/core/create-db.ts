@@ -64,11 +64,7 @@ export const createDb = async ({ pkg }: Packages) => {
         id: Field.primaryKey().uuid(),
         name: Field.string(),
         range: Field.string(),
-        components: Field.union([
-            Field.literal("V"),
-            Field.literal("S"),
-            Field.literal("M"),
-        ]).array(),
+        components: Field.enum(["V", "S", "M"]).array(),
         cs: Field.relation("components", {
             name: "components2spells",
             bidirectional: false,
@@ -82,6 +78,7 @@ export const createDb = async ({ pkg }: Packages) => {
     const componentStore = builder.defineModel("components", {
         id: Field.primaryKey().autoIncrement(),
         name: Field.string(),
+        abbreviation: Field.string(),
     });
 
     const db = builder.compile({
@@ -127,20 +124,42 @@ export function coreTests(
         test("Add", async () => {
             const result = await session.evaluate(async ({ client }) => {
                 const stores = client.stores;
-                await stores.spells.add({
-                    name: "Acid Splash",
-                    level: 0,
-                    components: ["V"],
-                    range: "15 feet",
+                await stores.components.add({
+                    name: "Verbal",
+                    abbreviation: "V",
                 });
-                await stores.spells.add({
-                    name: "Chromatic Orb",
-                    level: 1,
-                    components: ["V"],
-                    range: "120 feet",
+                await stores.components.add({
+                    name: "Somatic",
+                    abbreviation: "S",
                 });
-                const x = await stores.spells.find({ where: { level: 0 } });
-                return x;
+                await stores.components.add({
+                    name: "Material",
+                    abbreviation: "M",
+                });
+                return await stores.components.find({});
+            });
+            expect(result).toBeInstanceOf(Array);
+            expect(result.length === 3).toBeTruthy();
+        });
+
+        test("AddMany", async () => {
+            const result = await session.evaluate(async ({ client }) => {
+                const stores = client.stores;
+                await stores.spells.addMany([
+                    {
+                        name: "Acid Splash",
+                        level: 0,
+                        components: ["V"],
+                        range: "15 feet",
+                    },
+                    {
+                        name: "Chromatic Orb",
+                        level: 1,
+                        components: ["V"],
+                        range: "120 feet",
+                    },
+                ]);
+                return await stores.spells.find({ where: { level: 0 } });
             });
             expect(result).toBeInstanceOf(Array);
             expect(result.length === 1).toBeTruthy();
@@ -196,6 +215,29 @@ export function coreTests(
                 }
             }
         });
+
+        test("Add with unidirectional $connect", async () => {
+            const result = await session.evaluate(async ({ client }) => {
+                const stores = client.stores;
+                stores.spells.add({
+                    name: "Sacred Flame",
+                    range: "120 ft",
+                    level: 0,
+                    components: [],
+                    cs: { $connectMany: [1, 2] },
+                });
+
+                return stores.spells.findFirst({
+                    where: { name: "Sacred Flame" },
+                    select: {
+                        cs: true,
+                    },
+                });
+            });
+            expect(result).toBeDefined();
+            expect(result?.cs).toHaveLength(2);
+        });
+
         test("Add Many with $connect", async () => {
             const result = await session.evaluate(async ({ client }) => {
                 const stores = client.stores;
@@ -302,6 +344,7 @@ export function coreTests(
             expect(result).toBeDefined();
             expect(result?.class).toBeDefined();
             expect(result?.class?.spellList).toBeDefined();
+            // FIXME: Fix types to "unknown" relations have the proper type
             expect(result?.class?.subclasses).toHaveLength(1);
             expect(Object.keys(result?.class?.spellList || {}).length).toBe(1);
             expect(result?.class?.spellList?.spells).toHaveLength(3);

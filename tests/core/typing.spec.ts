@@ -44,15 +44,19 @@ test.describe("Type-wrapper Tests", () => {
             if (!isType(Type.boolean(), true)) return "Value is a boolean";
             if (isType(Type.boolean(), 400)) return "Value is not a boolean";
 
-            if (!isType(Type.symbol(), Symbol.for("h")))
-                return "Value is a symbol";
-            if (isType(Type.symbol(), 400)) return "Value is not a symbol";
-
             if (!isType(Type.bigint(), 1n)) return "Value is a bigint";
             if (isType(Type.bigint(), 400)) return "Value is not a bigint";
 
             if (!isType(Type.date(), new Date())) return "Value is a date";
             if (isType(Type.date(), 300)) return "Value is not a date";
+
+            if (!isType(Type.null(), null)) return "Value is null";
+            if (isType(Type.null(), undefined)) return "Value is not null";
+            if (isType(Type.null(), 3243)) return "Value is not null";
+
+            if (!isType(Type.undefined(), undefined)) return "Value is undefined";
+            if (isType(Type.undefined(), null)) return "Value is not undefined";
+            if (isType(Type.undefined(), 300)) return "Value is not undefined";
 
             if (!isType(Type.unknown(), new Date())) return "Value is unknown";
             if (!isType(Type.unknown(), 300)) return "Value is unknown";

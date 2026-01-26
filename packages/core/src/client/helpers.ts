@@ -207,7 +207,7 @@ export function getAccessedStores<
     isMutation: boolean,
     client: DbClient<string, ModelNames, Models>,
 ): Set<ModelNames> {
-    const stores: Set<ModelNames> = new Set([name]);
+    let stores: Set<ModelNames> = new Set([name]);
     if (isMutation) {
         const model = client.getModel(name);
         for (const key in query) {

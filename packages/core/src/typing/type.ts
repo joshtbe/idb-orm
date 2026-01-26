@@ -10,19 +10,19 @@ import {
     FloatTag,
     IntTag,
     LiteralTag,
+    NullTag,
     NumberTag,
     ObjectTag,
     OptionalTag,
     SetTag,
     StringTag,
-    SymbolTag,
     Tag,
     TagToType,
     TupleTag,
     TypeTag,
+    UndefinedTag,
     UnionTag,
     UnknownTag,
-    VoidTag,
 } from "./tag";
 
 interface TypeCache {
@@ -30,8 +30,8 @@ interface TypeCache {
     [Tag.number]: NumberTag;
     [Tag.boolean]: BooleanTag;
     [Tag.bigint]: BigIntTag;
-    [Tag.symbol]: SymbolTag;
-    [Tag.void]: VoidTag;
+    [Tag.undefined]: UndefinedTag;
+    [Tag.null]: NullTag;
     [Tag.file]: FileTag;
     [Tag.date]: DateTag;
     [Tag.int]: IntTag;
@@ -67,8 +67,8 @@ export class Type {
     static bigint() {
         return this.getType(Tag.bigint);
     }
-    static symbol() {
-        return this.getType(Tag.symbol);
+    static undefined() {
+        return this.getType(Tag.undefined);
     }
     static int() {
         return this.getType(Tag.int);
@@ -77,8 +77,8 @@ export class Type {
         return this.getType(Tag.float);
     }
 
-    static void() {
-        return this.getType(Tag.void);
+    static null() {
+        return this.getType(Tag.null);
     }
     static file() {
         return this.getType(Tag.file);

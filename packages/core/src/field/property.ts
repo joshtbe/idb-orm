@@ -63,7 +63,6 @@ export class Property<Value, HasDefault extends boolean> {
             case Tag.boolean:
             case Tag.string:
             case Tag.number:
-            case Tag.symbol:
                 this.options.unique = true;
                 return this;
             default:
@@ -100,8 +99,6 @@ export class Property<Value, HasDefault extends boolean> {
                 return Type.number();
             case "string":
                 return Type.string();
-            case "symbol":
-                return Type.symbol();
             default:
                 return Type.unknown();
         }
@@ -163,6 +160,16 @@ export class Property<Value, HasDefault extends boolean> {
         return new Property(Type.date(), options);
     }
 
+    static enum<const V extends readonly Literable[]>(
+        items: V,
+        options?: PropertyInputOptions,
+    ) {
+        return new Property<V[number], false>(
+            Type.union(items.map((i) => Type.literal(i))),
+            options,
+        );
+    }
+
     static file(options?: PropertyInputOptions): Property<File, false> {
         return new Property(Type.file(), options);
     }
@@ -198,29 +205,5 @@ export class Property<Value, HasDefault extends boolean> {
             options,
         );
     }
-
-    private static generateArrayValidator<T>(fn: ParseFn<T>) {
-        return (items: unknown): ParseResult<T[]> => {
-            if (Array.isArray(items)) {
-                const resultData: T[] = [];
-                for (const item of items) {
-                    const result = fn(item);
-                    if (!result.success) {
-                        return result;
-                    } else {
-                        resultData.push(result.data);
-                    }
-                }
-                return {
-                    success: true,
-                    data: resultData,
-                };
-            } else {
-                return {
-                    success: false,
-                    error: "Value is not an array",
-                };
-            }
-        };
-    }
 }
+

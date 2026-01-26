@@ -50,20 +50,6 @@ function extractReference<T extends string = string>(
     };
 }
 
-/**
- * Performs the array "includes" functionality, but works for Date objects
- * @param arr Array of validkeys
- * @param item Item to see if it's in the array
- */
-function validKeyIncludes(arr: ValidKey[], item: ValidKey): boolean {
-    for (const key of arr) {
-        if (PrimaryKey.compareKeyValue(key, item)) {
-            return true;
-        }
-    }
-    return false;
-}
-
 type GenerateKeyMapParams<N extends string> =
     | {
           isDb: true;
@@ -161,7 +147,7 @@ async function verifyRelation<Names extends string>(
             throw new InvalidItemError(
                 `${refModel.name}.${ref.key}.${relatedKey}: Value should be an array of valid keys.`,
             );
-        if (!validKeyIncludes(relatedField, primaryKey)) {
+        if (!PrimaryKey.inKeyList(relatedField, primaryKey)) {
             relatedField.push(primaryKey);
         }
     } else {

@@ -179,8 +179,12 @@ const client = await compiledDb.createClient();
 _To be continued..._
 
 ## Roadmap
-
-- [ ] Unidirectional relations
+- [ ] Be able to where clause if nullable relations are defined or not
+- [ ] Be able to where clause if array relations have elements or not
+- [ ] Be able to where clause relation ids
+- [x] Add "Property.enum" helper that is alias of Union([Litera()])
+- [x] Deprecate "symbol" field (these are not serializable by indexeddb)
+- [x] Unidirectional relations
 - [ ] Discriminated union models: Be able to differentiate subtypes of a model by a discriminator key
 - [ ] Restore database to different formats
     - [ ] JSON

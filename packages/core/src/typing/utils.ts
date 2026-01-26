@@ -14,8 +14,10 @@ import { DeserializationError, SerializationError } from "../error";
 
 export function typeToString(type: TypeTag): string {
     switch (type.tag) {
-        case Tag.void:
-            return "void";
+        case Tag.undefined:
+            return "undefiend";
+        case Tag.null:
+            return "null";
         case Tag.literal:
             return String(type.value);
         case Tag.boolean:
@@ -30,8 +32,6 @@ export function typeToString(type: TypeTag): string {
             return "bigint";
         case Tag.string:
             return "string";
-        case Tag.symbol:
-            return "symbol";
         case Tag.unknown:
             return "unknown";
         case Tag.date:
@@ -86,13 +86,11 @@ export async function serializeType<T extends TypeTag>(
         case Tag.float:
         case Tag.int:
         case Tag.string:
+        case Tag.undefined:
+        case Tag.null:
             return value;
-        case Tag.void:
-            return undefined;
         case Tag.bigint:
             return Number(value);
-        case Tag.symbol:
-            return (value as symbol).description;
         case Tag.unknown:
             return JSON.stringify(value);
         case Tag.date:
@@ -140,7 +138,7 @@ export async function serializeType<T extends TypeTag>(
                     const reader = new FileReader();
                     reader.onload = () => resolve(reader.result);
                     reader.onerror = reject;
-                    reader.readAsDataURL(value);
+                    reader.readAsDataURL(value as Blob);
                 }),
                 name: value.name,
                 type: value.type,
@@ -151,10 +149,10 @@ export async function serializeType<T extends TypeTag>(
             for (const propKey in type.props) {
                 const curType = type.props[propKey];
                 if (
-                    !(propKey in value) &&
+                    !(propKey in (value as Dict)) &&
                     curType.tag !== Tag.optional &&
                     curType.tag !== Tag.default &&
-                    curType.tag !== Tag.void
+                    curType.tag !== Tag.undefined
                 ) {
                     throw new SerializationError(
                         `Required property '${propKey}' not found`,
@@ -204,7 +202,9 @@ export async function deserializeType<T extends TypeTag, R = TagToType<T>>(
     value: unknown,
 ): Promise<R> {
     switch (type.tag) {
-        case Tag.void:
+        case Tag.null:
+            return null as R;
+        case Tag.undefined:
             return undefined as R;
         case Tag.literal:
             if (value !== type.value) {
@@ -243,11 +243,6 @@ export async function deserializeType<T extends TypeTag, R = TagToType<T>>(
                 throw new DeserializationError(`'${value}' is not a string`);
             }
             return value as R;
-        case Tag.symbol:
-            if (typeof value !== "string") {
-                throw new DeserializationError(`'${value}' is not a symbol`);
-            }
-            return Symbol.for(value) as R;
         case Tag.date:
             if (typeof value !== "number" || isNaN(value)) {
                 throw new DeserializationError(
@@ -452,7 +447,6 @@ export function isSubtype(base: TypeTag, test: TypeTag): boolean {
                 test.tag === Tag.int
             );
         case Tag.boolean:
-        case Tag.symbol:
         case Tag.string:
         case Tag.bigint:
         case Tag.int:
@@ -468,7 +462,8 @@ export function isSubtype(base: TypeTag, test: TypeTag): boolean {
         // Only true if exact matches
         case Tag.date:
         case Tag.file:
-        case Tag.void:
+        case Tag.undefined:
+        case Tag.null:
             return test.tag === base.tag;
         case Tag.optional:
         case Tag.default:
@@ -520,10 +515,12 @@ export function isType<T extends TypeTag>(
     value: unknown,
 ): value is TagToType<T> {
     switch (type.tag) {
-        case Tag.void:
-            return typeof value === "undefined";
         case Tag.literal:
             return value === type.value;
+        case Tag.undefined:
+            return typeof value === "undefined";
+        case Tag.null:
+            return value === null;
         case Tag.boolean:
             return typeof value === "boolean";
         case Tag.number:
@@ -532,8 +529,6 @@ export function isType<T extends TypeTag>(
             return typeof value === "bigint";
         case Tag.string:
             return typeof value === "string";
-        case Tag.symbol:
-            return typeof value === "symbol";
         case Tag.unknown:
             return true;
         case Tag.float:
@@ -571,6 +566,7 @@ export function isType<T extends TypeTag>(
             return Object.keys(type.props).every((key) =>
                 isType(type.props[key], (value as Dict)[key]),
             );
+
         case Tag.custom:
             return type.isType(value);
     }

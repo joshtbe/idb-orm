@@ -109,6 +109,20 @@ export default class PrimaryKey<
         }
     }
 
+    /**
+     * Performs the array "includes" functionality, but works for Date objects
+     * @param arr Array of validkeys
+     * @param item Item to see if it's in the array
+     */
+    static inKeyList(arr: ValidKey[], item: ValidKey): boolean {
+        for (const key of arr) {
+            if (this.compareKeyValue(key, item)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     static readonly validKeyTag = Type.union([
         Type.string(),
         Type.number(),

@@ -34,8 +34,10 @@ function getTypeTag(schema: z.ZodType): core.TypeTag {
             return Type.date();
         case "file":
             return Type.file();
-        case "symbol":
-            return Type.symbol();
+        case "undefined":
+            return Type.undefined();
+        case "null":
+            return Type.null();
         case "literal":
             return core.Property.nameToType(
                 typeof Array.from((schema as z.ZodLiteral).values)[0],

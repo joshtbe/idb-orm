@@ -78,6 +78,7 @@ export const createZodDb: any = async ({ pkg, a, z }: SessionArguments) => {
     const componentStore = builder.defineModel("components", {
         id: Field.primaryKey().autoIncrement(),
         name: Field.string(),
+        abbreviation: Field.string(),
     });
 
     const db = builder.compile({
