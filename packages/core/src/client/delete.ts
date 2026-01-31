@@ -154,7 +154,7 @@ export async function deleteItems<
 >(
     name: Name,
     client: DbClient<string, ModelNames, Models>,
-    where?: WhereObject<ExtractFields<Models[Name]>>,
+    where?: WhereObject<ExtractFields<Models[Name]>, Models>,
     stopOnFirst: boolean = false,
     _state: MutationState<ModelNames> = {},
 ): Promise<number> {

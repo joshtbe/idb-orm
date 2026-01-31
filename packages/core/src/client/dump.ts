@@ -27,14 +27,15 @@ export function clean(text: unknown): string {
 export async function getStoreData<
     Current extends Names,
     Names extends string,
-    Models extends CollectionObject<Names>
+    Models extends CollectionObject<Names>,
 >(
     db: DbClient<string, Names, CollectionObject<Names>>,
     store: Current,
     where?: WhereObject<
-        Models[Current] extends Dict<ValidValue> ? Models[Current] : never
+        Models[Current] extends Dict<ValidValue> ? Models[Current] : never,
+        Models
     >,
-    tx?: Transaction<"readonly", Names>
+    tx?: Transaction<"readonly", Names>,
 ): Promise<Dict> {
     tx = Transaction.create(db.getDb(), [store], "readonly", tx);
     const whereClause = generateWhereClause(where);
@@ -61,17 +62,17 @@ export async function getStoreData<
                             !field.isNullable()
                         ) {
                             cursor.value[key] = `/${field.to}/${clean(
-                                cursor.value[key]
+                                cursor.value[key],
                             )}`;
                         }
                     } else if (Property.is(field) || PrimaryKey.is(field)) {
                         cursor.value[key] = await serializeType(
                             field.type,
-                            cursor.value[key]
+                            cursor.value[key],
                         );
                     } else {
                         throw new ExportError(
-                            `Unrecognized model field on key '${key}'`
+                            `Unrecognized model field on key '${key}'`,
                         );
                     }
                 }
@@ -79,7 +80,7 @@ export async function getStoreData<
                 if (result[cursor.value[model.primaryKey]]) {
                     throw new ExportError(
                         "Duplicate primary key detected " +
-                            JSON.stringify(result)
+                            JSON.stringify(result),
                     );
                 }
                 result[cursor.value[model.primaryKey]] = cursor.value;
@@ -94,7 +95,7 @@ export async function getStoreData<
 
 export async function getDatabaseData<Names extends string>(
     db: DbClient<string, Names, any>,
-    stores?: Names[]
+    stores?: Names[],
 ): Promise<Dict<Dict>> {
     const result: Dict<Dict> = {};
     stores = stores ? stores : db.getStoreNames();
@@ -105,7 +106,7 @@ export async function getDatabaseData<Names extends string>(
             db as DbClient<string, Names, CollectionObject<Names>>,
             store,
             undefined,
-            tx
+            tx,
         );
     }
     return result;
@@ -152,19 +153,19 @@ export class Dump<F extends ExportFormat> {
     constructor(
         protected readonly name: string,
         protected readonly content: string,
-        protected readonly extension: F
+        protected readonly extension: F,
     ) {}
 
     toFile(
         filename: string = `${this.name}_dump.${this.extension}`,
-        options?: FilePropertyBag
+        options?: FilePropertyBag,
     ): File {
         return new File([this.content], filename, options);
     }
 
     download(
         filename: string = `${this.name}_dump.${this.extension}`,
-        options?: FilePropertyBag
+        options?: FilePropertyBag,
     ): void {
         const url = URL.createObjectURL(this.toFile(filename, options));
         const a = document.createElement("a");
@@ -182,9 +183,9 @@ export class Dump<F extends ExportFormat> {
             JSON.stringify(
                 content,
                 undefined,
-                options?.pretty ?? true ? 4 : undefined
+                (options?.pretty ?? true) ? 4 : undefined,
             ),
-            "json"
+            "json",
         );
     }
 
@@ -195,7 +196,7 @@ export class Dump<F extends ExportFormat> {
     static toCsvDb(
         db: DbClient<string, string, CollectionObject<string>>,
         stores: string[],
-        content: Dict<Dict>
+        content: Dict<Dict>,
     ) {
         const lines: string[] = [`# ${db.name}`];
         for (const model of stores) {

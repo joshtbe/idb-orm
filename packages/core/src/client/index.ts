@@ -805,7 +805,8 @@ export class DbClient<
                                             } as WhereObject<
                                                 ExtractFields<
                                                     Models[ModelNames]
-                                                >
+                                                >,
+                                                Models
                                             >,
                                             false,
                                             { tx },

@@ -1,5 +1,5 @@
 import type { Arrayable, Dict, Keyof, Promisable } from "../util-types.js";
-import { identity, toArray, unionSets } from "../utils.js";
+import { areDatesEqual, identity, toArray, unionSets } from "../utils.js";
 import type { DbClient } from "./index.ts";
 import type {
     AddMutation,
@@ -33,9 +33,7 @@ export function generateWhereClause(where?: Dict): WhereClauseElement[] {
                     checks.push([
                         whereKey,
                         true,
-                        (value) =>
-                            value instanceof Date &&
-                            value.getTime() === date.getTime(),
+                        (value) => areDatesEqual(date, value),
                     ]);
                 }
                 break;
@@ -149,7 +147,8 @@ export function generateSelector<
                             ) => Promise<unknown>,
                         });
                     } else {
-                        const fn = async (id: ValidKey, tx: Tx) => {
+                        const fn = async (id: ValidKey | null, tx: Tx) => {
+                            if (id == null) return null;
                             return await subSelectFn(
                                 await tx.getStore(relation.to).assertGet(id),
                                 tx,
@@ -207,7 +206,7 @@ export function getAccessedStores<
     isMutation: boolean,
     client: DbClient<string, ModelNames, Models>,
 ): Set<ModelNames> {
-    let stores: Set<ModelNames> = new Set([name]);
+    const stores: Set<ModelNames> = new Set([name]);
     if (isMutation) {
         const model = client.getModel(name);
         for (const key in query) {

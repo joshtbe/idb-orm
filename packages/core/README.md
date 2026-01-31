@@ -179,9 +179,8 @@ const client = await compiledDb.createClient();
 _To be continued..._
 
 ## Roadmap
-- [ ] Be able to where clause if nullable relations are defined or not
-- [ ] Be able to where clause if array relations have elements or not
-- [ ] Be able to where clause relation ids
+- [ ] Add where clause support for relation keys
+  - [ ] is
 - [x] Add "Property.enum" helper that is alias of Union([Litera()])
 - [x] Deprecate "symbol" field (these are not serializable by indexeddb)
 - [x] Unidirectional relations

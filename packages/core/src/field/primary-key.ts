@@ -1,5 +1,5 @@
 import { InvalidConfigError } from "../error.js";
-import { getDate, uuid } from "../utils.js";
+import { areDatesEqual, getDate, uuid } from "../utils";
 import { GenFunction, ValidKey, ValidKeyType } from "./field-types.js";
 import { isType, Tag, Type } from "../typing";
 
@@ -103,7 +103,7 @@ export default class PrimaryKey<
             case "number":
                 return key1 === key2;
             case "object":
-                return key1.getTime() === (key2 as Date).getTime();
+                return areDatesEqual(key1, key2 as Date);
             default:
                 return false;
         }

@@ -14,6 +14,7 @@ import { ContextSession, expectEach, populatePage } from "../helpers.js";
 export const createDb = async ({ pkg }: Packages) => {
     const Builder = pkg.Builder;
     const Field = pkg.Property;
+    const Model = pkg.Model;
     const P = pkg.Property;
     const builder = new Builder("testdb", [
         "classes",
@@ -59,21 +60,22 @@ export const createDb = async ({ pkg }: Packages) => {
         }).array(),
     });
 
-    // BUG: Infinite type errors when defining a model with the model constructor
-    const spellStore = builder.defineModel("spells", {
-        id: Field.primaryKey().uuid(),
-        name: Field.string(),
-        range: Field.string(),
-        components: Field.enum(["V", "S", "M"]).array(),
-        cs: Field.relation("components", {
-            name: "components2spells",
-            bidirectional: false,
-        }).array(),
-        level: Field.number().default(0),
-        lists: Field.relation("spellLists", {
-            name: "spells2spellLists",
-        }).array(),
-    });
+    const spellStore = builder.defineModel(
+        new Model("spells", {
+            id: Field.primaryKey().uuid(),
+            name: Field.string(),
+            range: Field.string(),
+            components: Field.enum(["V", "S", "M"]).array(),
+            cs: Field.relation("components", {
+                name: "components2spells",
+                bidirectional: false,
+            }).array(),
+            level: Field.number().default(0),
+            lists: Field.relation("spellLists", {
+                name: "spells2spellLists",
+            }).array(),
+        }),
+    );
 
     const componentStore = builder.defineModel("components", {
         id: Field.primaryKey().autoIncrement(),
@@ -321,7 +323,6 @@ export function coreTests(
             }
         });
 
-        // FIXME: Include relations in deep find includes/select that are not the selected relation. (key  'cs' should be present in the output)
         test("Deep Find Include", async () => {
             const result = await session.evaluate(async ({ client }) => {
                 return await client.stores.subclass.findFirst({
@@ -344,7 +345,6 @@ export function coreTests(
             expect(result).toBeDefined();
             expect(result?.class).toBeDefined();
             expect(result?.class?.spellList).toBeDefined();
-            // FIXME: Fix types to "unknown" relations have the proper type
             expect(result?.class?.subclasses).toHaveLength(1);
             expect(Object.keys(result?.class?.spellList || {}).length).toBe(1);
             expect(result?.class?.spellList?.spells).toHaveLength(3);
@@ -423,7 +423,10 @@ export function coreTests(
                             name: "Warlock",
                         },
                     });
-                    if (item) return false;
+                    const i2 = await client.stores.subclass.findFirst({
+                        where: { name: "Hexblade" },
+                    });
+                    if (item || i2) return false;
                     return error;
                 }
             });
@@ -459,6 +462,10 @@ export function coreTests(
                             name: "Warlock",
                         },
                     });
+                    const i2 = await client.stores.subclass.findFirst({
+                        where: { name: "Hexblade" },
+                    });
+                    if (item || i2) return false;
                     if (item) return false;
                     return error;
                 }
@@ -500,6 +507,39 @@ export function coreTests(
                 });
             });
             expect(result).toBeUndefined();
+        });
+
+        test("Find First Relation Where Clause", async () => {
+            const result = await session.evaluate(async ({ client }) => {
+                return await client.stores.spellLists.findFirst({
+                    where: { class: 2 },
+                    include: {
+                        spells: {
+                            where: {
+                                name: "Widasdsdsh",
+                            },
+                        },
+                    },
+                });
+            });
+            expect(result).toBeDefined();
+            expect(result?.class).toBeDefined();
+            expect(result?.spells).toHaveLength(0);
+        });
+
+        test("Find First Relation w/ Where Clause Function", async () => {
+            const result = await session.evaluate(async ({ client }) => {
+                return await client.stores.classes.findFirst({
+                    where: {
+                        spellList: (id) => !id,
+                    },
+                    include: {
+                        spellList: true,
+                    },
+                });
+            });
+            expect(result).toBeDefined();
+            expect(result!.spellList).toBeNull();
         });
 
         test("Find First with Nested Where", async () => {

@@ -29,6 +29,11 @@ export function toArray<T>(value: Arrayable<T>): T[] {
     return value;
 }
 
+export function areDatesEqual(date1: Date, date2: unknown): boolean {
+    if (!(date2 instanceof Date)) return false;
+    return date1.getTime() === date2.getTime();
+}
+
 export function uuid() {
     return crypto.randomUUID();
 }

@@ -37,13 +37,10 @@ export type MutationAction =
     | "$disconnectMany"
     | "$disconnectAll";
 
-type WhereSelection<Struct extends object> = Struct extends Model<
-    any,
-    infer Fields,
-    any
->
-    ? WhereObject<Fields>
-    : never;
+type WhereSelection<Struct extends object, C extends CollectionObject<string>> =
+    Struct extends Model<any, infer Fields, any>
+        ? WhereObject<Fields, C>
+        : never;
 
 type _UpdateRelationMutation<
     This extends All,
@@ -58,7 +55,7 @@ type _UpdateRelationMutation<
     IsArray extends boolean = Extends<Relation, ArrayRelation<any, any>>,
     IsNullable extends boolean = Or<IsOptional, IsArray>,
     Value = RelationValue<To, C>,
-    Dest extends C[To] = C[To]
+    Dest extends C[To] = C[To],
 > = MakeOptional<
     IsNullable,
     | MakeArrayable<
@@ -131,9 +128,9 @@ export type UpdateMutation<
     All extends string,
     Struct extends object,
     C extends CollectionObject<All>,
-    OmitKeys extends string = never
+    OmitKeys extends string = never,
 > = {
-    where?: WhereSelection<Struct>;
+    where?: WhereSelection<Struct, C>;
     data: PartialOnUndefined<
         RemoveNeverValues<
             Struct extends Model<any, infer Fields, any>
@@ -144,23 +141,26 @@ export type UpdateMutation<
                       >]: Fields[K] extends Property<infer Type, any>
                           ? Type | undefined | ((value: Type) => Type)
                           : Fields[K] extends PrimaryKey<any, any>
-                          ? never
-                          : Fields[K] extends BaseRelation<infer To, infer Name>
-                          ? To extends All
-                              ?
-                                    | _UpdateRelationMutation<
-                                          This,
-                                          All,
-                                          C,
-                                          To,
-                                          Name,
-                                          Fields[K],
-                                          K,
-                                          OmitKeys
-                                      >
-                                    | undefined
-                              : never
-                          : never;
+                            ? never
+                            : Fields[K] extends BaseRelation<
+                                    infer To,
+                                    infer Name
+                                >
+                              ? To extends All
+                                  ?
+                                        | _UpdateRelationMutation<
+                                              This,
+                                              All,
+                                              C,
+                                              To,
+                                              Name,
+                                              Fields[K],
+                                              K,
+                                              OmitKeys
+                                          >
+                                        | undefined
+                                  : never
+                              : never;
                   }
                 : never
         >
@@ -175,7 +175,7 @@ type AddMutationRelation<
     RelationName extends string,
     Relation extends BaseRelation<any, any>,
     IsArray extends boolean = Extends<Relation, ArrayRelation<any, any>>,
-    Value = RelationValue<To, C>
+    Value = RelationValue<To, C>,
 > = MakeOptional<
     Or<IsArray, Extends<Relation, OptionalRelation<any, any>>>,
     | MakeArrayable<
@@ -209,7 +209,7 @@ export type AddMutation<
     This extends All,
     All extends string,
     Struct extends object,
-    C extends CollectionObject<All>
+    C extends CollectionObject<All>,
 > = PartialOnUndefined<
     RemoveNeverValues<
         Struct extends Model<any, infer Fields, any>
@@ -222,21 +222,21 @@ export type AddMutation<
                           ? Type | undefined
                           : Type
                       : Fields[K] extends PrimaryKey<infer IsAuto, infer Type>
-                      ? IsAuto extends true
-                          ? never
-                          : Type
-                      : Fields[K] extends BaseRelation<infer To, infer Name>
-                      ? To extends All
-                          ? AddMutationRelation<
-                                This,
-                                All,
-                                C,
-                                To,
-                                Name,
-                                Fields[K]
-                            >
-                          : never
-                      : never;
+                        ? IsAuto extends true
+                            ? never
+                            : Type
+                        : Fields[K] extends BaseRelation<infer To, infer Name>
+                          ? To extends All
+                              ? AddMutationRelation<
+                                    This,
+                                    All,
+                                    C,
+                                    To,
+                                    Name,
+                                    Fields[K]
+                                >
+                              : never
+                          : never;
               }
             : never
     >

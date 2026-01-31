@@ -41,18 +41,18 @@ export type TypedArray =
  *
  * @see https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Structured_clone_algorithm#supported_types
  */
-export type JavaScriptStorable<T = any, V = any> =
-    | Array<T>
+export type JavaScriptStorable =
+    | Array<IndexedDbStorable>
     | ArrayBuffer
     | Boolean
     | DataView
     | Date
     | ErrorTypes
-    | Map<T, V>
+    | Map<IndexedDbStorable, IndexedDbStorable>
     | Number
-    | Record<string, unknown>
+    | { [key: string | number]: IndexedDbStorable }
     | RegExp
-    | Set<T>
+    | Set<IndexedDbStorable>
     | String
     | TypedArray
     | JavaScriptPrimitive;
@@ -95,6 +95,4 @@ export type WebAPIStorable =
  * @see {@link https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Structured_clone_algorithm|Structured Clone Algorithm}
  * Some WebAPI types from the list are omitted as they are not widely supported.
  */
-export type IndexedDbStorable<T = any, V = any> =
-    | JavaScriptStorable<T, V>
-    | WebAPIStorable;
+export type IndexedDbStorable = JavaScriptStorable | WebAPIStorable;

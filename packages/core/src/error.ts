@@ -23,6 +23,7 @@ export type ErrorType =
     | "OPEN_CURSOR"
     | "SERIALIZATION_FAILED"
     | "DESERIALIZATION_FAILED"
+    | "TYPE_ERROR"
     | "UNKNOWN";
 
 export class StoreError extends Error {
@@ -35,7 +36,7 @@ export class StoreError extends Error {
 
 function storeErrorFactory<T extends ErrorType>(
     code: T,
-    defaultMessage: string
+    defaultMessage: string,
 ) {
     return class extends StoreError {
         public static readonly code: T;
@@ -51,73 +52,78 @@ function storeErrorFactory<T extends ErrorType>(
 
 export const InvalidConfigError = storeErrorFactory(
     "INVALID_CONFIG",
-    "Configuration is invalid"
+    "Configuration is invalid",
 );
 
 export const InvalidTransactionError = storeErrorFactory(
     "INVALID_TX",
-    "Transaction is invalid"
+    "Transaction is invalid",
 );
 
 export const InvalidItemError = storeErrorFactory(
     "INVALID_ITEM",
-    "Item is invalid"
+    "Item is invalid",
 );
 
 export const AssertionError = storeErrorFactory(
     "ASSERTION_FAILED",
-    "Assertion failed"
+    "Assertion failed",
 );
 
 export const UnknownError = storeErrorFactory(
     "UNKNOWN",
-    "An unknown error occurred"
+    "An unknown error occurred",
 );
 
 export const DeleteError = storeErrorFactory(
     "DELETE_FAILED",
-    "Item could not be deleted"
+    "Item could not be deleted",
 );
 
 export const ObjectStoreNotFoundError = storeErrorFactory(
     "NOT_FOUND",
-    "Object Store Not Found"
+    "Object Store Not Found",
 );
 
 export const DocumentNotFoundError = storeErrorFactory(
     "NOT_FOUND",
-    "Document Not Found"
+    "Document Not Found",
 );
 
 export const UpdateError = storeErrorFactory(
     "UPDATE_FAILED",
-    "Item could not be updated"
+    "Item could not be updated",
 );
 
 export const AddError = storeErrorFactory(
     "ADD_FAILED",
-    "Item could not be added"
+    "Item could not be added",
 );
 
 export const OpenCursorError = storeErrorFactory(
     "OPEN_CURSOR",
-    "Cursor could not be opened"
+    "Cursor could not be opened",
 );
 
 export const RetrievalError = storeErrorFactory(
     "GET_FAILED",
-    "Item could not be retrieved"
+    "Item could not be retrieved",
 );
 
 export const OverwriteRelationError = storeErrorFactory(
     "OVERWRITE_RELATION",
-    "Relation cannot be overwritten"
+    "Relation cannot be overwritten",
 );
 
 export const ExportError = storeErrorFactory("EXPORT", "Export failed");
 
 export const ImportError = storeErrorFactory("IMPORT_FAILED", "Import failed");
 
-export const SerializationError = storeErrorFactory("SERIALIZATION_FAILED", "Seralization failed");
-export const DeserializationError = storeErrorFactory("DESERIALIZATION_FAILED", "De-seralization failed");
-
+export const SerializationError = storeErrorFactory(
+    "SERIALIZATION_FAILED",
+    "Seralization failed",
+);
+export const DeserializationError = storeErrorFactory(
+    "DESERIALIZATION_FAILED",
+    "De-seralization failed",
+);
