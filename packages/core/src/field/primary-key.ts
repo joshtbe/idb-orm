@@ -83,7 +83,10 @@ export default class PrimaryKey<
     }
 
     static is(value: object): value is PrimaryKey<any, any> {
-        return (value as any)?.symbol === PRIMARY_KEY_SYMBOL;
+        return (
+            typeof value === "object" &&
+            (value as any)?.symbol === PRIMARY_KEY_SYMBOL
+        );
     }
 
     static isValidKey(value: unknown): value is ValidKey {

@@ -15,8 +15,7 @@ import {
     AssertionError,
     InvalidConfigError,
     InvalidItemError,
-    StoreError,
-} from "../error.js";
+} from "../error";
 import { FindPrimaryKey, ModelCache, CollectionObject } from "./model-types";
 import { Transaction } from "../transaction.js";
 
@@ -24,7 +23,7 @@ const MODEL_SYMBOL = Symbol.for("model");
 
 export default class Model<
     Name extends string,
-    F extends Record<string, ValidValue>,
+    F extends Dict<ValidValue>,
     Primary extends FindPrimaryKey<F> = FindPrimaryKey<F>,
 > {
     readonly symbol = MODEL_SYMBOL;
@@ -38,12 +37,13 @@ export default class Model<
      */
     private readonly relationLinks = new Set<string>();
     private cache: ModelCache = {};
-    public readonly primaryKey: Primary;
+    public readonly primaryKey = "" as Primary;
     constructor(
         public readonly name: Name,
         private readonly fields: F,
     ) {
         this.fieldKeys = getKeys(fields);
+        let foundPrimary = false;
 
         // Generate a set of all models this one is linked to
         for (const key of this.fieldKeys) {
@@ -52,18 +52,22 @@ export default class Model<
                 if (item.to !== this.name) {
                     this.relationLinks.add(item.to);
                 }
+            } else if (PrimaryKey.is(item)) {
+                if (foundPrimary) {
+                    throw new InvalidConfigError(
+                        `Model ${this.name} has more than one primary key.`,
+                    );
+                }
+                this.primaryKey = key as Primary;
+                foundPrimary = true;
             }
         }
 
-        const primaryKey = this.fieldKeys.find((k) =>
-            PrimaryKey.is(this.fields[k]),
-        );
-        if (!primaryKey)
-            throw new StoreError(
-                "INVALID_CONFIG",
+        if (!foundPrimary) {
+            throw new InvalidConfigError(
                 `Model ${this.name} has no primary key`,
             );
-        this.primaryKey = primaryKey as Primary;
+        }
     }
 
     get<K extends Keyof<F>>(key: K): F[K] {

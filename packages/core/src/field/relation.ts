@@ -5,7 +5,7 @@ import type {
     RelationOptions,
 } from "./field-types.js";
 
-export class BaseRelation<To extends string, Name extends string = never> {
+export abstract class BaseRelation<To extends string, Name extends string = never> {
     private static readonly SYMBOL = Symbol.for("baseRelation");
     protected readonly BASE_SYMBOL = BaseRelation.SYMBOL;
 
