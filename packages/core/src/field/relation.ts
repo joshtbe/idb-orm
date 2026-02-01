@@ -5,7 +5,10 @@ import type {
     RelationOptions,
 } from "./field-types.js";
 
-export abstract class BaseRelation<To extends string, Name extends string = never> {
+export abstract class BaseRelation<
+    To extends string,
+    Name extends string = never,
+> {
     private static readonly SYMBOL = Symbol.for("baseRelation");
     protected readonly BASE_SYMBOL = BaseRelation.SYMBOL;
 
@@ -86,7 +89,9 @@ export abstract class BaseRelation<To extends string, Name extends string = neve
         return this.BASE_SYMBOL;
     }
 
-    static is(value: object): value is BaseRelation<any, any> {
+    static is<K extends string = string>(
+        value: object,
+    ): value is BaseRelation<K, any> {
         return (
             "getBaseSymbol" in value &&
             (value as { getBaseSymbol(): symbol }).getBaseSymbol() ===

@@ -1,11 +1,15 @@
-// TODO: Implement this
-
-import { InvalidConfigError } from "../error.js";
-import { BaseRelation, PrimaryKey, Property, Tag, ValidValue } from "../field";
+import { InvalidConfigError } from "../error";
+import {
+    BaseRelation,
+    PrimaryKey,
+    Property,
+    Tag,
+    ValidKey,
+    ValidValue,
+} from "../field";
 import { Dict, Keyof, Literable, RequiredKey } from "../util-types";
-import { getKeys } from "../utils.js";
 import { FindPrimaryKey } from "./model-types";
-import Model from "./model";
+import { BaseModel } from "./base-model";
 
 interface UnionOptions<
     Discriminator extends string,
@@ -38,10 +42,13 @@ export class UnionModel<
     Discriminator extends string,
     const Options extends readonly RequiredKey<Discriminator, ValidValue>[],
     Primary extends FindPrimaryKey<Base> = FindPrimaryKey<Base>,
-> {
+> extends BaseModel<Name, Base & Options[number], Primary> {
     protected static readonly SYMBOL = Symbol.for("union_model");
     private readonly symbol = UnionModel.SYMBOL;
-    private readonly baseKeys: Keyof<Base>[];
+
+
+    
+    protected readonly fieldKeys: Keyof<Base & Options[number]>[];
     private readonly baseFieldSymbol = Symbol.for("base");
     private readonly fieldMap = new Map<Literable | symbol, Dict<ValidValue>>();
     public readonly primaryKey = "" as Primary;
@@ -54,19 +61,23 @@ export class UnionModel<
     /**
      * Set of other models this model links to
      */
-    private readonly relationLinks = new Set<string>();
+    protected readonly relationLinks = new Set<string>();
 
     constructor(
         public readonly name: Name,
         base: Base,
         options: UnionOptions<Discriminator, Options>,
     ) {
-        this.baseKeys = getKeys(base);
+        super();
+        const allKeys = new Set<string>();
         this.fieldMap.set(this.baseFieldSymbol, base);
         let foundPrimary = false;
 
         // Find the primary key in the base fields
-        for (const baseKey of this.baseKeys) {
+        for (const baseKey in base) {
+            if (!Object.hasOwn(base, baseKey)) continue;
+
+            allKeys.add(baseKey);
             const item = base[baseKey];
             if (BaseRelation.is(item)) {
                 this.relationLinks.add(item.to);
@@ -110,7 +121,10 @@ export class UnionModel<
             for (const key in opt) {
                 if (!Object.hasOwn(opt, key) || key === this.discriminator) {
                     continue;
-                } else if (PrimaryKey.is(opt[key])) {
+                }
+
+                allKeys.add(key);
+                if (PrimaryKey.is(opt[key])) {
                     throw new InvalidConfigError(
                         `Option of model '${this.name}' with discriminator '${this.discriminator}' defines a primary key. This is not allowed.`,
                     );
@@ -123,13 +137,56 @@ export class UnionModel<
 
         // In case this model relates to itself, remove it from the relation links to prevent circular referencing
         this.relationLinks.delete(this.name);
+        this.fieldKeys = Array.from(allKeys) as any;
     }
 
-    static is<
+    get<
+        K extends
+            | Extract<keyof Base, string>
+            | Extract<keyof Options[number], string>,
+    >(
+        key: K,
+        discriminator: symbol | Literable = this.baseFieldSymbol,
+    ): (Base & Options[number])[K] {
+        const item = this.fieldMap.get(discriminator);
+        if (!item) {
+            throw new InvalidConfigError(
+                `Option '${String(discriminator)}' on model '${this.name}' not found.`,
+            );
+        }
+        return item[key] as (Base & Options[number])[K];
+    }
+
+    getPrimaryKey() {
+        return this.fieldMap.get(this.baseFieldSymbol)![
+            this.primaryKey
+        ] as PrimaryKey<boolean, ValidKey>;
+    }
+
+    static isType<
         Name extends string,
-        Fields extends Dict<ValidValue>,
-        Primary extends FindPrimaryKey<Fields> = FindPrimaryKey<Fields>,
-    >(value: object): value is Model<Name, Fields, Primary> {
+        Base extends Dict<ValidValue>,
+        Discriminator extends string,
+        const Options extends readonly RequiredKey<Discriminator, ValidValue>[],
+    >(value: object): value is UnionModel<Name, Base, Discriminator, Options> {
         return (value as any)?.symbol === this.SYMBOL;
     }
 }
+
+const _x = new UnionModel(
+    "hello",
+    {
+        id: Property.primaryKey().autoIncrement(),
+        name: Property.string(),
+    },
+    {
+        key: "type",
+        options: [
+            { type: Property.literal("hello"), value: Property.number() },
+            {
+                type: Property.literal(134),
+                value: Property.set(Property.number()),
+            },
+        ],
+    },
+);

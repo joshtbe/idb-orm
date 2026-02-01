@@ -1,47 +1,33 @@
-import { DbClient } from "../client";
-import {
-    BaseRelation,
-    Property,
-    FieldTypes,
-    PrimaryKey,
-    ValidValue,
-    ParseResult,
-    ValidKey,
-    parseType,
-} from "../field";
+import { BaseRelation, PrimaryKey, ValidValue, ValidKey } from "../field";
 import { Dict, Keyof } from "../util-types";
-import { getKeys, unionSets } from "../utils.js";
-import {
-    AssertionError,
-    InvalidConfigError,
-    InvalidItemError,
-} from "../error";
-import { FindPrimaryKey, ModelCache, CollectionObject } from "./model-types";
-import { Transaction } from "../transaction.js";
-
-const MODEL_SYMBOL = Symbol.for("model");
+import { getKeys } from "../utils.js";
+import { InvalidConfigError } from "../error";
+import { FindPrimaryKey, ModelCache } from "./model-types";
+import { BaseModel } from "./base-model.js";
 
 export default class Model<
     Name extends string,
     F extends Dict<ValidValue>,
     Primary extends FindPrimaryKey<F> = FindPrimaryKey<F>,
-> {
-    readonly symbol = MODEL_SYMBOL;
+> extends BaseModel<Name, F, Primary> {
+    protected static readonly SYMBOL = Symbol.for("model");
+    private readonly symbol = Model.SYMBOL;
 
     /**
      * Array of all the model's fields
      */
-    private readonly fieldKeys: readonly Keyof<F>[];
+    protected readonly fieldKeys: readonly Keyof<F>[];
     /**
      * Set of other models this model links to
      */
-    private readonly relationLinks = new Set<string>();
-    private cache: ModelCache = {};
+    protected readonly relationLinks = new Set<string>();
+    protected cache: ModelCache = {};
     public readonly primaryKey = "" as Primary;
     constructor(
         public readonly name: Name,
         private readonly fields: F,
     ) {
+        super();
         this.fieldKeys = getKeys(fields);
         let foundPrimary = false;
 
@@ -78,165 +64,11 @@ export default class Model<
         return this.fields[this.primaryKey] as PrimaryKey<boolean, ValidKey>;
     }
 
-    getRelation<Models extends string>(
-        key: string,
-    ): BaseRelation<Models, string> | undefined {
-        const item = this.fields[key];
-        if (!key || !item || !BaseRelation.is(item)) return undefined;
-        return item as BaseRelation<Models, string>;
-    }
-
-    keyType(key: Keyof<F>): FieldTypes {
-        const f = this.fields[key];
-        if (!f) return FieldTypes.Invalid;
-        else if (Property.is(f)) return FieldTypes.Property;
-        else if (BaseRelation.is(f)) return FieldTypes.Relation;
-        else if (PrimaryKey.is(f)) return FieldTypes.PrimaryKey;
-        else return FieldTypes.Invalid;
-    }
-
-    /**
-     * Generator for all of the relations present on the model
-     */
-    *relations<K extends string = string>(): Generator<
-        [key: string, relation: BaseRelation<K, string>]
-    > {
-        for (const key of this.fieldKeys) {
-            if (BaseRelation.is(this.fields[key])) {
-                yield [key, this.fields[key] as BaseRelation<K, string>];
-            }
-        }
-    }
-
-    /**
-     * Generator for all of the entries present on the model
-     */
-    *entries(): Generator<[key: string, value: ValidValue]> {
-        for (const key of this.fieldKeys) {
-            yield [key, this.fields[key]];
-        }
-    }
-
-    keys() {
-        return this.fieldKeys;
-    }
-
-    parseField<K extends Keyof<F>>(field: K, value: unknown): ParseResult<any> {
-        if (Property.is(this.fields[field])) {
-            return parseType(this.fields[field].type, value);
-        } else {
-            throw new InvalidConfigError(
-                `Key '${field}' on model '${this.name}' is not a property but is being used as a static property.`,
-            );
-        }
-    }
-
-    /**
-     * Loads the value for the autoIncrement counter
-     *
-     * Calling this is only valid if the primary key of this model has the "autoIncrement" property
-     * @param client Database client object
-     * @param tx Optional transaction to attach
-     */
-    async loadIncrementCounter<
-        ModelNames extends string,
-        Models extends CollectionObject<ModelNames>,
-    >(
-        client: DbClient<string, ModelNames, Models>,
-        tx?: Transaction<IDBTransactionMode, ModelNames>,
-    ): Promise<void> {
-        if (this.cache.autoIncrement) {
-            return;
-        }
-
-        tx = Transaction.create(
-            client.getDb(),
-            [this.name as unknown as ModelNames],
-            "readonly",
-            tx,
-        );
-
-        let max = 0;
-        await tx
-            .getStore(this.name as unknown as ModelNames)
-            .openCursor((cursor) => {
-                const id = cursor.key as number;
-                if (typeof id !== "number") {
-                    throw new InvalidItemError(
-                        `Document with primary key ${JSON.stringify(cursor.key)} is invalid, expected a number.`,
-                    );
-                }
-                if (id > max) {
-                    max = id;
-                }
-
-                cursor.continue();
-                return true;
-            });
-
-        this.cache.autoIncrement = max + 1;
-        return;
-    }
-
-    /**
-     * Get the value for the next autoIncrement counter
-     *
-     * Calling this is only valid if the primary key of this model has the "autoIncrement" property.
-     * @returns Primary key for the next document
-     */
-    getIncrementCounter(): number {
-        if (!this.cache.autoIncrement) {
-            throw new AssertionError(
-                "AutoIncrement property not found in the cache.",
-            );
-        }
-        return this.cache.autoIncrement++;
-    }
-
-    genPrimaryKey(): ValidKey {
-        const primaryKey = this.getPrimaryKey();
-        if (primaryKey.isAutoIncremented()) {
-            return this.getIncrementCounter();
-        }
-        return primaryKey.genKey();
-    }
-
-    getDeletedStores<
-        ModelNames extends string,
-        Models extends CollectionObject<ModelNames>,
-    >(client: DbClient<string, ModelNames, Models>): Set<ModelNames> {
-        if (this.cache.delete) return this.cache.delete as Set<ModelNames>;
-
-        const visited = new Set<ModelNames>();
-        const queue: ModelNames[] = [this.name as unknown as ModelNames];
-        let curModel: Models[ModelNames];
-        while (queue.length > 0) {
-            const item = queue.shift()!;
-            if (visited.has(item)) continue;
-            curModel = client.getModel(item);
-            const cache = curModel.cache.delete;
-            if (cache) {
-                unionSets(visited, cache);
-            } else {
-                visited.add(item);
-                // Add to the queue
-                for (const link of curModel.relationLinks as Set<ModelNames>) {
-                    if (!visited.has(link)) {
-                        queue.push(link);
-                    }
-                }
-            }
-        }
-
-        this.cache.delete = visited;
-        return visited;
-    }
-
     static is<
         Name extends string,
         Fields extends Dict<ValidValue>,
         Primary extends FindPrimaryKey<Fields> = FindPrimaryKey<Fields>,
     >(value: object): value is Model<Name, Fields, Primary> {
-        return (value as any)?.symbol === MODEL_SYMBOL;
+        return super.is(value) && (value as any)?.symbol === this.SYMBOL;
     }
 }

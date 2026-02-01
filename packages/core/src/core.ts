@@ -5,7 +5,7 @@ export type {
 } from "./field/property";
 export type { PropertyUnion } from "./field/field-types";
 export * from "./util-types";
-export { Model } from "./model";
+export { Model, BaseModel } from "./model";
 export type {
     FindPrimaryKey,
     CollectionObject,
