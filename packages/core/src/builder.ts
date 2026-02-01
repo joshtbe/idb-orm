@@ -1,4 +1,5 @@
 import {
+    BaseModel,
     CollectionObject,
     CollectionSchema,
     FindPrimaryKey,
@@ -18,7 +19,7 @@ import { getKeys, handleRequest } from "./utils";
 import { InvalidConfigError } from "./error";
 
 export class Builder<Name extends string, Names extends string> {
-    private models: Record<Names, Model<Names, Dict<ValidValue>>>;
+    private models: Record<Names, BaseModel<Names, Dict<ValidValue>, string>>;
     constructor(
         public readonly name: Name,
         public readonly names: Names[],

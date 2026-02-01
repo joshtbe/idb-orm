@@ -37,7 +37,7 @@ export abstract class BaseModel<
 
     protected cache: ModelCache = {};
 
-    abstract get<K extends (typeof this.fieldKeys)[number]>(key: K): Fields[K];
+    abstract get(key: string): ValidValue;
 
     abstract getPrimaryKey(): PrimaryKey<boolean, ValidKey>;
 
@@ -50,11 +50,11 @@ export abstract class BaseModel<
     }
 
     keyType(key: (typeof this.fieldKeys)[number]): FieldTypes {
-        const f = this.get(key);
-        if (!f) return FieldTypes.Invalid;
-        else if (Property.is(f)) return FieldTypes.Property;
-        else if (BaseRelation.is(f)) return FieldTypes.Relation;
-        else if (PrimaryKey.is(f)) return FieldTypes.PrimaryKey;
+        const item = this.get(key);
+        if (!item) return FieldTypes.Invalid;
+        else if (Property.is(item)) return FieldTypes.Property;
+        else if (BaseRelation.is(item)) return FieldTypes.Relation;
+        else if (PrimaryKey.is(item)) return FieldTypes.PrimaryKey;
         else return FieldTypes.Invalid;
     }
 

@@ -83,6 +83,7 @@ export const createDb = async ({ pkg }: Packages) => {
         abbreviation: Field.string(),
     });
 
+
     const db = builder.compile({
         classes: classStore,
         spellLists: spellListStore,

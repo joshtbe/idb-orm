@@ -207,7 +207,7 @@ export function queryClientProviderFactory<
                 return;
             }, [version]);
 
-            if (!providerValues) return fallback as ReactNode;
+            if (!providerValues) return fallback;
 
             return (
                 <QueryClientProvider client={providerValues.queryClient}>

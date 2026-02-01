@@ -2,7 +2,7 @@ import { BaseRelation, PrimaryKey, ValidValue, ValidKey } from "../field";
 import { Dict, Keyof } from "../util-types";
 import { getKeys } from "../utils.js";
 import { InvalidConfigError } from "../error";
-import { FindPrimaryKey, ModelCache } from "./model-types";
+import { FindPrimaryKey } from "./model-types";
 import { BaseModel } from "./base-model.js";
 
 export default class Model<
@@ -21,7 +21,6 @@ export default class Model<
      * Set of other models this model links to
      */
     protected readonly relationLinks = new Set<string>();
-    protected cache: ModelCache = {};
     public readonly primaryKey = "" as Primary;
     constructor(
         public readonly name: Name,

@@ -10,7 +10,7 @@ import {
     ValidValue,
     serializeType,
 } from "../field";
-import { CollectionObject, Model } from "../model";
+import { BaseModel, CollectionObject } from "../model";
 import { Transaction } from "../transaction.js";
 import { AssertionError, ExportError } from "../error.js";
 
@@ -116,7 +116,7 @@ export interface DumpOptions {
     pretty?: boolean;
 }
 
-function storeToCsv(model: Model<string, any, string>, data: Dict): string {
+function storeToCsv(model: BaseModel<string, any, string>, data: Dict): string {
     const lines: string[] = [`## ${model.name}`];
     const fieldNames: string[] = [];
     for (const [key, field] of model.entries()) {
@@ -189,7 +189,7 @@ export class Dump<F extends ExportFormat> {
         );
     }
 
-    static toCsvStore(model: Model<string, any, string>, content: Dict) {
+    static toCsvStore(model: BaseModel<string, any, string>, content: Dict) {
         return new this(model.name, storeToCsv(model, content), "csv");
     }
 

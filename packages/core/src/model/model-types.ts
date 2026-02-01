@@ -11,6 +11,7 @@ import {
     TypeTag,
 } from "../field";
 import { Dict, Keyof } from "../util-types.js";
+import { BaseModel } from "./base-model.js";
 import Model from "./model.js";
 
 /**
@@ -26,7 +27,7 @@ export type FindPrimaryKey<F extends Record<string, ValidValue>> = Extract<
 /**
  * Gets the type of the primary key of a model
  */
-export type PrimaryKeyType<M extends Model<any, any, any>> =
+export type PrimaryKeyType<M extends BaseModel<any, any, any>> =
     M extends Model<any, infer F, any>
         ? {
               [K in keyof F]: F[K] extends PrimaryKey<any, infer Type>
@@ -76,7 +77,7 @@ export type ModelStructure<F extends Dict<ValidValue>, C> = {
  * Gets the resolved type of a document for a given model
  */
 export type ModelType<
-    M extends Model<any, any, any>,
+    M extends BaseModel<any, any, any>,
     C extends CompiledDb<any, any, any>,
 > =
     M extends Model<any, infer Fields, any>
@@ -88,7 +89,7 @@ export type ModelType<
 /**
  * Extracts the fields of a Model class
  */
-export type ExtractFields<M extends Model<any, any, any>> =
+export type ExtractFields<M extends BaseModel<any, any, any>> =
     M extends Model<any, infer Fields, any> ? Fields : never;
 
 /**
@@ -123,7 +124,7 @@ export type RelationlessModelStructure<M extends Model<any, any, any>> =
         : never;
 
 /**
- * Maps over the keys of a collection and creates a type where each key is a dictionary of typetags. 
+ * Maps over the keys of a collection and creates a type where each key is a dictionary of typetags.
  */
 export type CollectionSchema<C> =
     C extends Record<infer Keys, Model<any, any, any>>
@@ -137,7 +138,7 @@ export type CollectionSchema<C> =
 export type FindRelationKey<
     From extends string,
     RelationName extends string,
-    M extends Model<any, any, any>,
+    M extends BaseModel<any, any, any>,
 > =
     M extends Model<any, infer Fields, any>
         ? {
@@ -153,5 +154,5 @@ export type FindRelationKey<
         : never;
 
 export type CollectionObject<Names extends string> = {
-    [K in Names]: Model<K, any>;
+    [K in Names]: BaseModel<K, any, string>;
 };
