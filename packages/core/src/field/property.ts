@@ -35,10 +35,9 @@ export type ParseResult<T> =
  */
 export type ParseFn<T> = (value: unknown) => ParseResult<T>;
 
-const PROPERTY_SYMBOL = Symbol.for("property");
-
 export class Property<Value, HasDefault extends boolean> {
-    readonly symbol = PROPERTY_SYMBOL;
+    private static readonly SYMBOL = Symbol.for("property");
+    readonly symbol = Property.SYMBOL;
     protected hasDefault: HasDefault = false as HasDefault;
     protected options: PropertyOptions;
 
@@ -105,7 +104,7 @@ export class Property<Value, HasDefault extends boolean> {
     }
 
     public static is(value: any): value is Property<any, any> {
-        return typeof value === "object" && value?.symbol === PROPERTY_SYMBOL;
+        return typeof value === "object" && value?.symbol === this.SYMBOL;
     }
 
     array(): Property<Value[], false> {
@@ -164,10 +163,7 @@ export class Property<Value, HasDefault extends boolean> {
         items: V,
         options?: PropertyInputOptions,
     ) {
-        return new Property<V[number], false>(
-            Type.union(items.map((i) => Type.literal(i))),
-            options,
-        );
+        return new Property<V[number], false>(Type.enum(items), options);
     }
 
     static file(options?: PropertyInputOptions): Property<File, false> {
@@ -206,4 +202,3 @@ export class Property<Value, HasDefault extends boolean> {
         );
     }
 }
-

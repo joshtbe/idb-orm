@@ -1,4 +1,4 @@
-import { Arrayable, Keyof } from "./util-types";
+import { Arrayable, Dict, Keyof } from "./util-types";
 import type { Transaction } from "./transaction.js";
 import { UnknownError } from "./error.js";
 
@@ -80,4 +80,8 @@ export function setDifference<T>(set1: Iterable<T>, set2: Iterable<T>): Set<T> {
 export function tryNumberCoerce(str: string): string | number {
     const toNum = Number(str);
     return isNaN(toNum) ? str : toNum;
+}
+
+export function isDict<T>(value: unknown): value is Dict<T> {
+    return !!value && typeof value === "object";
 }

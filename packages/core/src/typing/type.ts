@@ -1,4 +1,4 @@
-import { Literable } from "../util-types";
+import { Dict, Literable, RequiredKey } from "../util-types";
 import {
     ArrayTag,
     BigIntTag,
@@ -6,6 +6,7 @@ import {
     CustomTag,
     DateTag,
     DefaultTag,
+    DiscriminatedUnionTag,
     FileTag,
     FloatTag,
     IntTag,
@@ -14,6 +15,8 @@ import {
     NumberTag,
     ObjectTag,
     OptionalTag,
+    RecordKeyable,
+    RecordTag,
     SetTag,
     StringTag,
     Tag,
@@ -104,6 +107,40 @@ export class Type {
         };
     }
 
+    static discriminatedUnion<
+        Base extends Dict<TypeTag> = Dict<TypeTag>,
+        const Key extends string = string,
+        const Options extends readonly RequiredKey<Key, TypeTag>[] = [],
+    >(
+        base: Base,
+        key: Key,
+        options: Options,
+    ): DiscriminatedUnionTag<Base, Key, Options> {
+        const keys = new Set();
+        for (const opt of options) {
+            const disc = opt[key];
+            if (disc.tag !== Tag.literal) {
+                throw new TypeError(
+                    `Discriminator key '${key}' is not a literal.`,
+                );
+            }
+            // Make sure the discriminator value is not repeated
+            if (keys.has(disc.value)) {
+                throw new TypeError(
+                    `Value '${disc.value}' is repeated for discriminator '${key}'`,
+                );
+            }
+            keys.add(disc.value);
+        }
+
+        return {
+            tag: Tag.discriminatedUnion,
+            base,
+            key,
+            options,
+        };
+    }
+
     static default<V extends TypeTag>(
         of: V,
         value: TagToType<V>,
@@ -113,6 +150,12 @@ export class Type {
             of,
             value: value,
         };
+    }
+
+    static enum<const V extends readonly Literable[]>(items: V) {
+        return Type.union(items.map((i) => Type.literal(i))) as UnionTag<{
+            -readonly [K in keyof V]: LiteralTag<V[K]>;
+        }>;
     }
 
     static set<V extends TypeTag>(element: V): SetTag<V> {
@@ -136,7 +179,7 @@ export class Type {
         };
     }
 
-    static object<R extends Record<string, TypeTag>>(props: R): ObjectTag<R> {
+    static object<R extends Dict<TypeTag>>(props: R): ObjectTag<R> {
         return {
             tag: Tag.object,
             props,
@@ -153,6 +196,17 @@ export class Type {
         return {
             tag: Tag.custom,
             ...opts,
+        };
+    }
+
+    static record<K extends RecordKeyable, V extends TypeTag>(
+        key: K,
+        value: V,
+    ): RecordTag<K, V> {
+        return {
+            tag: Tag.record,
+            key,
+            value,
         };
     }
 }

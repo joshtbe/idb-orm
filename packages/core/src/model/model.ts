@@ -32,6 +32,11 @@ export default class Model<
 
         // Generate a set of all models this one is linked to
         for (const key of this.fieldKeys) {
+            if (key.length === 0) {
+                throw new InvalidConfigError(
+                    `Model '${this.name}' has an empty-string field key. This is not allowed.`,
+                );
+            }
             const item = this.fields[key];
             if (BaseRelation.is(item)) {
                 if (item.to !== this.name) {

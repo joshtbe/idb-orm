@@ -1,14 +1,14 @@
-import { InvalidConfigError } from "../error.js";
+import { InvalidConfigError } from "../error";
 import { areDatesEqual, getDate, uuid } from "../utils";
-import { GenFunction, ValidKey, ValidKeyType } from "./field-types.js";
+import { GenFunction, ValidKey, ValidKeyType } from "./field-types";
 import { isType, Tag, Type } from "../typing";
 
-const PRIMARY_KEY_SYMBOL = Symbol.for("primaryKey");
 export default class PrimaryKey<
     AutoGenerate extends boolean,
     KeyType extends ValidKey,
 > {
-    readonly symbol = PRIMARY_KEY_SYMBOL;
+    private static readonly SYMBOL = Symbol.for("primary_key");
+    readonly symbol = PrimaryKey.SYMBOL;
     private genFn?: GenFunction<KeyType>;
     private autoGenerate: AutoGenerate;
     public readonly type: ValidKeyType;
@@ -84,8 +84,7 @@ export default class PrimaryKey<
 
     static is(value: object): value is PrimaryKey<any, any> {
         return (
-            typeof value === "object" &&
-            (value as any)?.symbol === PRIMARY_KEY_SYMBOL
+            typeof value === "object" && (value as any)?.symbol === this.SYMBOL
         );
     }
 
@@ -117,7 +116,7 @@ export default class PrimaryKey<
      * @param arr Array of validkeys
      * @param item Item to see if it's in the array
      */
-    static inKeyList(arr: ValidKey[], item: ValidKey): boolean {
+    static inKeyList(arr: Iterable<ValidKey>, item: ValidKey): boolean {
         for (const key of arr) {
             if (this.compareKeyValue(key, item)) {
                 return true;

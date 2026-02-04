@@ -10,7 +10,7 @@ import {
 } from "./error.js";
 import { ValidKey } from "./field";
 import { Transaction } from "./transaction.js";
-import { Dict, Promisable } from "./util-types.js";
+import { Dict, IDBCursorWithType, Promisable } from "./util-types";
 
 /**
  * A paper thin wrapper around IDBObjectStore
@@ -18,13 +18,13 @@ import { Dict, Promisable } from "./util-types.js";
 export class ObjectStore<T = Dict> {
     constructor(
         private readonly tx: Transaction<IDBTransactionMode, string>,
-        public readonly internal: IDBObjectStore
+        public readonly internal: IDBObjectStore,
     ) {}
 
     add(item: T) {
         return this.handleRequest(
             this.internal.add(item),
-            () => new AddError()
+            () => new AddError(),
         ) as Promise<ValidKey>;
     }
 
@@ -36,7 +36,7 @@ export class ObjectStore<T = Dict> {
     get(key: ValidKey): Promise<T | undefined> {
         return this.handleRequest(
             this.internal.get(key),
-            () => new RetrievalError()
+            () => new RetrievalError(),
         );
     }
 
@@ -46,7 +46,7 @@ export class ObjectStore<T = Dict> {
     async assertGet(key: ValidKey): Promise<T> {
         const item = (await this.handleRequest(
             this.internal.get(key),
-            () => new RetrievalError()
+            () => new RetrievalError(),
         )) as T | undefined;
         if (!item) throw this.tx.abort(new DocumentNotFoundError());
         return item;
@@ -55,32 +55,32 @@ export class ObjectStore<T = Dict> {
     put(item: T) {
         return this.handleRequest(
             this.internal.put(item),
-            () => new UpdateError()
+            () => new UpdateError(),
         ) as Promise<ValidKey>;
     }
 
     delete(key: ValidKey): Promise<undefined> {
         return this.handleRequest(
             this.internal.delete(key),
-            () => new DeleteError()
+            () => new DeleteError(),
         );
     }
 
     async openCursor(
         callback: (
-            cursor: IDBCursorWithValue,
-            tx: Transaction<IDBTransactionMode, string>
+            cursor: IDBCursorWithType<T>,
+            tx: Transaction<IDBTransactionMode, string>,
         ) => Promisable<boolean>,
         options: {
             query?: IDBValidKey | IDBKeyRange;
             direction?: IDBCursorDirection;
             onError?: () => StoreError;
-        } = {}
+        } = {},
     ) {
         const onError = options.onError || (() => new OpenCursorError());
         const request = this.internal.openCursor(
             options.query,
-            options.direction
+            options.direction,
         );
         await new Promise<void>((res, reject) => {
             request.onsuccess = async (event) => {
@@ -99,8 +99,8 @@ export class ObjectStore<T = Dict> {
                         this.tx.abort(
                             error instanceof StoreError
                                 ? error
-                                : new UnknownError(JSON.stringify(error))
-                        )
+                                : new UnknownError(JSON.stringify(error)),
+                        ),
                     );
                 }
             };

@@ -1,4 +1,11 @@
-import { MaybeGenerator, Promisable } from "../util-types";
+import {
+    Dict,
+    MaybeGenerator,
+    Promisable,
+    RequiredKey,
+    Simplify,
+    Writeable,
+} from "../util-types";
 
 export const enum Tag {
     /* Valid primary keys */
@@ -24,6 +31,8 @@ export const enum Tag {
     optional,
     default,
     object,
+    discriminatedUnion,
+    record,
     tuple,
     class,
     custom,
@@ -89,16 +98,44 @@ export interface UnionTag<V extends TypeTag[] = TypeTag[]> {
     options: V;
 }
 
+export interface DiscriminatedUnionTag<
+    Base extends Dict<TypeTag> = Dict<TypeTag>,
+    Key extends string = string,
+    Options extends readonly RequiredKey<Key, TypeTag>[] = readonly RequiredKey<
+        Key,
+        TypeTag
+    >[],
+> {
+    tag: Tag.discriminatedUnion;
+    key: Key;
+    base: Base;
+    options: Options;
+}
+
 export interface TupleTag<V extends TypeTag[] = TypeTag[]> {
     tag: Tag.tuple;
     elements: V;
 }
 
-export interface ObjectTag<
-    P extends Record<string, TypeTag> = Record<string, TypeTag>,
-> {
+export interface ObjectTag<P extends Dict<TypeTag> = Dict<TypeTag>> {
     tag: Tag.object;
     props: P;
+}
+
+export type RecordKeyable =
+    | NumberTag
+    | StringTag
+    | LiteralTag<string>
+    | LiteralTag<number>
+    | UnionTag<RecordKeyable[]>;
+
+export interface RecordTag<
+    Key extends RecordKeyable = RecordKeyable,
+    Value extends TypeTag = TypeTag,
+> {
+    tag: Tag.record;
+    key: Key;
+    value: Value;
 }
 
 export interface DefaultTag<T extends TypeTag = TypeTag> {
@@ -131,12 +168,14 @@ export type TypeTag =
     | SetTag
     | OptionalTag
     | UnionTag
+    | RecordTag
     | ArrayTag
     | ObjectTag
     | TupleTag
     | CustomTag
     | NullTag
     | UndefinedTag
+    | DiscriminatedUnionTag
     | DefaultTag;
 
 interface SimpleTagMap {
@@ -152,6 +191,10 @@ interface SimpleTagMap {
     [Tag.date]: Date;
     [Tag.file]: File;
 }
+
+type ObjectTagToType<T extends Dict<TypeTag>, Depth extends number> = {
+    [K in keyof T]: TagToType<T[K], Dec[Depth]>;
+};
 
 export type TagToType<
     T extends TypeTag,
@@ -171,11 +214,28 @@ export type TagToType<
             : T extends ArrayTag<infer T>
               ? TagToType<T, Dec[Depth]>[]
               : T extends ObjectTag<infer P>
-                ? {
-                      [K in keyof P]: TagToType<P[K], Dec[Depth]>;
-                  }
+                ? ObjectTagToType<P, Dec[Depth]>
                 : T extends DefaultTag<infer T> | OptionalTag<infer T>
                   ? TagToType<T, Dec[Depth]> | undefined
                   : T extends CustomTag<infer V>
                     ? V
-                    : never;
+                    : T extends DiscriminatedUnionTag<
+                            infer Base,
+                            string,
+                            infer Options
+                        >
+                      ? ObjectTagToType<Base, Dec[Depth]> &
+                            Simplify<
+                                ObjectTagToType<
+                                    Writeable<Options[number]>,
+                                    Dec[Depth]
+                                >
+                            >
+                      : T extends LiteralTag<infer V>
+                        ? V
+                        : T extends RecordTag<infer K, infer V>
+                          ? Record<
+                                TagToType<K, Dec[Depth]>,
+                                TagToType<V, Dec[Depth]>
+                            >
+                          : never;

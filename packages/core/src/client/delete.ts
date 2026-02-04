@@ -48,7 +48,7 @@ function generateDocumentDelete<
                                         ] as ValidKey,
                                     )
                                 ) {
-                                    await deleteFn(cursor.value as Dict);
+                                    await deleteFn(cursor.value);
                                 }
                                 cursor.continue();
                                 return true;
@@ -78,14 +78,14 @@ function generateDocumentDelete<
 
                     const deletedItems = toArray(fieldItem as ValidKey);
                     const relatedStore = tx.getStore(relation.to);
-                    const relatedKey = relation.getRelatedKey();
+                    const relatedKey = relation.relatedKey;
                     const relatedRelation =
                         relatedModel.getRelation(relatedKey);
                     if (!relatedRelation)
                         throw new InvalidConfigError(
                             `Relation '${
                                 relation.name
-                            }' has an invalid relation key '${relation.getRelatedKey()}'`,
+                            }' has an invalid relation key '${relation.relatedKey}'`,
                         );
                     else if (!relatedRelation.isNullable()) {
                         throw new InvalidConfigError(
@@ -186,7 +186,7 @@ export async function deleteItems<
             const whereClause = generateWhereClause(where);
             let promise: Promise<undefined> | undefined;
             await store.openCursor(async (cursor) => {
-                const value = cursor.value as Dict;
+                const value: Dict = cursor.value;
                 if (
                     parseWhere(whereClause, value) &&
                     (await deleteSubItems(value))

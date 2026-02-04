@@ -3,29 +3,32 @@ import type {
     ReferenceActions,
     RelationActions,
     RelationOptions,
-} from "./field-types.js";
+} from "./field-types";
+import { InvalidConfigError } from "../error";
 
 export abstract class BaseRelation<
     To extends string,
     Name extends string = never,
 > {
-    private static readonly SYMBOL = Symbol.for("baseRelation");
-    protected readonly BASE_SYMBOL = BaseRelation.SYMBOL;
+    private static readonly BASE_SYMBOL = Symbol.for("base_relation");
+    protected readonly baseSymbol = BaseRelation.BASE_SYMBOL;
 
     /**
      * Actions to be performed under certain conditions
      */
-    protected actions: RelationActions;
+    protected readonly actions: RelationActions;
 
     /**
      * The corresponding relation key on the model this relation points to
      */
-    private relatedKey: string;
+    readonly relatedKey: string;
 
     /**
      * An optional label to give to the relation. This helps distinguish it from others
      */
     public readonly name: Name;
+
+    private built: boolean = false;
 
     /**
      * If the relation is an array or not
@@ -35,6 +38,11 @@ export abstract class BaseRelation<
      * If the relation is optional or not
      */
     readonly isOptional: boolean;
+
+    /**
+     * If the relation is bidirectional or not
+     * @default true
+     */
     readonly isBidirectional: boolean;
 
     constructor(
@@ -52,6 +60,27 @@ export abstract class BaseRelation<
         this.actions = {
             onDelete: options.onDelete ?? "Restrict",
         };
+
+        // We don't need to wait for the relatedKey to be set
+        if (!this.isBidirectional) {
+            this.built = true;
+        }
+    }
+
+    /**
+     * Builds the relation, providing the relation object with needed information about what it's related to.
+     *
+     * This function is called during database build time. Subsequent calls will throw an error.
+     * @param relatedKey Key of the corresponding relation on the model designated by `to`.
+     */
+    build(relatedKey: string) {
+        if (this.built) {
+            throw new InvalidConfigError(
+                `Relation '${this.name}' cannot be built twice.`,
+            );
+        }
+        (this.relatedKey as any) = relatedKey;
+        this.built = true;
     }
 
     getActions() {
@@ -59,25 +88,23 @@ export abstract class BaseRelation<
     }
 
     /**
-     * Whether or not this relation can have the "SetNull" onDelete action used against it
-     * @returns
+     * Returns a flag indicating if this object has had the `build()` function called.
+     */
+    isBuilt() {
+        return this.built;
+    }
+
+    /**
+     * Whether or not this relation can have the "SetNull" onDelete action used against it.
+     *
+     * This returns true if it's an arrayable or optional relation.
+     * @returns `true` if this relation can have the `SetNull` action. `false` otherwise.
      */
     isNullable() {
         return this.isArray || this.isOptional;
     }
 
-    setRelatedKey(key: string) {
-        this.relatedKey = key;
-    }
-
-    /**
-     * Gets the key on the corresponding model this relation points to
-     */
-    getRelatedKey() {
-        return this.relatedKey;
-    }
-
-    tostring() {
+    toString() {
         return `${
             this.isArray ? "Array" : this.isOptional ? "Optional" : "Standard"
         } relation from this model to model '${this.to}' on key '${
@@ -85,17 +112,12 @@ export abstract class BaseRelation<
         }'`;
     }
 
-    getBaseSymbol() {
-        return this.BASE_SYMBOL;
-    }
-
     static is<K extends string = string>(
         value: object,
     ): value is BaseRelation<K, any> {
         return (
-            "getBaseSymbol" in value &&
-            (value as { getBaseSymbol(): symbol }).getBaseSymbol() ===
-                BaseRelation.SYMBOL
+            typeof value === "object" &&
+            (value as any)?.baseSymbol === BaseRelation.BASE_SYMBOL
         );
     }
 }
@@ -105,10 +127,16 @@ export class Relation<
     const Name extends string,
 > extends BaseRelation<To, Name> {
     private static readonly R_SYMBOL = Symbol.for("relation");
-    readonly symbol = Relation.R_SYMBOL;
+    private readonly symbol = Relation.R_SYMBOL;
     declare private readonly _brand: "relation";
 
-    constructor(to: To, options: RelationOptions<Name, ReferenceActions> = {}) {
+    constructor(
+        to: To,
+        options: Omit<
+            RelationOptions<Name, ReferenceActions>,
+            "array" | "optional"
+        > = {},
+    ) {
         super(to, options);
     }
 
@@ -120,14 +148,13 @@ export class Relation<
     array(
         options: Omit<
             RelationOptions<Name, OptionalActions>,
-            "name" | "array"
+            "name" | "array" | "optional"
         > = {},
     ) {
         return new ArrayRelation(this.to, {
             ...this.options,
             ...options,
             name: this.name,
-            array: true,
         });
     }
 
@@ -139,13 +166,12 @@ export class Relation<
     optional(
         options: Omit<
             RelationOptions<Name, OptionalActions>,
-            "name" | "optional"
+            "name" | "optional" | "array"
         > = {},
     ) {
         return new OptionalRelation(this.to, {
             ...this.options,
             ...options,
-            optional: true,
             name: this.name,
         });
     }
@@ -156,7 +182,7 @@ export class Relation<
     }
 
     static is(value: object): value is Relation<any, any> {
-        return (value as any)?.symbol === this.R_SYMBOL;
+        return super.is(value) && (value as any)?.symbol === this.R_SYMBOL;
     }
 }
 
@@ -164,34 +190,47 @@ export class ArrayRelation<
     To extends string,
     Name extends string,
 > extends BaseRelation<To, Name> {
-    private static readonly A_SYMBOL = Symbol.for("arrayRelation");
-    readonly symbol = ArrayRelation.A_SYMBOL;
+    private static readonly A_SYMBOL = Symbol.for("array_relation");
+    private readonly symbol = ArrayRelation.A_SYMBOL;
     declare private readonly _brand: "ArrayRelation";
 
-    constructor(to: To, options: RelationOptions<Name, OptionalActions> = {}) {
-        super(to, { onDelete: "None", ...options });
+    constructor(
+        to: To,
+        options: Omit<
+            RelationOptions<Name, OptionalActions>,
+            "array" | "optional"
+        > = {},
+    ) {
+        super(to, { onDelete: "None", ...options, array: true });
     }
 
     static is(value: object): value is ArrayRelation<any, any> {
-        return (value as any)?.symbol === this.A_SYMBOL;
+        return super.is(value) && (value as any)?.symbol === this.A_SYMBOL;
     }
 }
 export class OptionalRelation<
     To extends string,
     Name extends string,
 > extends BaseRelation<To, Name> {
-    private static readonly O_SYMBOL = Symbol.for("optionalRelation");
-    readonly symbol = OptionalRelation.O_SYMBOL;
+    private static readonly O_SYMBOL = Symbol.for("optional_relation");
+    private readonly symbol = OptionalRelation.O_SYMBOL;
     declare private readonly _brand: "optionalRelation";
 
-    constructor(to: To, options: RelationOptions<Name, OptionalActions> = {}) {
+    constructor(
+        to: To,
+        options: Omit<
+            RelationOptions<Name, OptionalActions>,
+            "array" | "optional"
+        > = {},
+    ) {
         super(to, {
             onDelete: "None",
             ...options,
+            optional: true,
         });
     }
 
     static is(value: object): value is OptionalRelation<any, any> {
-        return (value as any)?.symbol === this.O_SYMBOL;
+        return super.is(value) && (value as any)?.symbol === this.O_SYMBOL;
     }
 }

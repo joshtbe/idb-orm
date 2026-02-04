@@ -1,7 +1,8 @@
-import PrimaryKey from "./primary-key.js";
+
+import PrimaryKey from "./primary-key";
 export { PrimaryKey };
 
-export * from "./relation.js";
-export * from "./field-types.js";
-export * from "./property.js";
+export * from "./relation";
+export * from "./field-types";
+export * from "./property";
 export * from "../typing";

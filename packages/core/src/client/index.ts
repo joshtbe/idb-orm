@@ -364,7 +364,7 @@ export class DbClient<
                                             relation: relation.isBidirectional
                                                 ? {
                                                       id,
-                                                      key: relation.getRelatedKey(),
+                                                      key: relation.relatedKey,
                                                   }
                                                 : undefined,
                                         },
@@ -487,7 +487,7 @@ export class DbClient<
             );
 
             await initStore.openCursor(async (cursor) => {
-                const selection = await selectClause(cursor.value as Dict, tx);
+                const selection = await selectClause(cursor.value, tx);
 
                 if (selection) {
                     result.push(selection as O);
@@ -662,7 +662,7 @@ export class DbClient<
                                             relation: relation.isBidirectional
                                                 ? {
                                                       id: thisId,
-                                                      key: relation.getRelatedKey(),
+                                                      key: relation.relatedKey,
                                                   }
                                                 : undefined,
                                         },
@@ -721,9 +721,7 @@ export class DbClient<
                                     if (relation.isBidirectional) {
                                         const otherRelation = this.getModel(
                                             relation.to,
-                                        ).getRelation(
-                                            relation.getRelatedKey(),
-                                        )!;
+                                        ).getRelation(relation.relatedKey)!;
 
                                         await this.disconnectDocument(
                                             relation,
@@ -903,15 +901,13 @@ export class DbClient<
         if (!relation.isBidirectional) return documentId;
 
         const store = tx.getStore(relation.to);
-        const current = (await store.get(documentId)) as Dict<
-            Arrayable<unknown>
-        >;
+        const current = await store.get(documentId);
         if (!current) {
             throw new DocumentNotFoundError(
                 `Document with Primary Key '${documentId}' could not be found in model '${relation.to}'`,
             );
         }
-        const relatedKey = relation.getRelatedKey();
+        const relatedKey = relation.relatedKey;
         const otherRelation = this.getModel(relation.to).getRelation(
             relatedKey,
         )!;
@@ -950,9 +946,7 @@ export class DbClient<
         if (!relation.isBidirectional) return documentId;
 
         const store = tx.getStore(relation.to);
-        const current = (await store.get(documentId)) as Dict<
-            Arrayable<unknown>
-        >;
+        const current = await store.get(documentId);
         if (!current) {
             throw new DocumentNotFoundError(
                 `Document with Primary Key '${documentId}' could not be found in model '${relation.to}'`,
@@ -960,15 +954,15 @@ export class DbClient<
         }
 
         const otherRelation = this.getModel(relation.to).getRelation(
-            relation.getRelatedKey(),
+            relation.relatedKey,
         )!;
 
         if (otherRelation.isArray) {
-            (current[relation.getRelatedKey()] as unknown[]).filter(
+            (current[relation.relatedKey] as unknown[]).filter(
                 (u) => u !== thisId,
             );
         } else if (otherRelation.isOptional) {
-            current[relation.getRelatedKey()] = null;
+            current[relation.relatedKey] = null;
         } else {
             throw new OverwriteRelationError();
         }

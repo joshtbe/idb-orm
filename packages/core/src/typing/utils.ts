@@ -1,4 +1,4 @@
-import { Dict } from "../util-types.js";
+import { Dict, Literable } from "../util-types";
 import {
     ArrayTag,
     LiteralTag,
@@ -11,6 +11,7 @@ import {
 } from "./tag";
 import { ParseResult } from "../field";
 import { DeserializationError, SerializationError } from "../error";
+import { isDict } from "../utils";
 
 export function typeToString(type: TypeTag): string {
     switch (type.tag) {
@@ -57,6 +58,15 @@ export function typeToString(type: TypeTag): string {
             return `{${Object.keys(type.props)
                 .map((k) => `${k}: ${typeToString(type.props[k])}`)
                 .join(",\n")}}`;
+        case Tag.discriminatedUnion: {
+            const base = typeToString({ tag: Tag.object, props: type.base });
+            const options = type.options
+                .map((props) => typeToString({ tag: Tag.object, props: props }))
+                .join(" | ");
+            return `${base} & (${options})`;
+        }
+        case Tag.record:
+            return `Record<${typeToString(type.key)}, ${typeToString(type.value)}>`;
         case Tag.custom:
             return "custom";
     }
@@ -144,12 +154,71 @@ export async function serializeType<T extends TypeTag>(
                 type: value.type,
             };
         }
+        case Tag.discriminatedUnion: {
+            const result: Dict = {};
+
+            if (!isDict(value)) {
+                throw new SerializationError(`Expected an object type.`);
+            }
+
+            // Check for the base values
+            for (const [key, cur] of Object.entries(type.base)) {
+                if (
+                    !(key in value) &&
+                    cur.tag !== Tag.optional &&
+                    cur.tag !== Tag.default &&
+                    cur.tag !== Tag.undefined
+                ) {
+                    throw new SerializationError(
+                        `Required property '${key}' not found`,
+                    );
+                }
+                result[key] = await serializeType(cur, value[key]);
+            }
+
+            // Check for the options
+            const discValue: Literable = value[type.key];
+            let found = false;
+            for (const opt of type.options) {
+                if ((opt[type.key] as LiteralTag)?.value !== discValue) {
+                    continue;
+                }
+
+                // Otherwise, parse this option
+                for (const [key, cur] of Object.entries(opt)) {
+                    if (
+                        !(key in value) &&
+                        cur.tag !== Tag.optional &&
+                        cur.tag !== Tag.default &&
+                        cur.tag !== Tag.undefined
+                    ) {
+                        throw new SerializationError(
+                            `Required property '${key}' not found`,
+                        );
+                    }
+                    result[key] = await serializeType(cur, value[key]);
+                }
+                found = true;
+                break;
+            }
+
+            if (!found) {
+                throw new SerializationError(
+                    `Did not find option matching discriminator '${discValue}'`,
+                );
+            }
+
+            return result;
+        }
         case Tag.object: {
             const result: Dict = {};
-            for (const propKey in type.props) {
-                const curType = type.props[propKey];
+            if (!isDict(value)) {
+                throw new SerializationError(`Expected an object type.`);
+            }
+
+            for (const [propKey, curType] of Object.entries(type.props)) {
                 if (
-                    !(propKey in (value as Dict)) &&
+                    !(propKey in value) &&
                     curType.tag !== Tag.optional &&
                     curType.tag !== Tag.default &&
                     curType.tag !== Tag.undefined
@@ -158,10 +227,22 @@ export async function serializeType<T extends TypeTag>(
                         `Required property '${propKey}' not found`,
                     );
                 }
-                result[propKey] = await serializeType(
-                    curType,
-                    (value as Dict)[propKey],
-                );
+                result[propKey] = await serializeType(curType, value[propKey]);
+            }
+
+            return result;
+        }
+        case Tag.record: {
+            if (!isDict(value)) {
+                throw new SerializationError("Value is not an object");
+            }
+            const result: Dict = {};
+            for (const [k, v] of Object.entries(value)) {
+                const [key, value] = await Promise.all([
+                    serializeType(type.key, k) as Promise<string | number>,
+                    serializeType(type.value, v),
+                ]);
+                result[key] = value;
             }
 
             return result;
@@ -175,6 +256,7 @@ export async function serializeType<T extends TypeTag>(
                         : type.value
                     : value,
             );
+
         case Tag.custom:
             if (type.serialize) {
                 switch (typeof type.serialize) {
@@ -350,12 +432,11 @@ export async function deserializeType<T extends TypeTag, R = TagToType<T>>(
                 throw new DeserializationError("Value is not valid");
             }
         case Tag.object: {
-            if (!value || typeof value !== "object") {
+            if (!isDict(value)) {
                 throw new DeserializationError("Value is not an object");
             }
             const result: Dict = {};
-            for (const propKey in type.props) {
-                const curType = type.props[propKey];
+            for (const [propKey, curType] of Object.entries(type.props)) {
                 if (!(propKey in value) && curType.tag !== Tag.optional) {
                     throw new DeserializationError(
                         `Required property '${propKey}' not found`,
@@ -363,7 +444,70 @@ export async function deserializeType<T extends TypeTag, R = TagToType<T>>(
                 }
                 result[propKey] = await deserializeType(
                     curType,
-                    (value as Dict)[propKey],
+                    value[propKey],
+                );
+            }
+
+            return result as R;
+        }
+        case Tag.record: {
+            if (!isDict(value)) {
+                throw new DeserializationError("Value is not an object");
+            }
+            const result: Dict = {};
+            for (const [k, v] of Object.entries(value)) {
+                const [key, value] = await Promise.all([
+                    deserializeType(type.key, k),
+                    deserializeType(type.value, v),
+                ]);
+                result[key] = value;
+            }
+
+            return result as R;
+        }
+        case Tag.discriminatedUnion: {
+            if (!isDict(value)) {
+                throw new DeserializationError("Value is not an object");
+            }
+            const result: Dict = {};
+            for (const [propKey, curType] of Object.entries(type.base)) {
+                if (!(propKey in value) && curType.tag !== Tag.optional) {
+                    throw new DeserializationError(
+                        `Required property '${propKey}' not found`,
+                    );
+                }
+                result[propKey] = await deserializeType(
+                    curType,
+                    value[propKey],
+                );
+            }
+
+            const discValue = value[type.key];
+            let found = false;
+            for (const opt of type.options) {
+                if ((opt[type.key] as LiteralTag)?.value !== discValue) {
+                    continue;
+                }
+
+                for (const [propKey, curType] of Object.entries(opt)) {
+                    if (!(propKey in value) && curType.tag !== Tag.optional) {
+                        throw new DeserializationError(
+                            `Required property '${propKey}' not found`,
+                        );
+                    }
+                    result[propKey] = await deserializeType(
+                        curType,
+                        value[propKey],
+                    );
+                }
+
+                found = true;
+                break;
+            }
+
+            if (!found) {
+                throw new SerializationError(
+                    `Did not find option matching discriminator '${discValue}'`,
                 );
             }
 
@@ -420,6 +564,28 @@ export function isExactType(t1: TypeTag, t2: TypeTag): boolean {
                     return false;
             }
             return true;
+        case Tag.discriminatedUnion:
+            return (
+                t2.tag === Tag.discriminatedUnion &&
+                t1.options.length === t2.options.length &&
+                t1.key === t2.key &&
+                isExactType(
+                    { tag: Tag.object, props: t1.base },
+                    { tag: Tag.object, props: t2.base },
+                ) &&
+                t1.options.every((opt, idx) =>
+                    isExactType(
+                        { tag: Tag.object, props: opt },
+                        { tag: Tag.object, props: t2.options[idx] },
+                    ),
+                )
+            );
+        case Tag.record:
+            return (
+                t2.tag === Tag.record &&
+                isExactType(t1.key, t2.key) &&
+                isExactType(t1.value, t2.value)
+            );
         case Tag.custom:
             // Return true if their reference is the same (not perfect)
             return t1 === t2;
@@ -504,6 +670,9 @@ export function isSubtype(base: TypeTag, test: TypeTag): boolean {
                     return false;
             }
             return true;
+        case Tag.record:
+        case Tag.discriminatedUnion:
+            return isExactType(base, test);
         case Tag.custom:
             // Return true if their reference is the same (not perfect)
             return base === test;
@@ -560,13 +729,34 @@ export function isType<T extends TypeTag>(
         case Tag.file:
             return value instanceof File;
         case Tag.object:
-            if (!value || typeof value !== "object") {
+            if (!isDict(value)) {
                 return false;
             }
             return Object.keys(type.props).every((key) =>
-                isType(type.props[key], (value as Dict)[key]),
+                isType(type.props[key], value[key]),
             );
-
+        case Tag.discriminatedUnion: {
+            if (!isDict(value)) {
+                return false;
+            }
+            if (
+                !Object.keys(type.base).every((key) =>
+                    isType(type.base[key], value[key]),
+                )
+            ) {
+                return false;
+            }
+            return true;
+        }
+        case Tag.record: {
+            if (!isDict(value)) return false;
+            for (const [k, v] of Object.entries(value)) {
+                if (!isType(type.key, k) || !isType(type.value, v)) {
+                    return false;
+                }
+            }
+            return true;
+        }
         case Tag.custom:
             return type.isType(value);
     }

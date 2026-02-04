@@ -77,13 +77,13 @@ export async function getStoreData<
                     }
                 }
 
-                if (result[cursor.value[model.primaryKey]]) {
+                if (result[cursor.value[model.primaryKey] as string]) {
                     throw new ExportError(
                         "Duplicate primary key detected " +
                             JSON.stringify(result),
                     );
                 }
-                result[cursor.value[model.primaryKey]] = cursor.value;
+                result[cursor.value[model.primaryKey] as string] = cursor.value;
             }
             cursor.continue();
             return true;

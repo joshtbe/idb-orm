@@ -88,8 +88,17 @@ export type Dec<D extends number> = PrevDepth[D] extends number
     : never;
 
 /**
+ * Removes the readonly from object properties
+ */
+export type Writeable<T> = { -readonly [K in keyof T]: T[K] };
+
+/**
  * Essentially a dictionary but it must include the keys specified by the first argument
  */
 export type RequiredKey<K extends PropertyKey, V = unknown> = {
     [P in K]: V;
 } & Record<PropertyKey, V>;
+
+export interface IDBCursorWithType<T = any> extends IDBCursorWithValue {
+    readonly value: T;
+}

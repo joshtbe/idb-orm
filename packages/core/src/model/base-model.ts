@@ -35,6 +35,8 @@ export abstract class BaseModel<
      */
     protected abstract readonly fieldKeys: readonly Keyof<Fields>[];
 
+    private built: boolean = false;
+
     protected cache: ModelCache = {};
 
     abstract get(key: string): ValidValue;

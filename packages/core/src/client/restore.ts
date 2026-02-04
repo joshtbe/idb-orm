@@ -133,7 +133,7 @@ async function verifyRelation<Names extends string>(
             `${path}.${fieldKey}: Related document with key '${ref.key}' in store '${ref.store}' does not exist`,
         );
     }
-    const relatedKey = field.getRelatedKey();
+    const relatedKey = field.relatedKey;
     const relatedRelation = refModel.getRelation(relatedKey)!;
     const relatedField = getResult[relatedKey] as Arrayable<ValidKey> | null;
 

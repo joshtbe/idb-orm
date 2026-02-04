@@ -14,6 +14,7 @@ import {
     TypeTag,
     Type,
 } from "./field";
+
 import type { Dict, Keyof } from "./util-types";
 import { getKeys, handleRequest } from "./utils";
 import { InvalidConfigError } from "./error";
@@ -86,8 +87,7 @@ export class CompiledDb<
                         schema[fieldKey] = Type.array(schema[fieldKey]);
                     }
 
-                    let hasRelation =
-                        !field.isBidirectional || !!field.getRelatedKey();
+                    let hasRelation = !field.isBidirectional || field.isBuilt();
                     // Check to make sure the other relation exists (if bidirectional)
                     if (!hasRelation) {
                         for (const [otherKey, element] of linked.relations()) {
@@ -97,8 +97,8 @@ export class CompiledDb<
                                 element.name === field.name
                             ) {
                                 hasRelation = true;
-                                field.setRelatedKey(otherKey);
-                                element.setRelatedKey(fieldKey);
+                                field.build(otherKey);
+                                element.build(fieldKey);
                                 if (
                                     onDelete === "SetNull" &&
                                     !element.isNullable()

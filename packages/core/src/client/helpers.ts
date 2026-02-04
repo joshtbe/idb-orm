@@ -1,5 +1,11 @@
-import type { Arrayable, Dict, Keyof, Promisable } from "../util-types.js";
-import { areDatesEqual, identity, toArray, unionSets } from "../utils.js";
+import type { Arrayable, Dict, Keyof, Promisable } from "../util-types";
+import {
+    areDatesEqual,
+    identity,
+    isDict,
+    toArray,
+    unionSets,
+} from "../utils";
 import type { DbClient } from "./index.ts";
 import type {
     AddMutation,
@@ -8,8 +14,8 @@ import type {
 } from "./types/mutation.ts";
 import type { QueryInput } from "./types/find";
 import type { Transaction } from "../transaction.js";
-import { InvalidItemError } from "../error.js";
-import { FieldTypes, ValidKey } from "../field/field-types.js";
+import { InvalidItemError } from "../error";
+import { FieldTypes, ValidKey } from "../field/field-types";
 import { CollectionObject } from "../model";
 
 type WhereClauseElement =
@@ -55,13 +61,13 @@ export function parseWhere(
     whereArray: WhereClauseElement[],
     obj: unknown,
 ): boolean {
-    if (!obj || typeof obj !== "object") return false;
+    if (!isDict(obj)) return false;
     for (const item of whereArray) {
         if (item[1]) {
-            if (!item[2]((obj as Dict)[item[0]])) {
+            if (!item[2](obj[item[0]])) {
                 return false;
             }
-        } else if (item[2] !== (obj as Dict)[item[0]]) {
+        } else if (item[2] !== obj[item[0]]) {
             return false;
         }
     }
@@ -132,7 +138,7 @@ export function generateSelector<
                                 );
                                 if (res) {
                                     if (relation.isBidirectional) {
-                                        delete res[relation.getRelatedKey()];
+                                        delete res[relation.relatedKey];
                                     }
                                     result.push(res);
                                 }
