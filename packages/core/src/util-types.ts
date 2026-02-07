@@ -102,3 +102,5 @@ export type RequiredKey<K extends PropertyKey, V = unknown> = {
 export interface IDBCursorWithType<T = any> extends IDBCursorWithValue {
     readonly value: T;
 }
+
+export type Primitive = string | number | boolean | bigint | null | undefined;

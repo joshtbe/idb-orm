@@ -27,6 +27,7 @@ import {
     UnionTag,
     UnknownTag,
 } from "./tag";
+import { ParseResult } from "../field";
 
 interface TypeCache {
     [Tag.string]: StringTag;
@@ -42,7 +43,16 @@ interface TypeCache {
     [Tag.unknown]: UnknownTag;
 }
 
-export class Type {
+export abstract class Type<T> {
+    abstract parse(value: unknown): ParseResult<T>;
+
+    abstract toString(): string;
+    abstract serialize(value: T): Promise<unknown>;
+    abstract deserialize(value: unknown): Promise<T>;
+    abstract isType(other: Type<any>): boolean;
+    abstract isSubtype(other: Type<any>): boolean;
+    abstract is(value: unknown): value is T;
+
     private static readonly cache: TypeCache = {} as TypeCache;
 
     /**

@@ -20,7 +20,7 @@ export function handleRequest<T>(
     });
 }
 
-export function getKeys<T extends object>(obj: T): Keyof<T>[] {
+export function getKeys<T extends Dict>(obj: T): Keyof<T>[] {
     return Object.keys(obj) as Keyof<T>[];
 }
 

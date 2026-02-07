@@ -201,7 +201,7 @@ type ObjectTagToType<T extends Dict<TypeTag>, Depth extends number> = {
 
 export type TagToType<
     T extends TypeTag,
-    Depth extends number = 5,
+    Depth extends number = 10,
 > = Depth extends 0
     ? any
     : T["tag"] extends keyof SimpleTagMap
