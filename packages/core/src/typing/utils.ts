@@ -739,23 +739,24 @@ export function isType<T extends TypeTag>(
             if (!isDict(value)) {
                 return false;
             }
-            if (
-                !Object.keys(type.base).every((key) =>
-                    isType(type.base[key], value[key]),
-                )
-            ) {
+            if (!isType({ tag: Tag.object, props: type.base }, value)) {
                 return false;
             }
-            return true;
-        }
-        case Tag.record: {
-            if (!isDict(value)) return false;
-            for (const [k, v] of Object.entries(value)) {
-                if (!isType(type.key, k) || !isType(type.value, v)) {
-                    return false;
+            const discValue = value[type.key];
+            for (const opt of type.options) {
+                if ((opt[type.key] as LiteralTag).value === discValue) {
+                    return isType({ tag: Tag.object, props: opt }, value);
                 }
             }
-            return true;
+            return false;
+        }
+        case Tag.record: {
+            return (
+                isDict(value) &&
+                Object.entries(value).every(
+                    ([k, v]) => isType(type.key, k) && isType(type.value, v),
+                )
+            );
         }
         case Tag.custom:
             return type.isType(value);

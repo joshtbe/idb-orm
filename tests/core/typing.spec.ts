@@ -54,7 +54,8 @@ test.describe("Type-wrapper Tests", () => {
             if (isType(Type.null(), undefined)) return "Value is not null";
             if (isType(Type.null(), 3243)) return "Value is not null";
 
-            if (!isType(Type.undefined(), undefined)) return "Value is undefined";
+            if (!isType(Type.undefined(), undefined))
+                return "Value is undefined";
             if (isType(Type.undefined(), null)) return "Value is not undefined";
             if (isType(Type.undefined(), 300)) return "Value is not undefined";
 
@@ -225,6 +226,42 @@ test.describe("Type-wrapper Tests", () => {
             if (isType(custom, { hello: 400, why: "Hello World!" }))
                 return "Value is not the defined custom type";
 
+            const disc = Type.discriminatedUnion(
+                {
+                    hello: Type.string(),
+                    id: Type.number(),
+                },
+                "type",
+                [
+                    {
+                        type: Type.literal("none"),
+                    },
+                    {
+                        type: Type.literal("yolo"),
+                    },
+                ],
+            );
+
+            if (isType(disc, { hello: "yowdy" })) {
+                return "Value should not be the object type";
+            }
+            if (isType(disc, { hello: "yowdy", id: 3224, type: "test" })) {
+                return "Value should not be the object type";
+            }
+            if (!isType(disc, { hello: "yowdy", id: 3224, type: "none" })) {
+                return "Value should be the object type";
+            }
+
+            const rec = Type.record(Type.string(), Type.null());
+            if (isType(rec, { hello: 324, yolo: null, testme: null })) {
+                return "Value should not be the record type";
+            }
+            if (isType(rec, 567)) {
+                return "Value should not be the record type";
+            }
+            if (!isType(rec, { hello: null, test: null, why: null })) {
+                return "Value should be the record type";
+            }
             return true;
         });
         expect(result).toBe(true);

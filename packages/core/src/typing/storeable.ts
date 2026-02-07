@@ -42,7 +42,7 @@ export type TypedArray =
  * @see https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Structured_clone_algorithm#supported_types
  */
 export type JavaScriptStorable =
-    | Array<IndexedDbStorable>
+    | IndexedDbStorable[]
     | ArrayBuffer
     | Boolean
     | DataView

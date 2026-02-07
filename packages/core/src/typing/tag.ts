@@ -122,6 +122,9 @@ export interface ObjectTag<P extends Dict<TypeTag> = Dict<TypeTag>> {
     props: P;
 }
 
+/**
+ * Types that can be the key of a record type
+ */
 export type RecordKeyable =
     | NumberTag
     | StringTag
