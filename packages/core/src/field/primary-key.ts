@@ -38,16 +38,6 @@ export default class PrimaryKey<
         }
     }
 
-    getType() {
-        return this.type;
-    }
-
-    generator(genFn: GenFunction<KeyType>) {
-        this.genFn = genFn;
-        this.autoGenerate = true as AutoGenerate;
-        return this as PrimaryKey<true, KeyType>;
-    }
-
     autoIncrement() {
         if (this.type.tag === Tag.number) {
             this.genFn = undefined;
@@ -59,15 +49,18 @@ export default class PrimaryKey<
         );
     }
 
-    uuid() {
-        if (!window.isSecureContext) {
-            throw new Error("Window is not in a secure context");
-        }
-        return new PrimaryKey<true, string>(Type.string(), uuid);
-    }
-
     date() {
         return new PrimaryKey<true, Date>(Type.date(), getDate);
+    }
+
+    getType() {
+        return this.type;
+    }
+
+    generator(genFn: GenFunction<KeyType>) {
+        this.genFn = genFn;
+        this.autoGenerate = true as AutoGenerate;
+        return this as PrimaryKey<true, KeyType>;
     }
 
     genKey(...args: unknown[]) {
@@ -76,10 +69,17 @@ export default class PrimaryKey<
     }
 
     /**
-     * If the objectStore "autoIncrement" utility is being used
+     * If the "autoIncrement" utility is being used
      */
     isAutoIncremented(): boolean {
         return this.autoGenerate && !this.genFn;
+    }
+
+    uuid() {
+        if (!window.isSecureContext) {
+            throw new Error("Window is not in a secure context");
+        }
+        return new PrimaryKey<true, string>(Type.string(), uuid);
     }
 
     static is(value: object): value is PrimaryKey<any, any> {

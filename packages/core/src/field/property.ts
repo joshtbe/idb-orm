@@ -42,7 +42,7 @@ export class Property<Value, HasDefault extends boolean> {
     protected options: PropertyOptions;
 
     constructor(
-        public type: TypeTag,
+        public readonly type: TypeTag,
         options?: PropertyInputOptions,
     ) {
         this.options = {

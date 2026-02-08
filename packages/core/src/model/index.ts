@@ -1,4 +1,3 @@
-import Model from "./model.js";
-export * from "./model-types.js";
-export { Model };
-export { BaseModel } from "./base-model.js";
+export { Model } from "./model";
+export { BaseModel } from "./base-model";
+export * from "./model-types";

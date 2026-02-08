@@ -9,10 +9,14 @@ import {
     Property,
     PrimaryKey,
     TypeTag,
+    ObjectTag,
+    DiscriminatedUnionTag,
 } from "../field";
 import { Dict, Keyof } from "../util-types.js";
 import { BaseModel } from "./base-model.js";
-import Model from "./model.js";
+import { Model } from "./model";
+
+export type ValidDocumentTag = ObjectTag | DiscriminatedUnionTag;
 
 /**
  * Gets the field key that the primary key can be found on.

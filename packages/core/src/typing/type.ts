@@ -44,8 +44,9 @@ interface TypeCache {
 }
 
 export abstract class Type<T> {
-    abstract parse(value: unknown): ParseResult<T>;
 
+    // For future plans...
+    abstract parse(value: unknown): ParseResult<T>;
     abstract toString(): string;
     abstract serialize(value: T): Promise<unknown>;
     abstract deserialize(value: unknown): Promise<T>;

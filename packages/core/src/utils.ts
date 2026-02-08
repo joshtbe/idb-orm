@@ -54,8 +54,8 @@ export function identity<T>(value: T): T {
 /**
  * Performs a union over `set1` and `set2`, modifying `set1` to be union of the two sets
  */
-export function unionSets<T>(set: Set<T>, other: Set<T>) {
-    for (const key of other.keys()) {
+export function unionSets<T>(set: Set<T>, other: Iterable<T>) {
+    for (const key of other) {
         set.add(key);
     }
     return set;

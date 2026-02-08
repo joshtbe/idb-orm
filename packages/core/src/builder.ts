@@ -1,10 +1,4 @@
-import {
-    BaseModel,
-    CollectionObject,
-    CollectionSchema,
-    FindPrimaryKey,
-    Model,
-} from "./model";
+import { BaseModel, CollectionObject, FindPrimaryKey, Model } from "./model";
 import { DbClient } from "./client";
 import {
     BaseRelation,
@@ -62,30 +56,28 @@ export class CompiledDb<
     Names extends string,
     C extends CollectionObject<Names>,
 > {
-    public readonly schemas: CollectionSchema<C>;
     private readonly modelKeys: Names[];
     constructor(
         public readonly name: Name,
         private readonly models: C,
     ) {
         this.modelKeys = getKeys<Record<Names, unknown>>(this.models);
-        this.schemas = {} as CollectionSchema<C>;
+        const relationMap = new Map<BaseRelation<string, any>, TypeTag>();
         for (const key of this.modelKeys) {
+            relationMap.clear();
             const model = this.models[key];
-            const schema: Dict<TypeTag> = {};
             for (const [fieldKey, field] of model.entries()) {
-                if (Property.is(field)) {
-                    schema[fieldKey] = field.type;
-                } else if (BaseRelation.is(field)) {
+                if (BaseRelation.is<Keyof<C>>(field)) {
                     const { onDelete } = field.getActions();
-                    const linked = this.models[field.to as Keyof<C>];
+                    const linked = this.models[field.to];
                     const linkedPrimary = linked.getPrimaryKey();
-                    schema[fieldKey] = linkedPrimary.type;
+                    let type: TypeTag = linkedPrimary.type;
                     if (field.isOptional) {
-                        schema[fieldKey] = Type.optional(schema[fieldKey]);
+                        type = Type.optional(type);
                     } else if (field.isArray) {
-                        schema[fieldKey] = Type.array(schema[fieldKey]);
+                        type = Type.array(type);
                     }
+                    relationMap.set(field, type);
 
                     let hasRelation = !field.isBidirectional || field.isBuilt();
                     // Check to make sure the other relation exists (if bidirectional)
@@ -117,15 +109,14 @@ export class CompiledDb<
                             `Relation '${field.name}' of model ${key} does not have an equivalent relation on model '${field.to}'`,
                         );
                     }
-                } else if (PrimaryKey.is(field)) {
-                    schema[fieldKey] = field.type;
-                } else {
+                } else if (!Property.is(field) && !PrimaryKey.is(field)) {
                     throw new InvalidConfigError(
                         `Unknown field value detected: ${JSON.stringify(field)}`,
                     );
                 }
             }
-            this.schemas[key] = schema as CollectionSchema<C>[Names];
+
+            model.build(relationMap);
         }
     }
 

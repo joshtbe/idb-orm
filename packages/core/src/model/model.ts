@@ -1,11 +1,19 @@
-import { BaseRelation, PrimaryKey, ValidValue, ValidKey } from "../field";
+import {
+    BaseRelation,
+    PrimaryKey,
+    ValidValue,
+    ValidKey,
+    ObjectTag,
+    TypeTag,
+    Type,
+    Property,
+} from "../field";
 import { Dict, Keyof } from "../util-types";
-import { getKeys } from "../utils.js";
-import { InvalidConfigError } from "../error";
+import { InvalidConfigError, UnknownError } from "../error";
 import { FindPrimaryKey } from "./model-types";
-import { BaseModel } from "./base-model.js";
+import { BaseModel } from "./base-model";
 
-export default class Model<
+export class Model<
     Name extends string,
     F extends Dict<ValidValue>,
     Primary extends FindPrimaryKey<F> = FindPrimaryKey<F>,
@@ -13,43 +21,37 @@ export default class Model<
     protected static readonly SYMBOL = Symbol.for("model");
     private readonly symbol = Model.SYMBOL;
 
-    /**
-     * Array of all the model's fields
-     */
-    protected readonly fieldKeys: readonly Keyof<F>[];
-    /**
-     * Set of other models this model links to
-     */
-    protected readonly relationLinks = new Set<string>();
+    protected readonly baseSchema: ObjectTag;
     public readonly primaryKey = "" as Primary;
     constructor(
         public readonly name: Name,
         private readonly fields: F,
     ) {
         super();
-        this.fieldKeys = getKeys(fields);
         let foundPrimary = false;
+        const props: Dict<TypeTag> = {};
 
         // Generate a set of all models this one is linked to
-        for (const key of this.fieldKeys) {
+        for (const key in this.fields) {
+            if (!Object.hasOwn(this.fields, key)) continue;
+
             if (key.length === 0) {
                 throw new InvalidConfigError(
                     `Model '${this.name}' has an empty-string field key. This is not allowed.`,
                 );
             }
             const item = this.fields[key];
-            if (BaseRelation.is(item)) {
-                if (item.to !== this.name) {
-                    this.relationLinks.add(item.to);
-                }
-            } else if (PrimaryKey.is(item)) {
+            if (PrimaryKey.is(item)) {
                 if (foundPrimary) {
                     throw new InvalidConfigError(
                         `Model ${this.name} has more than one primary key.`,
                     );
                 }
                 this.primaryKey = key as Primary;
+                props[key] = item.type;
                 foundPrimary = true;
+            } else if (Property.is(item)) {
+                props[key] = item.type;
             }
         }
 
@@ -58,9 +60,38 @@ export default class Model<
                 `Model ${this.name} has no primary key`,
             );
         }
+        this.baseSchema = Type.object(props);
     }
 
-    get<K extends Keyof<F>>(key: K): F[K] {
+    build(relationMap: Map<BaseRelation<string, string>, TypeTag>): void {
+        const props: Dict<TypeTag> = {};
+
+        for (const [key, field] of this.entries()) {
+            if (BaseRelation.is(field)) {
+                const relationType = relationMap.get(field);
+                if (!relationType) {
+                    throw new UnknownError(
+                        `Relation '${field.name}' on model '${this.name}' does not appear in the relationMap.`,
+                    );
+                }
+                props[key] = relationType;
+            }
+        }
+
+        this.buildModel(Type.object(props));
+    }
+
+    /**
+     * Generator for all of the entries present on the model
+     */
+    *entries(): Generator<[key: string, value: ValidValue]> {
+        for (const key in this.fields) {
+            if (!Object.hasOwn(this.fields, key)) continue;
+            yield [key, this.fields[key]];
+        }
+    }
+
+    protected get<K extends Keyof<F>>(key: K): F[K] {
         return this.fields[key];
     }
 

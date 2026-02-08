@@ -1,13 +1,16 @@
-import { InvalidConfigError } from "../error";
+import { InvalidConfigError, UnknownError } from "../error";
 import {
     BaseRelation,
+    DiscriminatedUnionTag,
     PrimaryKey,
     Property,
     Tag,
+    Type,
+    TypeTag,
     ValidKey,
     ValidValue,
 } from "../field";
-import { Dict, Keyof, Literable, RequiredKey } from "../util-types";
+import { Dict, Literable, RequiredKey } from "../util-types";
 import { FindPrimaryKey } from "./model-types";
 import { BaseModel } from "./base-model";
 
@@ -46,9 +49,7 @@ export class UnionModel<
     protected static readonly SYMBOL = Symbol.for("union_model");
     private readonly symbol = UnionModel.SYMBOL;
 
-
-    
-    protected readonly fieldKeys: Keyof<Base & Options[number]>[];
+    protected readonly baseSchema: DiscriminatedUnionTag;
     private readonly baseFieldSymbol = Symbol.for("base");
     private readonly fieldMap = new Map<Literable | symbol, Dict<ValidValue>>();
     public readonly primaryKey = "" as Primary;
@@ -58,37 +59,32 @@ export class UnionModel<
      */
     private readonly discriminator: Discriminator;
 
-    /**
-     * Set of other models this model links to
-     */
-    protected readonly relationLinks = new Set<string>();
-
     constructor(
         public readonly name: Name,
         base: Base,
         options: UnionOptions<Discriminator, Options>,
     ) {
         super();
-        const allKeys = new Set<string>();
         this.fieldMap.set(this.baseFieldSymbol, base);
         let foundPrimary = false;
+        const baseProps: Dict<TypeTag> = {};
 
         // Find the primary key in the base fields
         for (const baseKey in base) {
             if (!Object.hasOwn(base, baseKey)) continue;
 
-            allKeys.add(baseKey);
             const item = base[baseKey];
-            if (BaseRelation.is(item)) {
-                this.relationLinks.add(item.to);
-            } else if (PrimaryKey.is(item)) {
+            if (PrimaryKey.is(item)) {
                 if (foundPrimary) {
                     throw new InvalidConfigError(
                         `Model ${this.name} has more than one primary key.`,
                     );
                 }
+                baseProps[baseKey] = item.type;
                 this.primaryKey = baseKey as Primary;
                 foundPrimary = true;
+            } else if (Property.is(item)) {
+                baseProps[baseKey] = item.type;
             }
         }
 
@@ -99,17 +95,22 @@ export class UnionModel<
         }
 
         this.discriminator = options.key;
+        const discOptions: RequiredKey<Discriminator, TypeTag>[] = [];
 
         // Loop through the options, make sure they have the discriminator key, and that the value of that key is a literal value
         for (const opt of options.options) {
             // Check disciminator value
             const disc = opt[this.discriminator];
+
             if (!Property.is(disc) || disc.type.tag !== Tag.literal) {
                 throw new InvalidConfigError(
                     `Option of model '${this.name}' with discriminator '${this.discriminator}' does not have the discriminator defined as a literal property.`,
                 );
             }
             const discValue = disc.type.value as Literable;
+            const discOpt: Dict<TypeTag> = {
+                [this.discriminator]: disc.type,
+            };
 
             // Make sure no models are sharing discriminator values
             if (this.fieldMap.has(discValue)) {
@@ -123,24 +124,75 @@ export class UnionModel<
                     continue;
                 }
 
-                allKeys.add(key);
                 if (PrimaryKey.is(opt[key])) {
                     throw new InvalidConfigError(
                         `Option of model '${this.name}' with discriminator '${this.discriminator}' defines a primary key. This is not allowed.`,
                     );
-                } else if (BaseRelation.is(opt[key])) {
-                    this.relationLinks.add(opt[key].to);
+                } else if (Property.is(opt[key])) {
+                    discOpt[key] = opt[key].type;
                 }
             }
             this.fieldMap.set(discValue, opt);
+            discOptions.push(discOpt as RequiredKey<Discriminator, TypeTag>);
         }
 
         // In case this model relates to itself, remove it from the relation links to prevent circular referencing
-        this.relationLinks.delete(this.name);
-        this.fieldKeys = Array.from(allKeys) as any;
+        this.baseSchema = Type.discriminatedUnion(
+            baseProps,
+            this.discriminator,
+            discOptions,
+        );
     }
 
-    get<
+    build(relationMap: Map<BaseRelation<string, any>, TypeTag>): void {
+        const baseProps: Dict<TypeTag> = {};
+        const options: RequiredKey<Discriminator, TypeTag>[] = [];
+
+        for (const [key, struct] of this.fieldMap) {
+            const isBase = key === this.baseFieldSymbol;
+            const opt: Dict<TypeTag> = isBase
+                ? baseProps
+                : {
+                      [this.discriminator]: (
+                          struct[this.discriminator] as Property<any, any>
+                      ).type,
+                  };
+            for (const fieldKey in struct) {
+                if (!Object.hasOwn(struct, fieldKey)) continue;
+                const item = struct[fieldKey];
+                if (BaseRelation.is(item)) {
+                    const relationType = relationMap.get(item);
+                    if (!relationType) {
+                        throw new UnknownError(
+                            `Relation '${item.name}' on model '${this.name}' does not appear in the relationMap.`,
+                        );
+                    }
+                    opt[fieldKey] = relationType;
+                }
+            }
+            if (!isBase) {
+                options.push(opt as RequiredKey<Discriminator, TypeTag>);
+            }
+        }
+
+        this.buildModel(
+            Type.discriminatedUnion(baseProps, this.discriminator, options),
+        );
+    }
+
+    /**
+     * Generator for all of the entries present on the model
+     */
+    *entries(): Generator<[key: string, value: ValidValue]> {
+        for (const struct of this.fieldMap.values()) {
+            for (const key in struct) {
+                if (!Object.hasOwn(struct, key)) continue;
+                yield [key, struct[key]];
+            }
+        }
+    }
+
+    protected get<
         K extends
             | Extract<keyof Base, string>
             | Extract<keyof Options[number], string>,
