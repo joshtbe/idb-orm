@@ -98,7 +98,7 @@ export async function getDatabaseData<Names extends string>(
     stores?: Names[],
 ): Promise<Dict<Dict>> {
     const result: Dict<Dict> = {};
-    stores = stores ? stores : db.getStoreNames();
+    stores = stores ? stores : Array.from(db.storeNames());
     const tx = db.createTransaction("readonly", stores);
 
     for (const store of stores) {

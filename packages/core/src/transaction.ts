@@ -16,18 +16,17 @@ export const enum TransactionStatus {
 }
 export type TransactionEventHandler = (
     tx: Transaction<IDBTransactionMode>,
-    ev: Event
+    ev: Event,
 ) => void;
-export interface TransactionOptions
-    extends Partial<{
-        onAbort: TransactionEventHandler;
-        onError: TransactionEventHandler;
-        onComplete: TransactionEventHandler;
-    }> {}
+export interface TransactionOptions extends Partial<{
+    onAbort: TransactionEventHandler;
+    onError: TransactionEventHandler;
+    onComplete: TransactionEventHandler;
+}> {}
 
 export class Transaction<
     Mode extends IDBTransactionMode,
-    Stores extends string = string
+    Stores extends string = string,
 > {
     private internal: IDBTransaction;
     public status: TransactionStatus;
@@ -53,14 +52,14 @@ export class Transaction<
         first: IDBDatabase,
         stores: Arrayable<Stores>,
         mode: Mode,
-        options?: TransactionOptions
+        options?: TransactionOptions,
     );
 
     constructor(
         first: IDBDatabase | Transaction<Mode, Stores>,
         stores?: Arrayable<Stores>,
         mode?: Mode,
-        options: TransactionOptions = {}
+        options: TransactionOptions = {},
     ) {
         if (first instanceof Transaction) {
             this.internal = first.getInternal();
@@ -69,25 +68,30 @@ export class Transaction<
             this.error = first.error;
             this.objectStores = first.getAllStores();
         } else {
-            this.internal = first.transaction(stores!, mode);
+            if (!stores || (Array.isArray(stores) && stores.length === 0)) {
+                throw new InvalidTransactionError(
+                    `Transaction must be bound to at least 1 store.`,
+                );
+            }
+            this.internal = first.transaction(stores, mode);
             this.status = TransactionStatus.Running;
             this.storeNames = Array.from(
-                this.internal.objectStoreNames
+                this.internal.objectStoreNames,
             ) as Stores[];
             this.objectStores = new Map(
-                this.storeNames.map((s) => [s, this.getObjectstore(s)])
+                this.storeNames.map((s) => [s, this.getObjectstore(s)]),
             );
             this.internal.onabort = this.registerHandler(
                 TransactionStatus.Aborted,
-                options.onAbort
+                options.onAbort,
             );
             this.internal.onerror = this.registerHandler(
                 TransactionStatus.Error,
-                options.onError
+                options.onError,
             );
             this.internal.oncomplete = this.registerHandler(
                 TransactionStatus.Complete,
-                options.onComplete
+                options.onComplete,
             );
         }
     }
@@ -103,7 +107,7 @@ export class Transaction<
         db: IDBDatabase,
         stores: Stores[],
         mode: Mode,
-        existingTx?: Transaction<Mode, Stores>
+        existingTx?: Transaction<Mode, Stores>,
     ): Transaction<Mode, Stores> {
         if (existingTx) {
             return existingTx;
@@ -141,8 +145,8 @@ export class Transaction<
         if (!s)
             throw this.abort(
                 new InvalidTransactionError(
-                    `Store '${store}' is not a part of this transaction`
-                )
+                    `Store '${store}' is not a part of this transaction`,
+                ),
             );
         return s;
     }
@@ -173,7 +177,7 @@ export class Transaction<
 
     assertIsArray(
         value: any,
-        message: string = "Value is not an array"
+        message: string = "Value is not an array",
     ): asserts value is any[] {
         if (!Array.isArray(value)) {
             throw this.abort(new AssertionError(message));
@@ -186,15 +190,15 @@ export class Transaction<
         } catch {
             throw this.abort(
                 new ObjectStoreNotFoundError(
-                    `No ObjectStore with the name '${store}' found`
-                )
+                    `No ObjectStore with the name '${store}' found`,
+                ),
             );
         }
     }
 
     private registerHandler(
         status: TransactionStatus,
-        fn: TransactionEventHandler = () => {}
+        fn: TransactionEventHandler = () => {},
     ) {
         return (e: Event) => {
             this.status = status;

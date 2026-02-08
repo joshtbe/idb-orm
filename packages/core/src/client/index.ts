@@ -64,168 +64,6 @@ export class DbClient<
         }
     }
 
-    getDb() {
-        return this.db;
-    }
-
-    getStore<Name extends ModelNames>(name: Name): (typeof this.stores)[Name] {
-        return this.stores[name];
-    }
-
-    getStoreNames() {
-        return this.models.keys();
-    }
-
-    createTransaction<
-        Mode extends IDBTransactionMode,
-        Names extends ModelNames,
-    >(mode: Mode, stores: Arrayable<Names>, options?: TransactionOptions) {
-        return new Transaction(this.db, stores, mode, options);
-    }
-
-    async drop() {
-        await handleRequest(window.indexedDB.deleteDatabase(this.name));
-    }
-
-    async dump<const Format extends ExportFormat>(
-        format: Format,
-        stores?: ModelNames[],
-        options?: DumpOptions,
-    ): Promise<Dump<Format>> {
-        const data = await getDatabaseData(this, stores);
-        switch (format) {
-            case "json":
-                return Dump.toJson(this.name, data, options) as Dump<Format>;
-            case "csv":
-                return Dump.toCsvDb(
-                    this as unknown as DbClient<
-                        string,
-                        string,
-                        CollectionObject<string>
-                    >,
-                    stores || this.getStoreNames(),
-                    data,
-                ) as Dump<Format>;
-        }
-    }
-
-    deleteAllStores() {
-        for (const store of this.models.keys()) {
-            this.db.deleteObjectStore(store);
-        }
-    }
-    deleteStore(storeNames: Arrayable<ModelNames>) {
-        if (!Array.isArray(storeNames)) {
-            storeNames = [storeNames];
-        }
-        for (const store of storeNames) {
-            this.db.deleteObjectStore(store);
-        }
-    }
-
-    public getModel<N extends ModelNames>(name: N) {
-        const model = this.models.getModel(name);
-        if (!model)
-            throw new ObjectStoreNotFoundError(
-                `Model with name '${name}' not found`,
-            );
-
-        return model;
-    }
-
-    private getAccessedStores(
-        name: ModelNames,
-        item: Dict,
-        isMutation: boolean,
-        tx?: Transaction<IDBTransactionMode, ModelNames>,
-    ): ModelNames[] {
-        if (tx) {
-            return tx.storeNames;
-        }
-        return Array.from(getAccessedStores(name, item, isMutation, this));
-    }
-
-    private createInterface<N extends ModelNames>(
-        modelName: N,
-    ): StoreInterface<N, ModelNames, Models> {
-        return {
-            add: async (mutation, tx) =>
-                await this.add(modelName, mutation, { tx }),
-            addMany: async (mutations, tx) => {
-                if (!tx) {
-                    const stores = new Set<ModelNames>();
-                    for (const mut of mutations) {
-                        unionSets(
-                            stores,
-                            getAccessedStores(modelName, mut, true, this),
-                        );
-                    }
-                    tx = this.createTransaction(
-                        "readwrite",
-                        Array.from(stores),
-                    );
-                }
-                type T = PrimaryKeyType<Models[N]>;
-                const result: T[] = [];
-                for (const mut of mutations) {
-                    result.push(await this.add(modelName, mut, { tx }));
-                }
-                return result;
-            },
-            findFirst: async (query, tx) =>
-                (await this.find(modelName, query, true, { tx }))[0],
-            find: async (query, tx) =>
-                await this.find(modelName, query, false, { tx }),
-            get: async (key) => {
-                const tx = this.createTransaction("readonly", modelName);
-                return (await tx.getStore(modelName).get(key)) as GetStructure<
-                    N,
-                    Models
-                >;
-            },
-            update: async (key, data) => {
-                return (
-                    await this.update(modelName, { data }, true, {
-                        singleton: { id: key },
-                    })
-                )[0];
-            },
-            updateFirst: async (mutation, tx) =>
-                (await this.update(modelName, mutation, true, { tx }))[0],
-            updateMany: async (mutation, tx) =>
-                await this.update(modelName, mutation, false, { tx }),
-            compileQuery: (query) =>
-                new CompiledQuery(this, modelName as ModelNames, query),
-
-            delete: async (key) =>
-                (await deleteItems(modelName, this, undefined, undefined, {
-                    singleton: { id: key },
-                })) > 0,
-            deleteFirst: async (where) =>
-                (await deleteItems(modelName, this, where, true)) > 0,
-            deleteMany: async (where) =>
-                await deleteItems(modelName, this, where, false),
-            dump: async (format, where, options?: DumpOptions) => {
-                type Result = Dump<typeof format>;
-                const data = await getStoreData(
-                    // eslint-disable-next-line
-                    this as any,
-                    modelName,
-                    where as undefined,
-                );
-                switch (format) {
-                    case "json":
-                        return Dump.toJson(modelName, data, options) as Result;
-                    case "csv":
-                        return Dump.toCsvStore(
-                            this.getModel(modelName),
-                            data,
-                        ) as Result;
-                }
-            },
-        };
-    }
-
     private async add<N extends ModelNames>(
         name: N,
         item: AddMutation<N, ModelNames, Models[N], Models>,
@@ -246,7 +84,6 @@ export class DbClient<
             // Quickly create the item just to get the id
             const objectStore = tx.getStore(name);
             const model = this.getModel(name);
-            await model.loadIncrementCounter(this, tx);
             const toAdd: Dict = {};
             if (relation) {
                 toAdd[relation.key] = model.getRelation(relation.key)?.isArray
@@ -446,6 +283,225 @@ export class DbClient<
     }
 
     /**
+     * Connects a document to another
+     *
+     * **This must be called within a wrapped environment**
+     * @param relation Relation object
+     * @param thisId Id of the source document
+     * @param documentId If of the target document
+     * @param tx Transaction this function is wrapped in
+     * @returns Id of the target document
+     */
+    private async connectDocument(
+        relation: BaseRelation<ModelNames, string>,
+        thisId: ValidKey,
+        documentId: ValidKey,
+        tx: Transaction<"readwrite", ModelNames>,
+    ) {
+        // This is a unidirectional relationship, nothing needs to be connected.
+        if (!relation.isBidirectional) return documentId;
+
+        const store = tx.getStore(relation.to);
+        const current = await store.get(documentId);
+        if (!current) {
+            throw new DocumentNotFoundError(
+                `Document with Primary Key '${documentId}' could not be found in model '${relation.to}'`,
+            );
+        }
+        const relatedKey = relation.relatedKey;
+        const otherRelation = this.getModel(relation.to).getRelation(
+            relatedKey,
+        )!;
+
+        const value = current[relatedKey] as Arrayable<ValidKey>;
+        if (otherRelation.isArray && Array.isArray(value)) {
+            if (!PrimaryKey.inKeyList(value, thisId)) value.push(thisId);
+        } else {
+            if (value) {
+                throw new OverwriteRelationError();
+            }
+            current[relatedKey] = thisId;
+        }
+
+        await store.put(current).catch(tx.onRejection);
+        return documentId;
+    }
+
+    private createInterface<N extends ModelNames>(
+        modelName: N,
+    ): StoreInterface<N, ModelNames, Models> {
+        return {
+            add: async (mutation, tx) =>
+                await this.add(modelName, mutation, { tx }),
+            addMany: async (mutations, tx) => {
+                if (!tx) {
+                    const stores = new Set<ModelNames>();
+                    for (const mut of mutations) {
+                        unionSets(
+                            stores,
+                            getAccessedStores(modelName, mut, true, this),
+                        );
+                    }
+                    tx = this.createTransaction(
+                        "readwrite",
+                        Array.from(stores),
+                    );
+                }
+                type T = PrimaryKeyType<Models[N]>;
+                const result: T[] = [];
+                for (const mut of mutations) {
+                    result.push(await this.add(modelName, mut, { tx }));
+                }
+                return result;
+            },
+            findFirst: async (query, tx) =>
+                (await this.find(modelName, query, true, { tx }))[0],
+            find: async (query, tx) =>
+                await this.find(modelName, query, false, { tx }),
+            get: async (key) => {
+                const tx = this.createTransaction("readonly", modelName);
+                return (await tx.getStore(modelName).get(key)) as GetStructure<
+                    N,
+                    Models
+                >;
+            },
+            update: async (key, data) => {
+                return (
+                    await this.update(modelName, { data }, true, {
+                        singleton: { id: key },
+                    })
+                )[0];
+            },
+            updateFirst: async (mutation, tx) =>
+                (await this.update(modelName, mutation, true, { tx }))[0],
+            updateMany: async (mutation, tx) =>
+                await this.update(modelName, mutation, false, { tx }),
+            compileQuery: (query) =>
+                new CompiledQuery(this, modelName as ModelNames, query),
+
+            delete: async (key) =>
+                (await deleteItems(modelName, this, undefined, undefined, {
+                    singleton: { id: key },
+                })) > 0,
+            deleteFirst: async (where) =>
+                (await deleteItems(modelName, this, where, true)) > 0,
+            deleteMany: async (where) =>
+                await deleteItems(modelName, this, where, false),
+            dump: async (format, where, options?: DumpOptions) => {
+                type Result = Dump<typeof format>;
+                const data = await getStoreData(
+                    // eslint-disable-next-line
+                    this as any,
+                    modelName,
+                    where as undefined,
+                );
+                switch (format) {
+                    case "json":
+                        return Dump.toJson(modelName, data, options) as Result;
+                    case "csv":
+                        return Dump.toCsvStore(
+                            this.getModel(modelName),
+                            data,
+                        ) as Result;
+                }
+            },
+        };
+    }
+
+    createTransaction<
+        Mode extends IDBTransactionMode,
+        Names extends ModelNames,
+    >(mode: Mode, stores: Arrayable<Names>, options?: TransactionOptions) {
+        return new Transaction(this.db, stores, mode, options);
+    }
+
+    deleteAllStores() {
+        for (const store of this.models.keys()) {
+            this.db.deleteObjectStore(store);
+        }
+    }
+
+    deleteStore(storeNames: Arrayable<ModelNames>) {
+        if (!Array.isArray(storeNames)) {
+            storeNames = [storeNames];
+        }
+        for (const store of storeNames) {
+            this.db.deleteObjectStore(store);
+        }
+    }
+
+    /**
+     * Disconnects a document from another
+     *
+     * **This must be called within a wrapped environment**
+     * @param relation Relation object
+     * @param thisId Id of the source document
+     * @param documentId If of the target document
+     * @param tx Transaction this function is wrapped in
+     * @returns Id of the target document
+     */
+    private async disconnectDocument(
+        relation: BaseRelation<ModelNames, string>,
+        thisId: ValidKey,
+        documentId: ValidKey,
+        tx: Transaction<"readwrite", ModelNames>,
+    ) {
+        // Relation is unidirectional no disconnect logic is necessary
+        if (!relation.isBidirectional) return documentId;
+
+        const store = tx.getStore(relation.to);
+        const current = await store.get(documentId);
+        if (!current) {
+            throw new DocumentNotFoundError(
+                `Document with Primary Key '${documentId}' could not be found in model '${relation.to}'`,
+            );
+        }
+
+        const otherRelation = this.getModel(relation.to).getRelation(
+            relation.relatedKey,
+        )!;
+
+        if (otherRelation.isArray) {
+            (current[relation.relatedKey] as unknown[]).filter(
+                (u) => u !== thisId,
+            );
+        } else if (otherRelation.isOptional) {
+            current[relation.relatedKey] = null;
+        } else {
+            throw new OverwriteRelationError();
+        }
+
+        await store.put(current).catch(tx.onRejection);
+        return documentId;
+    }
+
+    async drop() {
+        await handleRequest(window.indexedDB.deleteDatabase(this.name));
+    }
+
+    async dump<const Format extends ExportFormat>(
+        format: Format,
+        stores?: ModelNames[],
+        options?: DumpOptions,
+    ): Promise<Dump<Format>> {
+        const data = await getDatabaseData(this, stores);
+        switch (format) {
+            case "json":
+                return Dump.toJson(this.name, data, options) as Dump<Format>;
+            case "csv":
+                return Dump.toCsvDb(
+                    this as unknown as DbClient<
+                        string,
+                        string,
+                        CollectionObject<string>
+                    >,
+                    stores || Array.from(this.storeNames()),
+                    data,
+                ) as Dump<Format>;
+        }
+    }
+
+    /**
      * Finds documents from the store that match the filter
      * @param name Name of the store
      * @param item Object containing the filter and the selection query
@@ -503,6 +559,42 @@ export class DbClient<
 
             return result;
         });
+    }
+
+    public getModel<N extends ModelNames>(name: N) {
+        const model = this.models.getModel(name);
+        if (!model)
+            throw new ObjectStoreNotFoundError(
+                `Model with name '${name}' not found`,
+            );
+
+        return model;
+    }
+
+    private getAccessedStores(
+        name: ModelNames,
+        item: Dict,
+        isMutation: boolean,
+        tx?: Transaction<IDBTransactionMode, ModelNames>,
+    ): ModelNames[] {
+        if (tx) {
+            return tx.storeNames;
+        }
+        return Array.from(getAccessedStores(name, item, isMutation, this));
+    }
+
+    getDb() {
+        return this.db;
+    }
+
+    getStore<Name extends ModelNames>(name: Name): (typeof this.stores)[Name] {
+        return this.stores[name];
+    }
+
+    *storeNames() {
+        for (const store of this.models.keys()) {
+            yield store;
+        }
     }
 
     private async update<
@@ -879,95 +971,5 @@ export class DbClient<
                 return results;
             }
         });
-    }
-
-    /**
-     * Connects a document to another
-     *
-     * **This must be called within a wrapped environment**
-     * @param relation Relation object
-     * @param thisId Id of the source document
-     * @param documentId If of the target document
-     * @param tx Transaction this function is wrapped in
-     * @returns Id of the target document
-     */
-    private async connectDocument(
-        relation: BaseRelation<ModelNames, string>,
-        thisId: ValidKey,
-        documentId: ValidKey,
-        tx: Transaction<"readwrite", ModelNames>,
-    ) {
-        // This is a unidirectional relationship, nothing needs to be connected.
-        if (!relation.isBidirectional) return documentId;
-
-        const store = tx.getStore(relation.to);
-        const current = await store.get(documentId);
-        if (!current) {
-            throw new DocumentNotFoundError(
-                `Document with Primary Key '${documentId}' could not be found in model '${relation.to}'`,
-            );
-        }
-        const relatedKey = relation.relatedKey;
-        const otherRelation = this.getModel(relation.to).getRelation(
-            relatedKey,
-        )!;
-
-        const value = current[relatedKey] as Arrayable<ValidKey>;
-        if (otherRelation.isArray && Array.isArray(value)) {
-            if (!PrimaryKey.inKeyList(value, thisId)) value.push(thisId);
-        } else {
-            if (value) {
-                throw new OverwriteRelationError();
-            }
-            current[relatedKey] = thisId;
-        }
-
-        await store.put(current).catch(tx.onRejection);
-        return documentId;
-    }
-
-    /**
-     * Disconnects a document from another
-     *
-     * **This must be called within a wrapped environment**
-     * @param relation Relation object
-     * @param thisId Id of the source document
-     * @param documentId If of the target document
-     * @param tx Transaction this function is wrapped in
-     * @returns Id of the target document
-     */
-    private async disconnectDocument(
-        relation: BaseRelation<ModelNames, string>,
-        thisId: ValidKey,
-        documentId: ValidKey,
-        tx: Transaction<"readwrite", ModelNames>,
-    ) {
-        // Relation is unidirectional no disconnect logic is necessary
-        if (!relation.isBidirectional) return documentId;
-
-        const store = tx.getStore(relation.to);
-        const current = await store.get(documentId);
-        if (!current) {
-            throw new DocumentNotFoundError(
-                `Document with Primary Key '${documentId}' could not be found in model '${relation.to}'`,
-            );
-        }
-
-        const otherRelation = this.getModel(relation.to).getRelation(
-            relation.relatedKey,
-        )!;
-
-        if (otherRelation.isArray) {
-            (current[relation.relatedKey] as unknown[]).filter(
-                (u) => u !== thisId,
-            );
-        } else if (otherRelation.isOptional) {
-            current[relation.relatedKey] = null;
-        } else {
-            throw new OverwriteRelationError();
-        }
-
-        await store.put(current).catch(tx.onRejection);
-        return documentId;
     }
 }

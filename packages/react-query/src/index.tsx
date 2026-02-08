@@ -174,9 +174,8 @@ export function queryClientProviderFactory<
                         }
 
                         const interfaces = makeModelQueryClient([]) as I;
-                        const stores = qClient.db.getStoreNames();
 
-                        for (const name of stores) {
+                        for (const name of qClient.db.storeNames()) {
                             if (name === "invalidate") {
                                 console.warn(
                                     "Model name 'invalidate' causes the invalidate() function of useClient() to not work. Please fix by renaming the model.",
@@ -235,9 +234,8 @@ export class IDBQueryClient<
         context: React.Context<IDBClientInterface<Names, Models>>,
     ): IDBQueryInterface<Names, Models> {
         const result = {} as IDBQueryInterface<Names, Models>;
-        const storeNames = this.db.getStoreNames();
         const stores = this.db.stores;
-        for (const store of storeNames) {
+        for (const store of this.db.storeNames()) {
             result[store] = {
                 useFind: (options, deps = []) => {
                     return useQuery({
