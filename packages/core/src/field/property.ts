@@ -1,8 +1,10 @@
 import {
+    Dict,
     Literable,
     MaybeGenerator,
     NoUndefined,
     Promisable,
+    RequiredKey,
 } from "../util-types.js";
 import {
     FunctionMatch,
@@ -14,7 +16,7 @@ import {
 } from "./field-types.js";
 import PrimaryKey from "./primary-key";
 import { Relation } from "./relation";
-import { Tag, Type, TypeTag } from "../typing";
+import { RecordKeyable, Tag, Type, TypeTag } from "../typing";
 
 export interface PropertyOptions {
     unique: boolean;
@@ -176,6 +178,22 @@ export class Property<Value, _HasDefault extends boolean> {
         return new Property(Type.date(), options);
     }
 
+    static discriminatedUnion<
+        Base extends Dict<TypeTag>,
+        const Key extends string = string,
+        const Options extends readonly RequiredKey<Key, TypeTag>[] = [],
+    >(
+        base: Base,
+        key: Key,
+        options: Options,
+        propOptions: PropertyInputOptions,
+    ): Property<Base & Options[number], false> {
+        return new Property(
+            Type.discriminatedUnion(base, key, options),
+            propOptions,
+        );
+    }
+
     static enum<const V extends readonly Literable[]>(
         items: V,
         options?: PropertyInputOptions,
@@ -196,6 +214,17 @@ export class Property<Value, _HasDefault extends boolean> {
 
     static number(options?: PropertyInputOptions): Property<number, false> {
         return new Property(Type.number(), options);
+    }
+
+    static record<K extends number | string, V>(
+        keys: Property<K, boolean>,
+        values: Property<V, boolean>,
+        options?: PropertyInputOptions,
+    ): Property<Record<K, V>, false> {
+        return new Property(
+            Type.record(keys.type as RecordKeyable, values.type),
+            options,
+        );
     }
 
     static string(options?: PropertyInputOptions): Property<string, false> {

@@ -196,6 +196,28 @@ export class UnionModel<
         }
     }
 
+    *entriesFor<K extends string = string>(
+        payload: Dict<any>,
+    ): Generator<[key: string, entry: ValidValue<K>], void, unknown> {
+        const base = this.fieldMap.get(this.baseFieldSymbol)!;
+        const discOption = this.fieldMap.get(
+            payload[this.discriminator] as Literable,
+        );
+        if (!discOption) {
+            throw new InvalidItemError(
+                `Given document does not possess a valid '${this.discriminator}' key.`,
+            );
+        }
+        for (const key in base) {
+            if (!Object.hasOwn(base, key)) continue;
+            yield [key, base[key] as ValidValue<K>];
+        }
+        for (const key in discOption) {
+            if (!Object.hasOwn(discOption, key)) continue;
+            yield [key, discOption[key] as ValidValue<K>];
+        }
+    }
+
     protected get<
         K extends
             | Extract<keyof Base, string>

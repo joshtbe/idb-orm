@@ -24,12 +24,6 @@ export const createDb = async ({ pkg }: Packages) => {
         "components",
     ]);
 
-    const t = builder.defineModel("classes", {
-        id: P.primaryKey().autoIncrement(),
-        name: P.string(),
-        email: P.string(),
-    });
-
     const subclass = builder.defineModel("subclass", {
         id: Field.primaryKey().autoIncrement(),
         name: Field.string(),
@@ -71,6 +65,10 @@ export const createDb = async ({ pkg }: Packages) => {
                 bidirectional: false,
             }).array(),
             level: Field.number().default(0),
+            onHigherLevels: Field.record(
+                Field.string(),
+                Field.string(),
+            ).optional(),
             lists: Field.relation("spellLists", {
                 name: "spells2spellLists",
             }).array(),
@@ -153,6 +151,11 @@ export function coreTests(
                         level: 0,
                         components: ["V"],
                         range: "15 feet",
+                        onHigherLevels: {
+                            "5": "2d6",
+                            "11": "3d6",
+                            "17": "4d6",
+                        },
                     },
                     {
                         name: "Chromatic Orb",
@@ -165,6 +168,7 @@ export function coreTests(
             });
             expect(result).toBeInstanceOf(Array);
             expect(result.length === 1).toBeTruthy();
+            expect(result[0].onHigherLevels).toBeDefined();
         });
 
         test("Add with $create", async () => {

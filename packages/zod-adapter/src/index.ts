@@ -86,7 +86,7 @@ function zodToProperty<S extends z.ZodType>(
             : schema,
     );
 
-    return new core.Property(
+    const prop = new core.Property(
         Type.custom({
             isType: (test: unknown) => schema.safeParse(test).success,
             parse: (test: unknown) => schema.parse(test),
@@ -94,6 +94,11 @@ function zodToProperty<S extends z.ZodType>(
             deserialize: typeTag,
         }),
     );
+
+    if (schema instanceof z.ZodDefault) {
+        prop.default(schema.def.defaultValue);
+    }
+    return prop as core.Property<z.output<S>, ZodHasDefault<S>>;
 }
 
 export function zodModel<

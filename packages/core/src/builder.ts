@@ -46,6 +46,14 @@ export class Builder<Name extends string, Names extends string> {
         }
     }
 
+    testDefine<
+        N extends Names,
+        T extends Dict<ValidValue<Names>>,
+        M extends BaseModel<N, T, Keyof<T>>,
+    >(model: M) {
+        return model;
+    }
+
     compile<M extends CollectionObject<Names>>(models: M) {
         return new CompiledDb<Name, Names, M>(this.name, models);
     }

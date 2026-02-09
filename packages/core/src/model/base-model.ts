@@ -61,6 +61,13 @@ export abstract class BaseModel<
         this.built = true;
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    *entriesFor(payload?: unknown) {
+        for (const entry of this.entries()) {
+            yield entry;
+        }
+    }
+
     genPrimaryKey(nonRelationPayload: any): ValidKey {
         const primaryKey = this.getPrimaryKey();
         if (primaryKey.isAutoIncremented()) {
@@ -114,7 +121,7 @@ export abstract class BaseModel<
         }
         return this.cache.autoIncrement++;
     }
-
+    
     getRelation<Models extends string>(
         key: Keyof<Fields>,
     ): BaseRelation<Models, string> | undefined {
@@ -135,9 +142,6 @@ export abstract class BaseModel<
         return isType(this.baseSchema, test);
     }
 
-    /**
-     * @deprecated Use `entries()` instead
-     */
     keyType(key: Keyof<Fields>): FieldTypes {
         const item = this.get(key);
         if (!item) return FieldTypes.Invalid;
@@ -213,7 +217,8 @@ export abstract class BaseModel<
         }
     }
 
-    *relationsFor<K extends string = string>(_arg?: unknown) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    *relationsFor<K extends string = string>(payload?: unknown) {
         for (const rel of this.relations<K>()) {
             yield rel;
         }

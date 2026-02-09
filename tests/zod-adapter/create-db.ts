@@ -72,6 +72,7 @@ export const createZodDb: any = async ({ pkg, a, z }: SessionArguments) => {
             lists: Field.relation("spellLists", {
                 name: "spells2spellLists",
             }).array(),
+            onHigherLevels: z.record(stringSchema, stringSchema).optional(),
         }),
     );
 
