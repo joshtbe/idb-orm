@@ -67,14 +67,16 @@ export interface ModelQueryClient {
 
 type IDBClientInterface<
     Names extends string,
-    _Models extends core.CollectionObject<Names>,
+    Models extends core.CollectionObject<Names>,
 > = core.Simplify<
     {
         [K in Names]: {
             get: ModelQueryClient;
             findFirst: ModelQueryClient;
             find: ModelQueryClient;
-        } & core.Simplify<ModelQueryClient>;
+        } & core.Simplify<
+            ModelQueryClient & ModelQueryInterface<K, Names, Models>
+        >;
     } & ModelQueryClient
 >;
 
@@ -173,6 +175,7 @@ export function queryClientProviderFactory<
                             };
                         }
 
+                        const useInts = qClient.createInterface();
                         const interfaces = makeModelQueryClient([]) as I;
 
                         for (const name of qClient.db.storeNames()) {
@@ -189,6 +192,7 @@ export function queryClientProviderFactory<
                                     name,
                                     "findFirst",
                                 ]),
+                                ...useInts[name],
                             } as I[ModelNames];
                         }
 
@@ -230,9 +234,7 @@ export class IDBQueryClient<
         super(config);
     }
 
-    createInterface(
-        context: React.Context<IDBClientInterface<Names, Models>>,
-    ): IDBQueryInterface<Names, Models> {
+    createInterface(): IDBQueryInterface<Names, Models> {
         const result = {} as IDBQueryInterface<Names, Models>;
         const stores = this.db.stores;
         for (const store of this.db.storeNames()) {
@@ -266,17 +268,7 @@ export class IDBQueryClient<
             } as IDBQueryInterface<Names, Models>[Names];
         }
 
-        return {
-            ...result,
-            useClient: () => {
-                const ctx = React.useContext(context);
-                if (!ctx)
-                    throw new Error(
-                        "Query Context Not Found. Make sure you wrap your application in the <Provider/> Component.",
-                    );
-                return ctx;
-            },
-        };
+        return result;
     }
 }
 
@@ -284,7 +276,5 @@ export type IDBQueryInterface<
     Names extends string,
     Models extends core.CollectionObject<Names>,
 > = {
-    useClient(): IDBClientInterface<Names, Models>;
-} & {
     [K in Names]: ModelQueryInterface<K, Names, Models>;
 };
