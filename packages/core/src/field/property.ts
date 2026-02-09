@@ -1,4 +1,9 @@
-import { Literable, NoUndefined, Promisable } from "../util-types.js";
+import {
+    Literable,
+    MaybeGenerator,
+    NoUndefined,
+    Promisable,
+} from "../util-types.js";
 import {
     FunctionMatch,
     PropertyUnion,
@@ -35,10 +40,10 @@ export type ParseResult<T> =
  */
 export type ParseFn<T> = (value: unknown) => ParseResult<T>;
 
-export class Property<Value, HasDefault extends boolean> {
+export class Property<Value, _HasDefault extends boolean> {
     private static readonly SYMBOL = Symbol.for("property");
     readonly symbol = Property.SYMBOL;
-    protected hasDefault: HasDefault = false as HasDefault;
+    protected defaultValue?: () => NoUndefined<Value>;
     protected options: PropertyOptions;
 
     constructor(
@@ -69,8 +74,17 @@ export class Property<Value, HasDefault extends boolean> {
         }
     }
 
+    getDefaultValue() {
+        if (!this.defaultValue) {
+            throw new Error(
+                `Default value for this property does not exist. Please try calling 'hasDefaultValue()' to ensure the property provides a default value.`,
+            );
+        }
+        return this.defaultValue();
+    }
+
     hasDefaultValue() {
-        return this.hasDefault;
+        return !!this.defaultValue;
     }
 
     static relation<To extends string, const Name extends string = never>(
@@ -115,13 +129,16 @@ export class Property<Value, HasDefault extends boolean> {
     }
 
     default(
-        defaultValue: NoUndefined<Value> | (() => NoUndefined<Value>),
+        defaultValue: MaybeGenerator<NoUndefined<Value>>,
     ): Property<NoUndefined<Value>, true> {
-        this.hasDefault = true as HasDefault;
-        return new Property(
-            Type.default(this.type, defaultValue),
-            this.options,
-        );
+        if (typeof defaultValue === "function") {
+            this.defaultValue = defaultValue as () => NoUndefined<Value>;
+        } else {
+            this.defaultValue = () => defaultValue;
+        }
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+        (this.type as TypeTag) = Type.optional(this.type);
+        return this as Property<NoUndefined<Value>, true>;
     }
 
     optional(): Property<Value | undefined, false> {

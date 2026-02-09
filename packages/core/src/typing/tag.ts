@@ -1,6 +1,5 @@
 import {
     Dict,
-    MaybeGenerator,
     Promisable,
     RequiredKey,
     Simplify,
@@ -29,7 +28,6 @@ export const enum Tag {
     set,
     union,
     optional,
-    default,
     object,
     discriminatedUnion,
     record,
@@ -141,12 +139,6 @@ export interface RecordTag<
     value: Value;
 }
 
-export interface DefaultTag<T extends TypeTag = TypeTag> {
-    tag: Tag.default;
-    of: T;
-    value: MaybeGenerator<unknown>;
-}
-
 export interface CustomTag<V = any, PR = any> {
     tag: Tag.custom;
     isType: (test: unknown) => boolean;
@@ -178,8 +170,7 @@ export type TypeTag =
     | CustomTag
     | NullTag
     | UndefinedTag
-    | DiscriminatedUnionTag
-    | DefaultTag;
+    | DiscriminatedUnionTag;
 
 interface SimpleTagMap {
     [Tag.null]: null;
@@ -218,27 +209,25 @@ export type TagToType<
               ? TagToType<T, Dec[Depth]>[]
               : T extends ObjectTag<infer P>
                 ? ObjectTagToType<P, Dec[Depth]>
-                : T extends DefaultTag<infer T> | OptionalTag<infer T>
-                  ? TagToType<T, Dec[Depth]> | undefined
-                  : T extends CustomTag<infer V>
-                    ? V
-                    : T extends DiscriminatedUnionTag<
-                            infer Base,
-                            string,
-                            infer Options
-                        >
-                      ? ObjectTagToType<Base, Dec[Depth]> &
-                            Simplify<
-                                ObjectTagToType<
-                                    Writeable<Options[number]>,
-                                    Dec[Depth]
-                                >
-                            >
-                      : T extends LiteralTag<infer V>
-                        ? V
-                        : T extends RecordTag<infer K, infer V>
-                          ? Record<
-                                TagToType<K, Dec[Depth]>,
-                                TagToType<V, Dec[Depth]>
-                            >
-                          : never;
+                : T extends CustomTag<infer V>
+                  ? V
+                  : T extends DiscriminatedUnionTag<
+                          infer Base,
+                          string,
+                          infer Options
+                      >
+                    ? ObjectTagToType<Base, Dec[Depth]> &
+                          Simplify<
+                              ObjectTagToType<
+                                  Writeable<Options[number]>,
+                                  Dec[Depth]
+                              >
+                          >
+                    : T extends LiteralTag<infer V>
+                      ? V
+                      : T extends RecordTag<infer K, infer V>
+                        ? Record<
+                              TagToType<K, Dec[Depth]>,
+                              TagToType<V, Dec[Depth]>
+                          >
+                        : never;

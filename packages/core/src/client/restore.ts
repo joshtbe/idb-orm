@@ -186,7 +186,7 @@ export async function pushStoreData<
     primaryKeys: Map<Names, Set<ValidKey>>,
     tx?: Transaction<"readwrite", Names>,
 ) {
-    tx = Transaction.create(db.getDb(), [store], "readwrite", tx);
+    tx = Transaction.create(db.IDB, [store], "readwrite", tx);
     const model = db.getModel(store);
 
     // Type checks

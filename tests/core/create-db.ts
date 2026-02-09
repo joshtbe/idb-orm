@@ -83,7 +83,6 @@ export const createDb = async ({ pkg }: Packages) => {
         abbreviation: Field.string(),
     });
 
-
     const db = builder.compile({
         classes: classStore,
         spellLists: spellListStore,
@@ -374,7 +373,7 @@ export function coreTests(
             });
             if (result instanceof Error) {
                 expect(result.message).toContain(
-                    "(INVALID_ITEM) Key 'name' has the following validation error:",
+                    "(INVALID_ITEM) Item is not a valid instance",
                 );
             } else {
                 throw new Error("result is not an error");
@@ -433,7 +432,7 @@ export function coreTests(
             });
             if (result instanceof Error) {
                 expect(result.message).toContain(
-                    "(INVALID_ITEM) Key 'description' has the following validation error:",
+                    "(INVALID_ITEM) Item is not a valid instance",
                 );
             } else {
                 throw new Error("result is not an error");

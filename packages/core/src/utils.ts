@@ -43,6 +43,20 @@ export function getDate() {
 }
 
 /**
+ * Retrieves the first key of an object.
+ * 
+ * This is not guranteed to be the key of the object that was added first.
+ * @param obj Object
+ * @returns The first key (if there is one) of this object.
+ */
+export function firstKey<T extends Dict>(obj: T): string | undefined {
+    for (const key in obj) {
+        if (!Object.hasOwn(obj, key)) continue;
+        return key;
+    }
+}
+
+/**
  * Identity Function, it returns the first argument it is given, all others are ignored
  * @param value Value
  * @returns Same Value
@@ -59,18 +73,6 @@ export function unionSets<T>(set: Set<T>, other: Iterable<T>) {
         set.add(key);
     }
     return set;
-}
-
-/**
- * Performs Set Difference over the two sets
- * @returns A new set containing the elements of set1 not in set2
- */
-export function setDifference<T>(set1: Iterable<T>, set2: Iterable<T>): Set<T> {
-    const result = new Set(set1);
-    for (const item of set2) {
-        result.delete(item);
-    }
-    return result;
 }
 
 /**

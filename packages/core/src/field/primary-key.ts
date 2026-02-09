@@ -75,6 +75,10 @@ export default class PrimaryKey<
         return this.autoGenerate && !this.genFn;
     }
 
+    isGenerated(): boolean {
+        return this.autoGenerate;
+    }
+
     uuid() {
         if (!window.isSecureContext) {
             throw new Error("Window is not in a secure context");

@@ -165,7 +165,7 @@ export async function deleteItems<
         : Array.from(model.getDeletedStores(client));
 
     const tx = Transaction.create(
-        client.getDb(),
+        client.IDB,
         accessed,
         "readwrite",
         _state.tx,

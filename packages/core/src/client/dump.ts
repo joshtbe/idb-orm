@@ -37,7 +37,7 @@ export async function getStoreData<
     >,
     tx?: Transaction<"readonly", Names>,
 ): Promise<Dict> {
-    tx = Transaction.create(db.getDb(), [store], "readonly", tx);
+    tx = Transaction.create(db.IDB, [store], "readonly", tx);
     const whereClause = generateWhereClause(where);
     const model = db.getModel(store);
     return await tx.wrap(async (tx) => {

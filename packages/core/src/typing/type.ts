@@ -5,7 +5,6 @@ import {
     BooleanTag,
     CustomTag,
     DateTag,
-    DefaultTag,
     DiscriminatedUnionTag,
     FileTag,
     FloatTag,
@@ -20,7 +19,6 @@ import {
     SetTag,
     StringTag,
     Tag,
-    TagToType,
     TupleTag,
     TypeTag,
     UndefinedTag,
@@ -44,7 +42,6 @@ interface TypeCache {
 }
 
 export abstract class Type<T> {
-
     // For future plans...
     abstract parse(value: unknown): ParseResult<T>;
     abstract toString(): string;
@@ -149,17 +146,6 @@ export abstract class Type<T> {
             base,
             key,
             options,
-        };
-    }
-
-    static default<V extends TypeTag>(
-        of: V,
-        value: TagToType<V>,
-    ): DefaultTag<V> {
-        return {
-            tag: Tag.default,
-            of,
-            value: value,
         };
     }
 

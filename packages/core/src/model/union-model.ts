@@ -1,4 +1,4 @@
-import { InvalidConfigError, UnknownError } from "../error";
+import { InvalidConfigError, InvalidItemError, UnknownError } from "../error";
 import {
     BaseRelation,
     DiscriminatedUnionTag,
@@ -49,7 +49,7 @@ export class UnionModel<
     protected static readonly SYMBOL = Symbol.for("union_model");
     private readonly symbol = UnionModel.SYMBOL;
 
-    protected readonly baseSchema: DiscriminatedUnionTag;
+    readonly baseSchema: DiscriminatedUnionTag;
     private readonly baseFieldSymbol = Symbol.for("base");
     private readonly fieldMap = new Map<Literable | symbol, Dict<ValidValue>>();
     public readonly primaryKey = "" as Primary;
@@ -80,7 +80,9 @@ export class UnionModel<
                         `Model ${this.name} has more than one primary key.`,
                     );
                 }
-                baseProps[baseKey] = item.type;
+                if (!item.isGenerated()) {
+                    baseProps[baseKey] = item.type;
+                }
                 this.primaryKey = baseKey as Primary;
                 foundPrimary = true;
             } else if (Property.is(item)) {
@@ -145,7 +147,9 @@ export class UnionModel<
     }
 
     build(relationMap: Map<BaseRelation<string, any>, TypeTag>): void {
-        const baseProps: Dict<TypeTag> = {};
+        const baseProps: Dict<TypeTag> = {
+            [this.primaryKey]: this.getPrimaryKey().type,
+        };
         const options: RequiredKey<Discriminator, TypeTag>[] = [];
 
         for (const [key, struct] of this.fieldMap) {
@@ -213,6 +217,73 @@ export class UnionModel<
         return this.fieldMap.get(this.baseFieldSymbol)![
             this.primaryKey
         ] as PrimaryKey<boolean, ValidKey>;
+    }
+
+    instantiateDefaults(payload: Dict): Dict {
+        const base = this.fieldMap.get(this.baseFieldSymbol)!;
+        for (const key in base) {
+            if (!Object.hasOwn(base, key)) continue;
+
+            const entry = base[key];
+            if (
+                Property.is(entry) &&
+                !payload[key] &&
+                entry.hasDefaultValue()
+            ) {
+                payload[key] = entry.getDefaultValue();
+            }
+        }
+
+        const discValue = payload[this.discriminator];
+        for (const [key, struct] of this.fieldMap) {
+            if (key === this.baseFieldSymbol) continue;
+            if (key !== discValue) continue;
+
+            for (const structKey in struct) {
+                if (!Object.hasOwn(struct, structKey)) continue;
+
+                const entry = struct[structKey];
+                if (
+                    Property.is(entry) &&
+                    !payload[structKey] &&
+                    entry.hasDefaultValue()
+                ) {
+                    payload[structKey] = entry.getDefaultValue();
+                }
+            }
+        }
+
+        return payload;
+    }
+
+    *relationsFor<K extends string = string>(
+        payload: Dict<any>,
+    ): Generator<
+        [key: string, relation: BaseRelation<K, string>],
+        void,
+        unknown
+    > {
+        const base = this.fieldMap.get(this.baseFieldSymbol)!;
+        const discOption = this.fieldMap.get(
+            payload[this.discriminator] as Literable,
+        );
+        if (!discOption) {
+            throw new InvalidItemError(
+                `Given document does not possess a valid '${this.discriminator}' key.`,
+            );
+        }
+        for (const key in base) {
+            if (!Object.hasOwn(base, key)) continue;
+            if (BaseRelation.is<K>(base[key])) {
+                yield [key, base[key]];
+            }
+        }
+        for (const key in discOption) {
+            if (!Object.hasOwn(discOption, key)) continue;
+            if (BaseRelation.is<K>(discOption[key])) {
+                yield [key, discOption[key]];
+            }
+        }
     }
 
     static isType<

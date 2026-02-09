@@ -9,9 +9,9 @@ import {
     TypeTag,
     UnionTag,
 } from "./tag";
-import { ParseResult } from "../field";
 import { DeserializationError, SerializationError } from "../error";
 import { isDict } from "../utils";
+import { ValidDocumentTag } from "../model/model-types.js";
 
 export function typeToString(type: TypeTag): string {
     switch (type.tag) {
@@ -45,7 +45,6 @@ export function typeToString(type: TypeTag): string {
             return `Array<${typeToString(type.of)}>`;
         case Tag.set:
             return `Set<${typeToString(type.of)}>`;
-        case Tag.default:
         case Tag.optional:
             return `${typeToString(type.of)} | undefined`;
         case Tag.union:
@@ -166,7 +165,6 @@ export async function serializeType<T extends TypeTag>(
                 if (
                     !(key in value) &&
                     cur.tag !== Tag.optional &&
-                    cur.tag !== Tag.default &&
                     cur.tag !== Tag.undefined
                 ) {
                     throw new SerializationError(
@@ -189,7 +187,6 @@ export async function serializeType<T extends TypeTag>(
                     if (
                         !(key in value) &&
                         cur.tag !== Tag.optional &&
-                        cur.tag !== Tag.default &&
                         cur.tag !== Tag.undefined
                     ) {
                         throw new SerializationError(
@@ -220,7 +217,6 @@ export async function serializeType<T extends TypeTag>(
                 if (
                     !(propKey in value) &&
                     curType.tag !== Tag.optional &&
-                    curType.tag !== Tag.default &&
                     curType.tag !== Tag.undefined
                 ) {
                     throw new SerializationError(
@@ -247,15 +243,6 @@ export async function serializeType<T extends TypeTag>(
 
             return result;
         }
-        case Tag.default:
-            return await serializeType(
-                type.of,
-                typeof value === "undefined"
-                    ? typeof type.value === "function"
-                        ? (type.value as () => unknown)()
-                        : type.value
-                    : value,
-            );
 
         case Tag.custom:
             if (type.serialize) {
@@ -404,11 +391,6 @@ export async function deserializeType<T extends TypeTag, R = TagToType<T>>(
                 type: value.type,
             }) as R;
         }
-        case Tag.default:
-            if (typeof value === "undefined") {
-                return type.value as R;
-            }
-            return deserializeType(type.of, value);
         case Tag.custom:
             if (type.isType(value)) {
                 if (type.deserialize) {
@@ -528,7 +510,6 @@ export function isExactType(t1: TypeTag, t2: TypeTag): boolean {
         case Tag.literal:
             return t1.value === (t2 as LiteralTag).value;
         case Tag.optional:
-        case Tag.default:
         case Tag.set:
         case Tag.array:
             return isExactType(t1.of, (t2 as ArrayTag).of);
@@ -632,7 +613,6 @@ export function isSubtype(base: TypeTag, test: TypeTag): boolean {
         case Tag.null:
             return test.tag === base.tag;
         case Tag.optional:
-        case Tag.default:
         case Tag.set:
         case Tag.array:
             return test.tag === base.tag && isSubtype(base.of, test.of);
@@ -722,7 +702,6 @@ export function isType<T extends TypeTag>(
                 Array.from(value).every((v) => isType(type.of, v))
             );
         case Tag.optional:
-        case Tag.default:
             return typeof value === "undefined" || isType(type.of, value);
         case Tag.union:
             return type.options.some((t) => isType(t, value));
@@ -763,50 +742,47 @@ export function isType<T extends TypeTag>(
     }
 }
 
-export function parseType<T extends TypeTag>(
+/**
+ * Strips any object properties not found in the type from the object. Returns a shallow-copy of the given object.
+ *
+ * This function **DOES NOT** ensure that the object fully matches the given type. To do so, call `isType()` before this one.
+ * @param type Type to use as the property definitons
+ * @param value Object to strip fields from
+ * @returns A shallow-copy of the given object containing only the fields listed in the type.
+ */
+export function stripUnknownProperties<T extends ValidDocumentTag>(
     type: T,
-    value: unknown,
-): ParseResult<TagToType<T>> {
-    type Ret = TagToType<T>;
-    if (isType(type, value)) {
-        switch (type.tag) {
-            case Tag.custom:
-                if (type.parse) {
-                    try {
-                        return {
-                            success: true,
-                            data: type.parse(value),
-                        };
-                    } catch (error) {
-                        return {
-                            success: false,
-                            error: String(error),
-                        };
-                    }
+    value: TagToType<T>,
+): TagToType<T> {
+    const result = { ...value };
+
+    switch (type.tag) {
+        case Tag.discriminatedUnion: {
+            for (const key in value) {
+                if (!Object.hasOwn(value, key)) continue;
+
+                if (
+                    !Object.hasOwn(type.base, key) &&
+                    !type.options.some((v) => Object.hasOwn(v, key))
+                ) {
+                    // It does not exist in the props definition
+                    delete result[key];
                 }
-                break;
-            case Tag.default:
-                if (typeof value === "undefined") {
-                    return {
-                        success: true,
-                        data: type.value as Ret,
-                    };
-                }
-                return {
-                    success: true,
-                    data: value as Ret,
-                };
-            default:
-                break;
+            }
+            break;
         }
-        return {
-            success: true,
-            data: value as Ret,
-        };
-    } else {
-        return {
-            success: false,
-            error: `Value is not a valid '${typeToString(type)}'`,
-        };
+        case Tag.object: {
+            for (const key in value) {
+                if (!Object.hasOwn(value, key)) continue;
+
+                if (!Object.hasOwn(type.props, key)) {
+                    // It does not exist in the props definition
+                    delete result[key];
+                }
+            }
+            break;
+        }
     }
+
+    return result;
 }

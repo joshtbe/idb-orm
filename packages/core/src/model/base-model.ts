@@ -5,9 +5,7 @@ import {
     FieldTypes,
     PrimaryKey,
     ValidValue,
-    ParseResult,
     ValidKey,
-    parseType,
     isType,
     TypeTag,
 } from "../field";
@@ -37,7 +35,7 @@ export abstract class BaseModel<
     /**
      * Schema validating the document type NOT including any relations
      */
-    protected abstract readonly baseSchema: ValidDocumentTag;
+    abstract readonly baseSchema: ValidDocumentTag;
     /**
      * Schema validating the document type inclduing any relations
      */
@@ -51,6 +49,7 @@ export abstract class BaseModel<
     abstract entries(): Generator<[key: string, value: ValidValue]>;
     protected abstract get(key: string): ValidValue;
     abstract getPrimaryKey(): PrimaryKey<boolean, ValidKey>;
+    abstract instantiateDefaults(payload: Dict): Dict;
 
     protected buildModel(relationSchema: ValidDocumentTag) {
         if (this.built) {
@@ -62,12 +61,12 @@ export abstract class BaseModel<
         this.built = true;
     }
 
-    genPrimaryKey(): ValidKey {
+    genPrimaryKey(nonRelationPayload: any): ValidKey {
         const primaryKey = this.getPrimaryKey();
         if (primaryKey.isAutoIncremented()) {
             return this.getIncrementCounter();
         }
-        return primaryKey.genKey();
+        return primaryKey.genKey(nonRelationPayload);
     }
 
     getDeletedStores<
@@ -124,7 +123,7 @@ export abstract class BaseModel<
         return item;
     }
 
-    isValid<T = Dict>(test: unknown, includeRelations = true): test is T {
+    isValid<T = Dict>(test: unknown, includeRelations = false): test is T {
         if (!this.built) return false;
         if (includeRelations) {
             return (
@@ -136,6 +135,9 @@ export abstract class BaseModel<
         return isType(this.baseSchema, test);
     }
 
+    /**
+     * @deprecated Use `entries()` instead
+     */
     keyType(key: Keyof<Fields>): FieldTypes {
         const item = this.get(key);
         if (!item) return FieldTypes.Invalid;
@@ -170,7 +172,7 @@ export abstract class BaseModel<
         }
 
         tx = Transaction.create(
-            client.getDb(),
+            client.IDB,
             [this.name as unknown as ModelNames],
             "readonly",
             tx,
@@ -198,20 +200,6 @@ export abstract class BaseModel<
         return;
     }
 
-    parseField<K extends Keyof<Fields>>(
-        field: K,
-        value: unknown,
-    ): ParseResult<any> {
-        const item = this.get(field);
-        if (Property.is(item)) {
-            return parseType(item.type, value);
-        } else {
-            throw new InvalidConfigError(
-                `Key '${field}' on model '${this.name}' is not a property but is being used as a static property.`,
-            );
-        }
-    }
-
     /**
      * Generator for all of the relations present on the model
      */
@@ -222,6 +210,12 @@ export abstract class BaseModel<
             if (BaseRelation.is<K>(item)) {
                 yield [key, item];
             }
+        }
+    }
+
+    *relationsFor<K extends string = string>(_arg?: unknown) {
+        for (const rel of this.relations<K>()) {
+            yield rel;
         }
     }
 

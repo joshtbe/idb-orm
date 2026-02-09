@@ -21,7 +21,7 @@ export class Model<
     protected static readonly SYMBOL = Symbol.for("model");
     private readonly symbol = Model.SYMBOL;
 
-    protected readonly baseSchema: ObjectTag;
+    readonly baseSchema: ObjectTag;
     public readonly primaryKey = "" as Primary;
     constructor(
         public readonly name: Name,
@@ -48,8 +48,10 @@ export class Model<
                     );
                 }
                 this.primaryKey = key as Primary;
-                props[key] = item.type;
                 foundPrimary = true;
+                if (!item.isGenerated()) {
+                    props[key] = item.type;
+                }
             } else if (Property.is(item)) {
                 props[key] = item.type;
             }
@@ -64,7 +66,9 @@ export class Model<
     }
 
     build(relationMap: Map<BaseRelation<string, string>, TypeTag>): void {
-        const props: Dict<TypeTag> = {};
+        const props: Dict<TypeTag> = {
+            [this.primaryKey]: this.getPrimaryKey().type,
+        };
 
         for (const [key, field] of this.entries()) {
             if (BaseRelation.is(field)) {
@@ -97,6 +101,19 @@ export class Model<
 
     getPrimaryKey() {
         return this.fields[this.primaryKey] as PrimaryKey<boolean, ValidKey>;
+    }
+
+    instantiateDefaults(payload: Dict): Dict {
+        for (const [key, entry] of this.entries()) {
+            if (
+                Property.is(entry) &&
+                !payload[key] &&
+                entry.hasDefaultValue()
+            ) {
+                payload[key] = entry.getDefaultValue();
+            }
+        }
+        return payload;
     }
 
     static is<

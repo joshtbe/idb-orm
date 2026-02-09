@@ -1,13 +1,7 @@
 import type { CompiledDb } from "../builder";
-import type { Arrayable, Dict, Keyof } from "../util-types";
+import type { Arrayable, Dict, PartialRecord } from "../util-types";
 import type { CollectionObject, ExtractFields, PrimaryKeyType } from "../model";
-import {
-    getKeys,
-    handleRequest,
-    setDifference,
-    toArray,
-    unionSets,
-} from "../utils";
+import { firstKey, getKeys, handleRequest, toArray, unionSets } from "../utils";
 import { Transaction, type TransactionOptions } from "../transaction";
 import {
     type InterfaceMap,
@@ -40,7 +34,13 @@ import {
 } from "../error";
 import { deleteItems } from "./delete.js";
 import { MutationAction } from "./types/mutation.js";
-import { BaseRelation, ValidKey, FieldTypes, PrimaryKey } from "../field";
+import {
+    BaseRelation,
+    ValidKey,
+    FieldTypes,
+    PrimaryKey,
+    stripUnknownProperties,
+} from "../field";
 import { Dump, DumpOptions, getDatabaseData, getStoreData } from "./dump";
 
 export class DbClient<
@@ -48,16 +48,21 @@ export class DbClient<
     ModelNames extends string,
     Models extends CollectionObject<ModelNames>,
 > {
-    public readonly name: Name;
-    public readonly version: number;
-    public readonly stores: InterfaceMap<ModelNames, Models>;
+    readonly name: Name;
+    readonly version: number;
+    readonly stores: InterfaceMap<ModelNames, Models>;
 
     constructor(
-        private db: IDBDatabase,
+        /**
+         * Internal `IDBDatabase` object.
+         *
+         * @see https://developer.mozilla.org/en-US/docs/Web/API/IDBDatabase
+         */
+        readonly IDB: IDBDatabase,
         private readonly models: CompiledDb<Name, ModelNames, Models>,
     ) {
-        this.name = this.db.name as Name;
-        this.version = this.db.version;
+        this.name = this.IDB.name as Name;
+        this.version = this.IDB.version;
         this.stores = {} as InterfaceMap<ModelNames, Models>;
         for (const key of this.models.keys()) {
             this.stores[key] = this.createInterface(key);
@@ -74,7 +79,7 @@ export class DbClient<
         const { relation } = _state;
         const accessed = this.getAccessedStores(name, item, true, _state.tx);
         const tx = Transaction.create(
-            this.db,
+            this.IDB,
             accessed,
             "readwrite",
             _state.tx,
@@ -84,197 +89,137 @@ export class DbClient<
             // Quickly create the item just to get the id
             const objectStore = tx.getStore(name);
             const model = this.getModel(name);
-            const toAdd: Dict = {};
+            if (!model.isValid(item)) {
+                throw new InvalidItemError(
+                    `Item is not a valid instance of '${model.name}'.`,
+                );
+            }
+            const stripped = model.instantiateDefaults(
+                stripUnknownProperties(model.baseSchema, item),
+            );
+            const id: ValidKey =
+                item[model.primaryKey as keyof T] ??
+                model.genPrimaryKey(stripped);
+            const toAdd: Dict = { [model.primaryKey]: id, ...stripped };
             if (relation) {
                 toAdd[relation.key] = model.getRelation(relation.key)?.isArray
                     ? [relation.id]
                     : relation.id;
             }
 
-            const id: ValidKey =
-                (item[model.primaryKey as keyof T] as ValidKey) ??
-                model.genPrimaryKey();
-            toAdd[model.primaryKey] = id;
-            const visited = new Set<string>([model.primaryKey]);
-            for (const key in item) {
-                visited.add(key);
-                const element = item[
-                    key as Keyof<AddMutation<N, ModelNames, Models[N], Models>>
-                ] as Dict;
-                switch (model.keyType(key)) {
-                    case FieldTypes.Invalid:
+            for (const [key, relation] of model.relationsFor<ModelNames>(
+                stripped,
+            )) {
+                const field = (item as Dict<Dict<any[]>>)[key];
+                const value = toArray<Dict>(field);
+                if (!field) {
+                    if (relation.isArray) {
+                        toAdd[key] ??= [];
+                    } else if (relation.isOptional) {
+                        toAdd[key] ??= null;
+                    } else if (!toAdd[key]) {
                         throw new InvalidItemError(
-                            `Key '${key}' does ont exist on model '${name}'`,
+                            `Required relation '${key}' on new document of model '${model.name}' is not defined`,
                         );
+                    }
+                } else {
+                    if (relation.isArray) {
+                        toAdd[key] = [];
+                        if (
+                            Object.hasOwn(field, "$createMany") ||
+                            Object.hasOwn(field, "$connectMany")
+                        ) {
+                            const newValue: PartialRecord<
+                                "$connect" | "$create",
+                                any
+                            >[] = [];
+                            for (const item of field["$createMany"] ?? []) {
+                                newValue.push({ $create: item });
+                            }
+                            for (const item of field["$connectMany"] ?? []) {
+                                newValue.push({ $connect: item });
+                            }
 
-                    case FieldTypes.Property: {
-                        const parseResult = model.parseField(key, element);
-                        if (!parseResult.success) {
+                            value.push(...newValue);
+                        }
+                    }
+
+                    const usedKeys: ValidKey[] = [];
+                    for (const item of value) {
+                        const first = firstKey(item);
+                        if (!first) {
                             throw new InvalidItemError(
-                                `Key '${key}' has the following validation error: ${parseResult.error}`,
+                                `Key '${key}' cannot be an empty connection object`,
                             );
                         }
-                        toAdd[key] = parseResult.data;
-                        break;
-                    }
-                    case FieldTypes.Relation: {
-                        // Skip over it if the key is not defined
-                        if (!element) continue;
-                        const value = toArray<Dict>(element);
+                        switch (first) {
+                            case "$connect": {
+                                // Modify item so that it references the new item
+                                const connectId = item[first] as ValidKey;
 
-                        // Get the relation object
-                        const relation = model.getRelation<ModelNames>(key)!;
-                        if (relation.isArray) {
-                            toAdd[key] = [];
-                            if (
-                                "$createMany" in element ||
-                                "$connectMany" in element
-                            ) {
-                                const newValue: Dict[] = [];
-                                for (const item of (element as any)[
-                                    "$createMany"
-                                ] ?? []) {
-                                    newValue.push({ $create: item });
+                                // Disallow duplicate connections
+                                if (PrimaryKey.inKeyList(usedKeys, connectId)) {
+                                    throw new InvalidItemError(
+                                        `Primary key '${connectId}' was already used for a connection`,
+                                    );
                                 }
-                                for (const item of (element as any)[
-                                    "$connectMany"
-                                ] ?? []) {
-                                    newValue.push({ $connect: item });
-                                }
-                                value.push(...newValue);
-                            }
-                        }
+                                usedKeys.push(connectId);
 
-                        // Set of all connection keys
-                        const usedKeys = new Set<ValidKey>();
-
-                        for (const item of value) {
-                            const firstKey = getKeys(item)[0];
-                            if (!firstKey)
-                                throw new InvalidItemError(
-                                    `Key '${key}' cannot be an empty connection object`,
+                                await this.connectDocument(
+                                    relation,
+                                    id,
+                                    connectId,
+                                    tx,
                                 );
 
-                            switch (firstKey) {
-                                case "$connect": {
-                                    // Modify item so that it references the new item
-                                    const connectId: ValidKey = item[
-                                        firstKey
-                                    ] as string;
-
-                                    // Disallow duplicate connections
-                                    if (usedKeys.has(connectId)) {
-                                        throw new InvalidItemError(
-                                            `Primary key '${connectId}' was already used for a connection`,
-                                        );
-                                    }
-                                    usedKeys.add(connectId);
-
-                                    await this.connectDocument(
-                                        relation,
-                                        id,
-                                        connectId,
-                                        tx,
-                                    );
-
-                                    if (relation.isArray) {
-                                        (toAdd[key] as ValidKey[]).push(
-                                            connectId,
-                                        );
-                                    } else {
-                                        toAdd[key] = connectId;
-                                    }
-                                    break;
+                                if (relation.isArray) {
+                                    (toAdd[key] as ValidKey[]).push(connectId);
+                                } else {
+                                    toAdd[key] = connectId;
                                 }
-                                case "$create": {
-                                    // Create the new item and have it reference this one
-                                    const newId = await this.add(
-                                        relation.to,
-                                        item[firstKey] as AddMutation<
-                                            ModelNames,
-                                            ModelNames,
-                                            Models[ModelNames],
-                                            Models
-                                        >,
-                                        {
-                                            tx,
-                                            relation: relation.isBidirectional
-                                                ? {
-                                                      id,
-                                                      key: relation.relatedKey,
-                                                  }
-                                                : undefined,
-                                        },
-                                    );
-                                    if (relation.isArray) {
-                                        (toAdd[key] as ValidKey[]).push(newId);
-                                    } else {
-                                        toAdd[key] = newId;
-                                    }
-                                    break;
-                                }
-
-                                // These keys were converted into "$create" and "$connect"
-                                case "$connectMany":
-                                case "$createMany":
-                                    break;
-                                default:
-                                    throw new InvalidItemError(
-                                        `Connection Object on key '${key}' has an unknown key '${firstKey}'`,
-                                    );
+                                break;
                             }
-                            // If it's not a relation array stop after the first key
-                            if (!relation.isArray) break;
+                            case "$create": {
+                                // Create the new item and have it reference this one
+                                const newId = await this.add(
+                                    relation.to,
+                                    item[first] as AddMutation<
+                                        ModelNames,
+                                        ModelNames,
+                                        Models[ModelNames],
+                                        Models
+                                    >,
+                                    {
+                                        tx,
+                                        relation: relation.isBidirectional
+                                            ? {
+                                                  id,
+                                                  key: relation.relatedKey,
+                                              }
+                                            : undefined,
+                                    },
+                                );
+                                if (relation.isArray) {
+                                    (toAdd[key] as ValidKey[]).push(newId);
+                                } else {
+                                    toAdd[key] = newId;
+                                }
+                                break;
+                            }
+
+                            // These keys were converted into "$create" and "$connect"
+                            case "$connectMany":
+                            case "$createMany":
+                                break;
+                            default:
+                                throw new InvalidItemError(
+                                    `Connection Object on key '${key}' has an unknown key '${first}'`,
+                                );
                         }
-                        break;
                     }
-                    // The primary key was already added
-                    case FieldTypes.PrimaryKey:
-                    default:
-                        break;
                 }
             }
-
-            // Loop through the un-instantiated fields of the document to make sure the document is still valid
-            const unused = setDifference(model.keys(), visited);
-            for (const unusedField of unused) {
-                switch (model.keyType(unusedField)) {
-                    case FieldTypes.Property: {
-                        const parseResult = model.parseField(
-                            unusedField,
-                            undefined,
-                        );
-                        if (!parseResult.success)
-                            throw new InvalidItemError(
-                                `Key '${unusedField}' is missing`,
-                            );
-
-                        toAdd[unusedField] = parseResult.data;
-                        break;
-                    }
-                    case FieldTypes.Relation: {
-                        const field = model.getRelation(unusedField)!;
-                        if (field.isArray) {
-                            toAdd[unusedField] ??= [];
-                        } else if (field.isOptional) {
-                            toAdd[unusedField] ??= null;
-                        } else if (!toAdd[unusedField]) {
-                            throw new InvalidItemError(
-                                `Required relation '${unusedField}' on new document of model '${model.name}' is not defined`,
-                            );
-                        }
-
-                        break;
-                    }
-                    // This should never happen
-                    case FieldTypes.Invalid:
-                    case FieldTypes.PrimaryKey:
-                    default:
-                        break;
-                }
-            }
-
-            return (await objectStore.put(toAdd)) as PrimaryKeyType<Models[N]>;
+            return await objectStore.add(toAdd);
         });
     }
 
@@ -332,7 +277,9 @@ export class DbClient<
     ): StoreInterface<N, ModelNames, Models> {
         return {
             add: async (mutation, tx) =>
-                await this.add(modelName, mutation, { tx }),
+                (await this.add(modelName, mutation, { tx })) as PrimaryKeyType<
+                    Models[N]
+                >,
             addMany: async (mutations, tx) => {
                 if (!tx) {
                     const stores = new Set<ModelNames>();
@@ -350,7 +297,11 @@ export class DbClient<
                 type T = PrimaryKeyType<Models[N]>;
                 const result: T[] = [];
                 for (const mut of mutations) {
-                    result.push(await this.add(modelName, mut, { tx }));
+                    result.push(
+                        (await this.add(modelName, mut, {
+                            tx,
+                        })) as PrimaryKeyType<Models[N]>,
+                    );
                 }
                 return result;
             },
@@ -412,12 +363,12 @@ export class DbClient<
         Mode extends IDBTransactionMode,
         Names extends ModelNames,
     >(mode: Mode, stores: Arrayable<Names>, options?: TransactionOptions) {
-        return new Transaction(this.db, stores, mode, options);
+        return new Transaction(this.IDB, stores, mode, options);
     }
 
     deleteAllStores() {
         for (const store of this.models.keys()) {
-            this.db.deleteObjectStore(store);
+            this.IDB.deleteObjectStore(store);
         }
     }
 
@@ -426,7 +377,7 @@ export class DbClient<
             storeNames = [storeNames];
         }
         for (const store of storeNames) {
-            this.db.deleteObjectStore(store);
+            this.IDB.deleteObjectStore(store);
         }
     }
 
@@ -530,7 +481,7 @@ export class DbClient<
             false,
             tx,
         );
-        tx = Transaction.create(this.db, accessed, "readonly", tx);
+        tx = Transaction.create(this.IDB, accessed, "readonly", tx);
         const result: O[] = [];
 
         return await tx.wrap(async (tx) => {
@@ -583,20 +534,20 @@ export class DbClient<
         return Array.from(getAccessedStores(name, item, isMutation, this));
     }
 
-    getDb() {
-        return this.db;
-    }
-
     getStore<Name extends ModelNames>(name: Name): (typeof this.stores)[Name] {
         return this.stores[name];
     }
 
+    /**
+     * Iterator for all of the models
+     */
     *storeNames() {
         for (const store of this.models.keys()) {
             yield store;
         }
     }
 
+    // TODO: Refactor this someday
     private async update<
         N extends ModelNames,
         U extends UpdateMutation<N, ModelNames, Models[N], Models>,
@@ -616,7 +567,7 @@ export class DbClient<
             _state.tx,
         );
         const tx = Transaction.create(
-            this.db,
+            this.IDB,
             accessed,
             "readwrite",
             _state.tx,

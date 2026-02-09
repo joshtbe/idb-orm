@@ -99,8 +99,8 @@ export type ExtractFields<M extends BaseModel<any, any, any>> =
 /**
  * A string union of every relation field on a model
  */
-export type AllRelationKeys<M extends Model<any, any, any>> =
-    M extends Model<any, infer Fields, any>
+export type AllRelationKeys<M extends BaseModel<any, any, any>> =
+    M extends BaseModel<any, infer Fields, any>
         ? {
               [K in Keyof<Fields>]: Fields[K] extends BaseRelation<any, any>
                   ? K
@@ -111,8 +111,8 @@ export type AllRelationKeys<M extends Model<any, any, any>> =
 /**
  * Identical to {@link ModelStructure}, but any relations are omitted
  */
-export type RelationlessModelStructure<M extends Model<any, any, any>> =
-    M extends Model<any, infer Fields, any>
+export type RelationlessModelStructure<M extends BaseModel<any, any, any>> =
+    M extends BaseModel<any, infer Fields, any>
         ? Omit<
               {
                   [K in Keyof<Fields>]: Fields[K] extends BaseRelation<any, any>
