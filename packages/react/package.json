@@ -1,6 +1,6 @@
 {
     "name": "@idb-orm/react",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "description": "An adapter for the React framework for @idb-orm",
     "main": "dist/index.js",
     "scripts": {
@@ -23,7 +23,7 @@
     "author": "jtb",
     "license": "ISC",
     "peerDependencies": {
-        "@idb-orm/core": "^1.0.7",
+        "@idb-orm/core": "^1.2.0",
         "react": "^19.2.0"
     },
     "devDependencies": {
