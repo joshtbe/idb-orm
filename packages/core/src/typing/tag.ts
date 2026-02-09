@@ -216,13 +216,13 @@ export type TagToType<
                           string,
                           infer Options
                       >
-                    ? ObjectTagToType<Base, Dec[Depth]> &
-                          Simplify<
+                    ? Simplify<
+                          ObjectTagToType<Base, Dec[Depth]> &
                               ObjectTagToType<
                                   Writeable<Options[number]>,
                                   Dec[Depth]
                               >
-                          >
+                      >
                     : T extends LiteralTag<infer V>
                       ? V
                       : T extends RecordTag<infer K, infer V>

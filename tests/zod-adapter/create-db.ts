@@ -18,6 +18,7 @@ export const createZodDb: any = async ({ pkg, a, z }: SessionArguments) => {
         "spells",
         "subclass",
         "components",
+        "attack",
     ]);
 
     const stringSchema = z.string();
@@ -82,12 +83,28 @@ export const createZodDb: any = async ({ pkg, a, z }: SessionArguments) => {
         abbreviation: Field.string(),
     });
 
+    const attackStore = builder.defineModel(
+        a.zodModel("attack", {
+            id: Field.primaryKey().uuid(),
+            name: stringSchema,
+            range: z.discriminatedUnion("type", [
+                z.object({ type: z.literal("melee") }),
+                z.object({
+                    type: z.literal("ranged"),
+                    close: stringSchema,
+                    far: stringSchema,
+                }),
+            ]),
+        }),
+    );
+
     const db = builder.compile({
         classes: classStore,
         spellLists: spellListStore,
         spells: spellStore,
         subclass: subclassStore,
         components: componentStore,
+        attack: attackStore,
     });
 
     const client = await db.createClientAsync();

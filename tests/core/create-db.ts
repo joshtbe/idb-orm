@@ -15,6 +15,7 @@ export const createDb = async ({ pkg }: Packages) => {
     const Builder = pkg.Builder;
     const Field = pkg.Property;
     const Model = pkg.Model;
+    const Type = pkg.Type;
     const P = pkg.Property;
     const builder = new Builder("testdb", [
         "classes",
@@ -22,6 +23,7 @@ export const createDb = async ({ pkg }: Packages) => {
         "spells",
         "subclass",
         "components",
+        "attack",
     ]);
 
     const subclass = builder.defineModel("subclass", {
@@ -81,12 +83,26 @@ export const createDb = async ({ pkg }: Packages) => {
         abbreviation: Field.string(),
     });
 
+    const attackStore = builder.defineModel("attack", {
+        id: Field.primaryKey().uuid(),
+        name: Field.string(),
+        range: Field.discriminatedUnion({}, "type", [
+            { type: Type.literal("melee") },
+            {
+                type: Type.literal("ranged"),
+                close: Type.string(),
+                far: Type.string(),
+            },
+        ]),
+    });
+
     const db = builder.compile({
         classes: classStore,
         spellLists: spellListStore,
         spells: spellStore,
         subclass,
         components: componentStore,
+        attack: attackStore,
     });
     type SpellStore = core.ModelType<typeof spellStore, typeof db>;
 
@@ -225,7 +241,7 @@ export function coreTests(
         test("Add with unidirectional $connect", async () => {
             const result = await session.evaluate(async ({ client }) => {
                 const stores = client.stores;
-                stores.spells.add({
+                await stores.spells.add({
                     name: "Sacred Flame",
                     range: "120 ft",
                     level: 0,
@@ -325,6 +341,34 @@ export function coreTests(
                     );
                 }
             }
+        });
+
+        test("Add with discriminated union", async () => {
+            const result = await session.evaluate(async ({ client }) => {
+                const stores = client.stores;
+                await stores.attack.addMany([
+                    {
+                        name: "Crossbow",
+                        range: {
+                            type: "ranged",
+                            close: "20ft",
+                            far: "60ft",
+                        },
+                    },
+                    {
+                        name: "Unarmed strike",
+                        range: {
+                            type: "melee",
+                        },
+                    },
+                ]);
+
+                return stores.attack.findFirst({
+                    where: { name: "Crossbow" },
+                });
+            });
+            expect(result).toBeDefined();
+            expect(result?.range.type).toBe("ranged");
         });
 
         test("Deep Find Include", async () => {

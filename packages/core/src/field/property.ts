@@ -5,6 +5,8 @@ import {
     NoUndefined,
     Promisable,
     RequiredKey,
+    Simplify,
+    Writeable,
 } from "../util-types.js";
 import {
     FunctionMatch,
@@ -16,7 +18,14 @@ import {
 } from "./field-types.js";
 import PrimaryKey from "./primary-key";
 import { Relation } from "./relation";
-import { RecordKeyable, Tag, Type, TypeTag } from "../typing";
+import {
+    ObjectTag,
+    RecordKeyable,
+    Tag,
+    TagToType,
+    Type,
+    TypeTag,
+} from "../typing";
 
 export interface PropertyOptions {
     unique: boolean;
@@ -186,8 +195,11 @@ export class Property<Value, _HasDefault extends boolean> {
         base: Base,
         key: Key,
         options: Options,
-        propOptions: PropertyInputOptions,
-    ): Property<Base & Options[number], false> {
+        propOptions?: PropertyInputOptions,
+    ): Property<
+        Simplify<Writeable<TagToType<ObjectTag<Base & Options[number]>>>>,
+        false
+    > {
         return new Property(
             Type.discriminatedUnion(base, key, options),
             propOptions,

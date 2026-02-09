@@ -1,4 +1,4 @@
-import { Dict, Literable, RequiredKey } from "../util-types";
+import { Dict, Literable, RequiredKey, Writeable } from "../util-types";
 import {
     ArrayTag,
     BigIntTag,
@@ -123,7 +123,7 @@ export abstract class Type<T> {
         base: Base,
         key: Key,
         options: Options,
-    ): DiscriminatedUnionTag<Base, Key, Options> {
+    ): DiscriminatedUnionTag<Base, Key, Writeable<Options>> {
         const keys = new Set();
         for (const opt of options) {
             const disc = opt[key];

@@ -92,6 +92,10 @@ export type Dec<D extends number> = PrevDepth[D] extends number
  */
 export type Writeable<T> = { -readonly [K in keyof T]: T[K] };
 
+export type DeepWriteable<T> = {
+    -readonly [K in keyof T]: DeepWriteable<T[K]>;
+};
+
 /**
  * Essentially a dictionary but it must include the keys specified by the first argument
  */
