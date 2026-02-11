@@ -1,21 +1,17 @@
 import { Arrayable, Dict, Keyof } from "./util-types";
-import type { Transaction } from "./transaction.js";
 import { UnknownError } from "./error.js";
 
-export function handleRequest<T>(
-    req: IDBRequest<T>,
-    tx?: Transaction<any, any>,
-) {
-    return new Promise<T>((res) => {
+export function handleRequest<T>(req: IDBRequest<T>) {
+    return new Promise<T>((res, rej) => {
         req.onsuccess = () => {
             res(req.result);
         };
-        req.onerror = () => {
-            if (tx) {
-                throw tx.abort(
-                    new UnknownError("An Error Occurred duing the Request"),
-                );
-            }
+        req.onerror = (event) => {
+            rej(
+                new UnknownError(
+                    (event.target as IDBOpenDBRequest).error?.message,
+                ),
+            );
         };
     });
 }
@@ -44,7 +40,7 @@ export function getDate() {
 
 /**
  * Retrieves the first key of an object.
- * 
+ *
  * This is not guranteed to be the key of the object that was added first.
  * @param obj Object
  * @returns The first key (if there is one) of this object.

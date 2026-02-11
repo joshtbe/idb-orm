@@ -10,8 +10,8 @@ import {
 import React, {
     Context,
     createContext,
+    JSX,
     PropsWithChildren,
-    ReactNode,
     useContext,
     useEffect,
     useState,
@@ -102,7 +102,7 @@ export interface QueryClientProviderFactoryReturn<
     useIDBQuery: () => UseQueryClientReturn<Name, ModelNames, Models>;
     DbClientProvider: (
         props: PropsWithChildren<ClientProviderProps>,
-    ) => ReactNode;
+    ) => JSX.Element;
 }
 
 const ctxMissingMsg =
@@ -153,7 +153,7 @@ export function queryClientProviderFactory<
             }
             return ctx;
         },
-        DbClientProvider: ({ fallback, children, version }): ReactNode => {
+        DbClientProvider: ({ fallback, children, version }): JSX.Element => {
             const [providerValues, setProviderValues] =
                 useState<UseQueryClientReturn<Name, ModelNames, Models> | null>(
                     null,
@@ -163,7 +163,6 @@ export function queryClientProviderFactory<
                 db.createClientAsync(version)
                     .then((cli) => {
                         const qClient = new IDBQueryClient(cli, config);
-
                         function makeModelQueryClient(
                             path: readonly string[],
                         ): ModelQueryClient {
@@ -210,7 +209,7 @@ export function queryClientProviderFactory<
                 return;
             }, [version]);
 
-            if (!providerValues) return fallback;
+            if (!providerValues) return <>{fallback}</>;
 
             return (
                 <QueryClientProvider client={providerValues.queryClient}>
